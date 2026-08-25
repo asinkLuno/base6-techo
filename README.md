@@ -9,14 +9,17 @@
   ↓
 页面 pages.py: render_page → PageDraw（奇偶镜像几何 + 版式 + 逻辑页码）
   ↓
-整本PDF imposition.py: normal/booklet/thread 拼版 → latex.py: TikZ → .tex (+ PDF)
+整本PDF imposition.py: 顺序输出 → latex.py: TikZ → .tex (+ PDF)
+  ↓
+PDF后处理 pdfops.py: merge 合并 / blank 补白页 / impose 拼版（booklet/线装）
 ```
 
 关键语义：
 
-- 页数 = 成品笔记本页数（非纸张数）；小册子按 4 页补齐，线装本按每组 `4 × 张数` 页补齐，补页无页码
-- 奇偶页自动镜像装订侧；页码属于逻辑页面，在拼版之前生成（footer ≥ 5mm 才允许开页码）
+- 页数 = 成品笔记本页数（非纸张数）；拼版（impose）时 booklet 按 4 页补齐，线装本按每组 `4 × 张数` 页补齐，补页无页码
+- 奇偶页自动镜像装订侧；页码属于逻辑页面，在渲染时生成（footer ≥ 5mm 才允许开页码）
 - 横线不铺满拉伸：间距 8mm 打印出来就是 8mm
+- 补白页和拼版针对已生成的 PDF：先 render 出单页 PDF，再用 `blank` / `impose` 处理
 
 ## 用法
 
@@ -27,21 +30,27 @@ uv run base6-techo basic --hlines --spacing 8
 # 配置 Midori 版式
 uv run base6-techo midori --reset --spacing 5 --gap 1 --edge-extension 1.2
 
-# 30 页 A5 小册子（双面打印 → 叠放 → 对折）
-uv run base6-techo render --preset A5 --pages 30 --mode booklet --pdf out.tex
-
-# 32 页 A5 线装本：每 4 张纸一组，双面打印后每组叠放、对折、线装
-uv run base6-techo render --preset A5 --pages 32 --mode thread --sheets-per-group 4 --pdf out.tex
-
 # 普通顺序 PDF
-uv run base6-techo render --preset A5 --pattern midori --pages 30 --mode normal --pdf out.tex
+uv run base6-techo render --preset A5 --pattern midori --pages 30 --pdf out.tex
+
+# 给 PDF 补白页（首页/末尾插入空白页）
+uv run base6-techo blank out.pdf blanked.pdf --leading 2 --trailing 1
+
+# 合并多个 PDF
+uv run base6-techo merge a.pdf b.pdf merged.pdf
+
+# 小册子拼版：双面打印 → 叠放 → 对折（自动补白到 4 页倍数）
+uv run base6-techo impose out.pdf booklet.pdf --mode booklet
+
+# 线装本拼版：每 4 张纸一组，双面打印后每组叠放、对折、线装
+uv run base6-techo impose out.pdf thread.pdf --mode thread --sheets-per-group 4
 
 # 在装订侧正中心纵向打印一排或两排页面水印（奇偶页自动镜像到实际装订侧）
 uv run base6-techo render --preset A5 --binding-text base-6 --binding-text-2 notebook --binding-text-size 10 --binding-text-2-size 8 --binding-text-spacing 12 --pdf out.tex
 ```
 
 生成 `out.tex`；`--pdf` 自动调用 tectonic/xelatex/pdflatex 编译出同名 PDF。
-纸张预设只是自动填写宽高；`--no-page-number` 可关页码；`--page-number-font` 设置页码字体，`--binding-text-font` 设置水印字体（传字体名时使用 XeLaTeX，传 `\\rmfamily` / `\\ttfamily` 等 LaTeX 声明时无需指定字体文件）；`--binding-text` / `--binding-text-2` 可设置装订侧一到两排水印，分别用 `--binding-text-size` / `--binding-text-2-size` 设置字号，用 `--binding-text-spacing` 设置两排中心间距（mm）；线装本用 `--mode thread --sheets-per-group N` 指定每组纸张数；非法参数（如 footer\<5mm 开页码、页数超限）会被拒绝。
+纸张预设只是自动填写宽高；`--no-page-number` 可关页码；`--page-number-font` 设置页码字体，`--binding-text-font` 设置水印字体（传字体名时使用 XeLaTeX，传 `\\rmfamily` / `\\ttfamily` 等 LaTeX 声明时无需指定字体文件）；`--binding-text` / `--binding-text-2` 可设置装订侧一到两排水印，分别用 `--binding-text-size` / `--binding-text-2-size` 设置字号，用 `--binding-text-spacing` 设置两排中心间距（mm）；非法参数（如 footer\<5mm 开页码、页数超限）会被拒绝。
 basic 样式由 `basic`（兼容命令 `lines`）管理，Midori 样式由 `midori` 管理；`render --pattern basic|midori` 选择实际版式。两种版式都只在各自的 header/footer/inner/outer 范围绘制，页码和 binding 水印仍可独立绘制到页脚和装订侧。
 
 ## 样例版式

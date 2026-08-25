@@ -5,6 +5,7 @@ All user-facing lengths are in mm; font size is in pt.
 
 from dataclasses import dataclass
 from datetime import date
+from typing import Literal
 
 PAGE_PRESETS: dict[str, tuple[float, float]] = {
     "A3": (297, 420),
@@ -64,6 +65,7 @@ class DocumentSettings:
     header_dates: tuple[date, ...] | None = None
     header_date_format: str | None = None
     header_date_locale: str = "zh_CN"
+    header_parity: Literal["odd", "even", "both"] = "both"
 
     def __post_init__(self) -> None:
         if not 1 <= self.page_count <= MAX_PAGE_COUNT:
@@ -78,6 +80,8 @@ class DocumentSettings:
             raise ValueError("binding_text_spacing must be >= 0")
         if not self.page_number_font.strip() or not self.binding_text_font.strip():
             raise ValueError("font declarations must not be empty")
+        if self.header_parity not in ("odd", "even", "both"):
+            raise ValueError("header_parity must be odd, even, or both")
         if self.header_dates is not None:
             if len(self.header_dates) == 0:
                 raise ValueError("header_dates must not be empty")

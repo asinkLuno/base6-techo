@@ -1,20 +1,7 @@
-from typing import cast
-
 import pytest
 
 from src.basic import BasicPattern, draw, ruled_ys
-from src.imposition import (
-    booklet_output,
-    booklet_sheets,
-    booklet_summary,
-    logical_pages,
-    normal_output,
-    pad_for_booklet,
-    pad_for_thread,
-    thread_output,
-    thread_sheets,
-    thread_summary,
-)
+from src.imposition import normal_output
 from src.layout import Rect, geometry_for
 from src.models import (
     ContentPage,
@@ -221,76 +208,6 @@ def test_binding_text_spacing_validation():
         DocumentSettings(binding_text_spacing=-1)
 
 
-def test_pad_for_booklet_appends_at_end():
-    padded = pad_for_booklet(logical_pages(DocumentSettings(page_count=30)))
-    assert len(padded) == 32
-    assert all(isinstance(p, ContentPage) for p in padded[:30])
-    assert all(isinstance(p, PaddingPage) for p in padded[30:])
-
-
-def test_booklet_sheets_8_pages():
-    sheets = booklet_sheets(
-        pad_for_booklet(logical_pages(DocumentSettings(page_count=8)))
-    )
-    assert [
-        (
-            cast("ContentPage", s.front.left).page_number,
-            cast("ContentPage", s.front.right).page_number,
-            cast("ContentPage", s.back.left).page_number,
-            cast("ContentPage", s.back.right).page_number,
-        )
-        for s in sheets
-    ] == [
-        (8, 1, 2, 7),
-        (6, 3, 4, 5),
-    ]
-
-
-def test_thread_groups_are_imposed_independently():
-    doc = DocumentSettings(page_count=20)
-    padded = pad_for_thread(logical_pages(doc), sheets_per_group=2)
-    sheets = thread_sheets(padded, sheets_per_group=2)
-    assert [
-        (
-            cast("ContentPage", s.front.left).page_number,
-            cast("ContentPage", s.front.right).page_number,
-            cast("ContentPage", s.back.left).page_number,
-            cast("ContentPage", s.back.right).page_number,
-        )
-        for s in sheets[:4]
-    ] == [
-        (8, 1, 2, 7),
-        (6, 3, 4, 5),
-        (16, 9, 10, 15),
-        (14, 11, 12, 13),
-    ]
-    assert sheets[4].front.right == ContentPage(17)
-    assert isinstance(sheets[4].front.left, PaddingPage)
-    assert sheets[4].back.left == ContentPage(18)
-    assert isinstance(sheets[4].back.right, PaddingPage)
-    assert thread_summary(doc, 2) == (24, 4, 6, 12)
-
-
-def test_thread_output_groups_and_padding():
-    out = thread_output(A5, RULED, DocumentSettings(page_count=17), 2)
-    assert len(out) == 12  # three complete 2-sheet groups
-    assert out[0].placements[1].draw.texts[0].content == "1"
-    assert out[8].placements[1].draw.texts[0].content == "17"
-    assert out[8].placements[0].draw.texts == []
-    assert out[11].placements[1].draw.texts == []
-
-
-def test_booklet_30_pages_acceptance():
-    doc = DocumentSettings(page_count=30, show_page_number=True)
-    assert booklet_summary(doc) == (32, 2, 8, 16)
-    sheets = booklet_sheets(pad_for_booklet(logical_pages(doc)))
-    # sheet 1 front: padding(32) | 1 ; back: 2 | padding(31)
-    assert isinstance(sheets[0].front.left, PaddingPage)
-    assert sheets[0].front.right == ContentPage(1)
-    assert sheets[0].back.left == ContentPage(2)
-    assert isinstance(sheets[0].back.right, PaddingPage)
-
-
 def test_normal_output_one_page_per_logical():
     out = normal_output(A5, RULED, DocumentSettings(page_count=30))
     assert len(out) == 30
@@ -298,18 +215,6 @@ def test_normal_output_one_page_per_logical():
         o.width == 148 and o.height == 210 and len(o.placements) == 1 for o in out
     )
     assert out[16].placements[0].draw.texts[0].content == "17"
-
-
-def test_booklet_output_size_and_order():
-    out = booklet_output(A5, RULED, DocumentSettings(page_count=30))
-    assert len(out) == 16  # 8 sheets × front/back
-    assert all(
-        o.width == 296 and o.height == 210 and len(o.placements) == 2 for o in out
-    )
-    # front of sheet 1: left half blank (padding), right half is page 1 at dx=148
-    assert out[0].placements[0].draw.lines == []
-    assert out[0].placements[1].dx == 148
-    assert out[0].placements[1].draw.texts[0].content == "1"
 
 
 def test_dots_on_lines_centered_symmetric():

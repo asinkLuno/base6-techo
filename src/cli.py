@@ -11,13 +11,7 @@ import click
 from loguru import logger
 
 from src.basic import BasicPattern
-from src.imposition import (
-    booklet_output,
-    booklet_summary,
-    normal_output,
-    thread_output,
-    thread_summary,
-)
+from src.imposition import normal_output
 from src.latex import render_latex
 from src.midori import MidoriPattern
 from src.models import (
@@ -26,6 +20,8 @@ from src.models import (
     PageSettings,
     validate_project,
 )
+from src.pdfops import blank_pdf, impose_pdf, merge_pdfs
+from src.timeline import TimelinePattern
 
 _ENGINES = ("tectonic", "xelatex", "pdflatex")
 _LINES_FILE = Path(click.get_app_dir("base6-techo")) / "lines.json"
@@ -331,6 +327,113 @@ def midori(**kw):
 @main.command()
 @click.option(
     "--preset",
+    "--size",
+    "preset",
+    default="A5",
+    show_default=True,
+    type=click.Choice(sorted(PAGE_PRESETS)),
+    help="Paper preset (also accepted as --size).",
+)
+@click.option("--start", default=0, show_default=True, type=click.IntRange(0, 98))
+@click.option("--end", default=26, show_default=True, type=click.IntRange(1, 99))
+@click.option(
+    "--pages",
+    default="1",
+    show_default=True,
+    type=click.Choice(["1", "2"]),
+    help="1: full range on every page; 2: split across the spread.",
+)
+@click.option(
+    "--swap", is_flag=True, help="Swap the two halves when --pages 2 is used."
+)
+@click.option(
+    "--color", default="#7A7A7A", show_default=True, help="Timeline color, #RRGGBB."
+)
+@click.option(
+    "--header-date-range",
+    nargs=2,
+    type=str,
+    default=None,
+    metavar="START END",
+    help="Add one yyyy-MM-dd header date per page for this inclusive yyyy-MM range.",
+)
+@click.option(
+    "--header-pages",
+    "--header-parity",
+    "header_parity",
+    type=click.Choice(["odd", "even", "both"]),
+    default="both",
+    show_default=True,
+    help="Pages that receive date headers: odd, even, or both.",
+)
+@click.option(
+    "--pdf", is_flag=True, help="Also compile to PDF if a LaTeX engine is installed."
+)
+@click.argument("out", type=click.Path(), default="timeline.tex")
+def timeline(
+    preset, start, end, pages, swap, color, header_date_range, header_parity, pdf, out
+):
+    """Generate a two-page binding-edge hour timeline."""
+    try:
+        page = PageSettings(*PAGE_PRESETS[preset])
+        pattern = TimelinePattern(
+            start, end, int(pages), swap, f"#{color.lstrip('#').upper()}"
+        )
+        dates = (
+            tuple(
+                day
+                for date in _generate_dates(*header_date_range)
+                for day in (
+                    (date, date) if header_parity in ("odd", "even") else (date,)
+                )
+            )
+            if header_date_range is not None
+            else None
+        )
+        doc = DocumentSettings(
+            page_count=len(dates) if dates else 2,
+            show_page_number=False,
+            header_dates=dates,
+            header_date_format="yyyy-MM-dd" if dates else None,
+            header_date_locale="en_US",
+            header_parity=header_parity,
+            page_number_font="0xProto Nerd Font",
+        )
+        output_pages = normal_output(page, pattern, doc)
+    except ValueError as e:
+        raise click.ClickException(str(e))
+
+    out_path = Path(out)
+    out_path.write_text(render_latex(output_pages, pattern))
+    date_count = (
+        len(dates) // (2 if header_parity in ("odd", "even") else 1) if dates else 0
+    )
+    click.echo(
+        f"时间线 {start:02d}–{end:02d} · {preset} · "
+        f"{f'{date_count} 天' if dates else '2 页'} · PDF {len(output_pages)} 页"
+    )
+    logger.info(f"wrote {out_path}")
+    if pdf:
+        engine = next((e for e in _ENGINES if shutil.which(e)), None)
+        if engine is None:
+            raise click.ClickException(f"no LaTeX engine found: {'/'.join(_ENGINES)}")
+        cmd = (
+            [engine, out_path.name]
+            if engine == "tectonic"
+            else [engine, "-interaction=nonstopmode", "-halt-on-error", out_path.name]
+        )
+        result = subprocess.run(
+            cmd, cwd=out_path.parent, capture_output=True, text=True, check=False
+        )
+        if result.returncode != 0:
+            raise click.ClickException(
+                f"{engine} failed:\n{result.stdout[-2000:]}{result.stderr[-2000:]}"
+            )
+
+
+@main.command()
+@click.option(
+    "--preset",
     type=click.Choice(sorted(PAGE_PRESETS)),
     help="Paper preset; mutually exclusive with --width/--height.",
 )
@@ -405,20 +508,6 @@ def midori(**kw):
     help="Page pattern configured by `lines` or `midori`.",
 )
 @click.option(
-    "--mode",
-    "print_mode",
-    type=click.Choice(["normal", "booklet", "thread"]),
-    default="normal",
-    help="normal: 1 page; booklet: saddle stitch; thread: grouped signatures.",
-)
-@click.option(
-    "--sheets-per-group",
-    type=click.IntRange(min=1),
-    default=4,
-    show_default=True,
-    help="Sheets in each thread-bound group (only used with --mode thread).",
-)
-@click.option(
     "--header-date-range",
     "header_date_range",
     nargs=2,
@@ -442,6 +531,15 @@ def midori(**kw):
     help="Date format for header (ICU pattern, e.g., yyyy年M月d日EEEE). Defaults to yyyy年M月d日EEEE.",
 )
 @click.option(
+    "--header-pages",
+    "--header-parity",
+    "header_parity",
+    type=click.Choice(["odd", "even", "both"]),
+    default="both",
+    show_default=True,
+    help="Pages that receive date headers: odd, even, or both.",
+)
+@click.option(
     "--pdf", is_flag=True, help="Also compile to PDF if a LaTeX engine is installed."
 )
 @click.argument("out", type=click.Path(), default="techo.tex")
@@ -463,11 +561,10 @@ def render(
     page_number_font,
     binding_text_font,
     pattern_name,
-    print_mode,
-    sheets_per_group,
     header_date_range,
     header_date_locale,
     header_date_format,
+    header_parity,
     pdf,
     out,
 ):
@@ -482,9 +579,13 @@ def render(
             all_dates = _generate_dates(header_date_range[0], header_date_range[1])
         except ValueError as e:
             raise click.ClickException(str(e))
-        # Cap pages at the number of days
-        effective_pages = min(pages, len(all_dates))
-        header_dates = tuple(all_dates[:effective_pages])
+        # Cap pages at the number of days (two-page mode: one date per spread)
+        stride = 2 if header_parity in ("odd", "even") else 1
+        days = min(pages // stride, len(all_dates))
+        effective_pages = days * stride
+        header_dates = tuple(
+            day for d in all_dates[:days] for day in ((d, d) if stride == 2 else (d,))
+        )
         if effective_pages != pages:
             click.echo(
                 f"页数从 {pages} 调整为 {effective_pages}（日期范围共 {len(all_dates)} 天）"
@@ -525,6 +626,7 @@ def render(
             header_dates=header_dates,
             header_date_format=header_date_format,
             header_date_locale=header_date_locale,
+            header_parity=header_parity,
         )
         validate_project(page, doc)
     except ValueError as e:
@@ -538,32 +640,9 @@ def render(
     except (ValueError, TypeError) as e:
         raise click.ClickException(f"{pattern_name} 配置无效: {e}")
 
-    if print_mode == "booklet":
-        output_pages = booklet_output(page, pattern, doc)
-        _padded, pad_added, sheets, sides = booklet_summary(doc)
-        click.echo(
-            f"成品 {doc.page_count} 页 · 补白 {pad_added} 页 · 打印纸 {sheets} 张 · 打印面 {sides} 面"
-        )
-        click.echo(
-            f"打印纸尺寸 {output_pages[0].width:g} × {output_pages[0].height:g} mm"
-        )
-        click.echo("打印后：双面打印 → 叠放 → 对折 → 装订")
-    elif print_mode == "thread":
-        output_pages = thread_output(page, pattern, doc, sheets_per_group)
-        _padded, pad_added, sheets, sides = thread_summary(doc, sheets_per_group)
-        groups = sheets // sheets_per_group
-        click.echo(
-            f"成品 {doc.page_count} 页 · 补白 {pad_added} 页 · {groups} 组 · "
-            f"每组 {sheets_per_group} 张纸 · 打印面 {sides} 面"
-        )
-        click.echo(
-            f"打印纸尺寸 {output_pages[0].width:g} × {output_pages[0].height:g} mm"
-        )
-        click.echo("打印后：每组分别双面打印 → 每组叠放 → 对折 → 线装")
-    else:
-        output_pages = normal_output(page, pattern, doc)
-        click.echo(f"成品 {doc.page_count} 页 · PDF {len(output_pages)} 页")
-        click.echo(f"页面尺寸 {page.width:g} × {page.height:g} mm")
+    output_pages = normal_output(page, pattern, doc)
+    click.echo(f"成品 {doc.page_count} 页 · PDF {len(output_pages)} 页")
+    click.echo(f"页面尺寸 {page.width:g} × {page.height:g} mm")
 
     out_path = Path(out)
     out_path.write_text(render_latex(output_pages, pattern))
@@ -592,3 +671,65 @@ def render(
         if aux.exists():
             aux.unlink()
         logger.info(f"wrote {out_path.with_suffix('.pdf')}")
+
+
+@main.command()
+@click.argument(
+    "inputs", nargs=-1, type=click.Path(exists=True, dir_okay=False, path_type=Path)
+)
+@click.argument("out", type=click.Path(path_type=Path))
+def merge(inputs, out):
+    """Concatenate PDFs in order into one PDF."""
+    if not inputs:
+        raise click.ClickException("at least one input PDF is required")
+    count = merge_pdfs(list(inputs), Path(out))
+    click.echo(f"合并 {len(inputs)} 个 PDF · 共 {count} 页 → {out}")
+    logger.info(f"wrote {out}")
+
+
+@main.command()
+@click.argument("src", type=click.Path(exists=True, dir_okay=False, path_type=Path))
+@click.argument("out", type=click.Path(path_type=Path))
+@click.option(
+    "--leading",
+    type=click.IntRange(min=0),
+    default=0,
+    show_default=True,
+    help="Blank pages inserted before page 1.",
+)
+@click.option(
+    "--trailing",
+    type=click.IntRange(min=0),
+    default=0,
+    show_default=True,
+    help="Blank pages appended at the end.",
+)
+def blank(src, out, leading, trailing):
+    """Insert blank pages at the start/end of a PDF."""
+    count = blank_pdf(Path(src), Path(out), leading, trailing)
+    click.echo(f"补白 {leading}+{trailing} 页 · 共 {count} 页 → {out}")
+    logger.info(f"wrote {out}")
+
+
+@main.command()
+@click.argument("src", type=click.Path(exists=True, dir_okay=False, path_type=Path))
+@click.argument("out", type=click.Path(path_type=Path))
+@click.option(
+    "--mode",
+    type=click.Choice(["booklet", "thread"]),
+    default="booklet",
+    show_default=True,
+    help="booklet: saddle stitch; thread: grouped signatures.",
+)
+@click.option(
+    "--sheets-per-group",
+    type=click.IntRange(min=1),
+    default=4,
+    show_default=True,
+    help="Sheets in each thread-bound group (only used with --mode thread).",
+)
+def impose(src, out, mode, sheets_per_group):
+    """Reimpose a PDF: pad to signatures, two logical pages per sheet side."""
+    sheets = impose_pdf(Path(src), Path(out), mode, sheets_per_group)
+    click.echo(f"{mode} · 打印纸 {sheets} 张 · 双面 {sheets * 2} 面 → {out}")
+    logger.info(f"wrote {out}")
