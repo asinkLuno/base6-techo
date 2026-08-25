@@ -13,8 +13,10 @@ from src.basic import draw as draw_basic
 from src.layout import geometry_for
 from src.midori import MidoriPattern
 from src.midori import draw as draw_midori
+from src.timeline import TimelinePattern
+from src.timeline import draw as draw_timeline
 
-Pattern = BasicPattern | MidoriPattern
+Pattern = BasicPattern | MidoriPattern | TimelinePattern
 from src.models import ContentPage, DocumentPage, PageSettings
 
 PAGE_NUMBER_SIZE = 8  # pt
@@ -54,31 +56,40 @@ def render_page(
     header_dates: tuple[date, ...] | None = None,
     header_date_format: str | None = None,
     header_date_locale: str = "zh_CN",
+    header_parity: str = "both",
 ) -> PageDraw:
     """Render one complete logical page. Page numbers and binding text belong to
     the logical page (drawn here, before imposition); padding pages stay blank."""
     if isinstance(doc_page, ContentPage):
         geo = geometry_for(page, doc_page.page_number)
-        if isinstance(pattern, MidoriPattern):
-            lines, dots = draw_midori(geo, pattern)
+        if isinstance(pattern, TimelinePattern):
+            lines, dots, texts = draw_timeline(geo, pattern)
         else:
-            lines, dots = draw_basic(geo, pattern)
-        texts = (
-            [
-                Text(
-                    page.width / 2,
-                    page.height - page.footer / 2,
-                    str(doc_page.page_number),
-                    font=page_number_font,
-                )
-            ]
-            if show_page_number
-            else []
-        )
-        # Header date
+            if isinstance(pattern, MidoriPattern):
+                lines, dots = draw_midori(geo, pattern)
+            else:
+                lines, dots = draw_basic(geo, pattern)
+            texts = (
+                [
+                    Text(
+                        page.width / 2,
+                        page.height - page.footer / 2,
+                        str(doc_page.page_number),
+                        font=page_number_font,
+                    )
+                ]
+                if show_page_number
+                else []
+            )
+        # Header date (dates are already expanded to one entry per page)
         if header_dates is not None and header_date_format is not None:
             idx = doc_page.page_number - 1
-            if 0 <= idx < len(header_dates):
+            show_header = (
+                header_parity == "both"
+                or (header_parity == "odd" and doc_page.page_number % 2 == 1)
+                or (header_parity == "even" and doc_page.page_number % 2 == 0)
+            )
+            if show_header and 0 <= idx < len(header_dates):
                 date_str = format_date(
                     header_dates[idx], header_date_format, locale=header_date_locale
                 )

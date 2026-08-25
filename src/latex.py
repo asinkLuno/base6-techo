@@ -6,6 +6,7 @@ from pathlib import Path
 from src.imposition import OutputPage
 from src.midori import MidoriPattern
 from src.pages import PAGE_NUMBER_COLOR, Pattern
+from src.timeline import TimelinePattern
 
 _DOC = """\\documentclass[multi=tikzpicture]{standalone}
 %s
@@ -63,7 +64,10 @@ def _page(op: OutputPage, pattern: Pattern) -> str:
         for d in p.draw.dots:
             name = "patterncolor" if d.color is None else _name(d.color)
             dot_cmds.setdefault(name, []).append(
-                f"  \\fill ({p.dx + d.x:g},{d.y:g}) circle ({d.radius:g});"
+                f"  \\fill ({p.dx + d.x - d.radius:g},{d.y - d.radius:g}) "
+                f"rectangle ({p.dx + d.x + d.radius:g},{d.y + d.radius:g});"
+                if d.square
+                else f"  \\fill ({p.dx + d.x:g},{d.y:g}) circle ({d.radius:g});"
             )
     for (name, width), cmds in line_cmds.items():
         w = pattern.line_width if width is None else width
@@ -76,8 +80,9 @@ def _page(op: OutputPage, pattern: Pattern) -> str:
         parts.append(f"\\begin{{scope}}[{name}]\n" + "\n".join(cmds) + "\n\\end{scope}")
     for p in op.placements:
         for t in p.draw.texts:
+            name = "pnumcolor" if t.color == PAGE_NUMBER_COLOR else _name(t.color)
             parts.append(
-                f"\\node[pnumcolor, rotate={t.rotation:g}, font={{{_font_command(t.font)}\\fontsize{{{t.size_pt:g}}}{{{t.size_pt * 1.2:g}}}\\selectfont}}] "
+                f"\\node[{name}, rotate={t.rotation:g}, font={{{_font_command(t.font)}\\fontsize{{{t.size_pt:g}}}{{{t.size_pt * 1.2:g}}}\\selectfont}}] "
                 f"at ({p.dx + t.x:g},{t.y:g}) {{{_tex(t.content)}}};"
             )
     return (
@@ -95,6 +100,7 @@ def render_latex(output_pages: list[OutputPage], pattern: Pattern) -> str:
         getattr(pattern, "vline_edge_color", None),
         getattr(pattern, "dot_center_color", None),
         pattern.dot_color if isinstance(pattern, MidoriPattern) else None,
+        pattern.line_color if isinstance(pattern, TimelinePattern) else None,
     ):
         if h is not None:
             colors[_name(h)] = h

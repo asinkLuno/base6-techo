@@ -30,6 +30,7 @@ class Dot:
     y: float
     radius: float
     color: str | None = None  # None = pattern line color
+    square: bool = False
 
 
 @dataclass(frozen=True)
