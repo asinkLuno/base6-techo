@@ -14,7 +14,7 @@ uv run base6-techo midori --reset \
   --dot-color '#7FA6A6'
 
 uv run base6-techo render \
-  --preset A5 \
+  --width 148 --height 210 \
   --pages 32 \
   --binding-text '[base-6]' \
   --binding-text-2 'since 2026' \

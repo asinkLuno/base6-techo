@@ -36,6 +36,10 @@ def test_timeline_leading_blank_participates_in_page_parity():
             main,
             [
                 "render",
+                "--width",
+                "148",
+                "--height",
+                "210",
                 "--pages",
                 "2",
                 "--leading-blank",
