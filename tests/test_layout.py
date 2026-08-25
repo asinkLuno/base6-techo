@@ -19,7 +19,7 @@ from base6_techo.models import (
     RuledPattern,
     validate_project,
 )
-from base6_techo.pages import render_page
+from base6_techo.pages import dot_xs, render_page
 
 A5 = PageSettings(
     width=148, height=210, header=10, footer=10, binding=15, non_binding=8
@@ -112,6 +112,20 @@ def test_booklet_output_size_and_order():
     assert out[0].placements[1].draw.texts[0].content == "1"
 
 
+def test_dots_on_lines_centered_symmetric():
+    d = render_page(A5, RuledPattern(spacing=8, dot_spacing=5), ContentPage(1), True)
+    xs = sorted({dot.x for dot in d.dots})
+    center = 15 + 125 / 2  # 77.5
+    assert center in xs and len(xs) % 2 == 1  # first dot at horizontal center
+    assert xs[0] == 17.5 and xs[-1] == 137.5  # 12 dots each side, symmetric 5mm gaps
+    assert {dot.y for dot in d.dots} == {l.y1 for l in d.lines}  # dots sit on the lines
+    assert all(d.dots[0].radius > 0 for _ in [0])
+
+
+def test_no_dots_by_default():
+    assert render_page(A5, RULED, ContentPage(1), True).dots == []
+
+
 def test_validation():
     with pytest.raises(ValueError):
         DocumentSettings(page_count=0)
@@ -126,3 +140,5 @@ def test_validation():
         PageSettings(width=20, height=210, binding=15, non_binding=8)
     with pytest.raises(ValueError):
         RuledPattern(spacing=0)
+    with pytest.raises(ValueError):
+        RuledPattern(dot_spacing=0)

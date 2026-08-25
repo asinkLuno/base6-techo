@@ -28,6 +28,15 @@ def _page(op: OutputPage, pattern: RuledPattern) -> str:
             + "\n".join(lines)
             + "\n\\end{scope}"
         )
+    dots = [
+        f"  \\fill ({p.dx + d.x:g},{d.y:g}) circle ({d.radius:g});"
+        for p in op.placements
+        for d in p.draw.dots
+    ]
+    if dots:
+        parts.append(
+            "\\begin{scope}[patterncolor]\n" + "\n".join(dots) + "\n\\end{scope}"
+        )
     for p in op.placements:
         for t in p.draw.texts:
             parts.append(

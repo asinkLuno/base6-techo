@@ -27,7 +27,7 @@ uv run base6-techo render --preset A5 --pages 30 --mode booklet --pdf out.tex
 uv run base6-techo render --preset A5 --pages 30 --mode normal --pdf out.tex
 ```
 
-生成 `out.tex` + `out.svg`（第一张 PDF 页预览）；`--pdf` 自动调用 tectonic/xelatex/pdflatex 编译。
+生成 `out.tex`；`--pdf` 自动调用 tectonic/xelatex/pdflatex 编译出同名 PDF。
 纸张预设只是自动填写宽高；`--no-page-number` 可关页码；非法参数（如 footer\<5mm 开页码、页数超限）会被拒绝。
 
 ## 测试

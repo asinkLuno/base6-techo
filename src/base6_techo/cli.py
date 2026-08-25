@@ -1,4 +1,4 @@
-"""CLI: base6-techo render -> whole-notebook .tex (+ .svg preview, optional PDF)."""
+"""CLI: base6-techo render -> whole-notebook .tex (+ optional PDF)."""
 
 import shutil
 import subprocess
@@ -16,7 +16,6 @@ from base6_techo.models import (
     RuledPattern,
     validate_project,
 )
-from base6_techo.svg import render_svg
 
 _ENGINES = ("tectonic", "xelatex", "pdflatex")
 
@@ -51,6 +50,14 @@ def main() -> None:
 @click.option(
     "--line-color", "line_color", default="#B0B0B0", help="Line color, #RRGGBB."
 )
+@click.option(
+    "--dot-spacing",
+    "dot_spacing",
+    type=float,
+    default=None,
+    help="Also draw dots on the lines every N mm (centered, spreading outward).",
+)
+@click.option("--dot-radius", "dot_radius", type=float, default=0.3, help="Dot radius in mm.")
 @click.option("--pages", type=int, default=32, help="Finished notebook page count.")
 @click.option(
     "--page-number/--no-page-number",
@@ -80,6 +87,8 @@ def render(
     spacing,
     line_width,
     line_color,
+    dot_spacing,
+    dot_radius,
     pages,
     page_number,
     print_mode,
@@ -100,7 +109,11 @@ def render(
         )
         doc = DocumentSettings(page_count=pages, show_page_number=page_number)
         pattern = RuledPattern(
-            spacing=spacing, line_width=line_width, line_color=line_color
+            spacing=spacing,
+            line_width=line_width,
+            line_color=line_color,
+            dot_spacing=dot_spacing,
+            dot_radius=dot_radius,
         )
         validate_project(page, doc)
     except ValueError as e:
@@ -124,9 +137,6 @@ def render(
     out_path = Path(out)
     out_path.write_text(render_latex(output_pages, pattern))
     logger.info(f"wrote {out_path}")
-    svg_path = out_path.with_suffix(".svg")
-    svg_path.write_text(render_svg(output_pages[0], pattern))
-    logger.info(f"wrote {svg_path} (first PDF page preview)")
 
     if pdf:
         engine = next((e for e in _ENGINES if shutil.which(e)), None)
