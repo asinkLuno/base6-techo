@@ -3,24 +3,22 @@
 set -e
 cd "$(dirname "$0")/.."
 
-uv run base6-techo timeline \
+uv run base6-techo render \
   --size A5 \
-  --start 0 \
-  --end 26 \
-  --pages 2 \
+  --leading-blank \
   --header-date-range 2026-09 2026-10 \
   --header-pages even \
   --binding-text '[base-6]' --binding-text-2 'since 2026' \
   --header-date-position binding \
   --header-date-size 14 \
-  --color '#7A7A7A' \
   --pdf \
+  timeline \
+  --start 0 \
+  --end 26 \
+  --split-pages 2 \
+  --color '#7A7A7A' \
   examples/timeline.tex
 
-# 首页补一页空白
-uv run base6-techo blank examples/timeline.pdf /tmp/timeline.blank.pdf --leading 1
-mv /tmp/timeline.blank.pdf examples/timeline.pdf
-
 # 线装本拼版：每 4 张纸一组（自动补白到 16 页倍数）
-# uv run base6-techo impose examples/timeline.pdf /tmp/timeline.thread.pdf --mode thread --sheets-per-group 4
-# mv /tmp/timeline.thread.pdf examples/timeline.pdf
+uv run base6-techo impose examples/timeline.pdf /tmp/timeline.thread.pdf --mode thread --sheets-per-group 4
+mv /tmp/timeline.thread.pdf examples/timeline.pdf

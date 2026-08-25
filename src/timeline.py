@@ -26,8 +26,10 @@ def page_range(
         return start, end
     midpoint = (start + end) // 2
     first, second = (start, midpoint), (midpoint, end)
-    # default: odd/left page shows the small half, even/right page the large half
-    return (second if is_odd else first) if swap else (first if is_odd else second)
+    # A spread is even/left then odd/right: earlier hours belong on the left.
+    return (
+        (second if not is_odd else first) if swap else (first if not is_odd else second)
+    )
 
 
 @dataclass(frozen=True)

@@ -31,7 +31,7 @@ uv run base6-techo basic --hlines --spacing 8
 uv run base6-techo midori --reset --spacing 5 --gap 1 --edge-extension 1.2
 
 # 普通顺序 PDF
-uv run base6-techo render --preset A5 --pattern midori --pages 30 --pdf out.tex
+uv run base6-techo render --preset A5 --pages 30 --pdf midori out.tex
 
 # 给 PDF 补白页（首页/末尾插入空白页）
 uv run base6-techo blank out.pdf blanked.pdf --leading 2 --trailing 1
@@ -46,7 +46,7 @@ uv run base6-techo impose out.pdf booklet.pdf --mode booklet
 uv run base6-techo impose out.pdf thread.pdf --mode thread --sheets-per-group 4
 
 # 在装订侧正中心纵向打印一排或两排页面水印（奇偶页自动镜像到实际装订侧）
-uv run base6-techo render --preset A5 --binding-text base-6 --binding-text-2 notebook --binding-text-size 10 --binding-text-2-size 8 --binding-text-spacing 12 --pdf out.tex
+uv run base6-techo render --preset A5 --binding-text base-6 --binding-text-2 notebook --binding-text-size 10 --binding-text-2-size 8 --binding-text-spacing 12 --pdf basic out.tex
 ```
 
 生成 `out.tex`；`--pdf` 自动调用 tectonic/xelatex/pdflatex 编译出同名 PDF。
@@ -84,11 +84,11 @@ uv run base6-techo lines --reset --hlines --vlines --hline-inner --hline-outer -
 
 # 法文格（Seyes）：左侧宽边栏，之后为 2×8mm 等分格
 uv run base6-techo lines --reset --hlines --vlines --hline-inner --hline-outer --vline-header --vline-footer --spacing 2 --margin-x 15 --vline-spacing 8 --line-width 0.12 --line-color '#A7C5D8' --margin-color '#88AEC7' --vline-edge-color '#C98F8F' --vline-edge-width 0.35
-uv run base6-techo render --preset A5 --binding 15 --non-binding 15 --pages 32 --binding-text '[base-6]' --binding-text-2 'since 2026' --binding-text-font '0xProto Nerd Font' --pdf examples/french-ruled.tex
+uv run base6-techo render --preset A5 --binding 15 --non-binding 15 --pages 32 --binding-text '[base-6]' --binding-text-2 'since 2026' --binding-text-font '0xProto Nerd Font' --pdf basic examples/french-ruled.tex
 
 # 方格：5mm 横纵网格，保留 10mm 页头/页尾；A5 内容区 120×190mm，均为 5 的偶数倍
 uv run base6-techo lines --reset --hlines --vlines --spacing 5 --vline-spacing 5 --line-width 0.12 --line-color '#A8BBC8' --margin-color '#A8BBC8'
-uv run base6-techo render --preset A5 --header 10 --footer 10 --binding 15 --non-binding 13 --pages 32 --binding-text '[base-6]' --binding-text-2 'since 2026' --binding-text-font '0xProto Nerd Font' --pdf examples/square-grid.tex
+uv run base6-techo render --preset A5 --header 10 --footer 10 --binding 15 --non-binding 13 --pages 32 --binding-text '[base-6]' --binding-text-2 'since 2026' --binding-text-font '0xProto Nerd Font' --pdf basic examples/square-grid.tex
 ```
 
 ## 测试

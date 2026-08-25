@@ -1,5 +1,9 @@
 from datetime import date
+from pathlib import Path
 
+from click.testing import CliRunner
+
+from src.cli import main
 from src.models import ContentPage, PageSettings
 from src.pages import render_page
 from src.timeline import TimelinePattern, page_range
@@ -9,10 +13,10 @@ A5 = PageSettings(148, 210, header=10, footer=10, binding=15, non_binding=8)
 
 def test_timeline_range_matches_techo():
     assert page_range(0, 26, 1, False, True) == (0, 26)
-    assert page_range(0, 26, 2, False, False) == (13, 26)  # right page: large half
-    assert page_range(0, 26, 2, False, True) == (0, 13)  # left page: small half
-    assert page_range(0, 26, 2, True, False) == (0, 13)  # swapped
-    assert page_range(0, 26, 2, True, True) == (13, 26)
+    assert page_range(0, 26, 2, False, False) == (0, 13)  # left page: small half
+    assert page_range(0, 26, 2, False, True) == (13, 26)  # right page: large half
+    assert page_range(0, 26, 2, True, False) == (13, 26)  # swapped
+    assert page_range(0, 26, 2, True, True) == (0, 13)
 
 
 def test_timeline_draws_binding_axis_and_labels():
@@ -21,9 +25,29 @@ def test_timeline_draws_binding_axis_and_labels():
     even = render_page(A5, pattern, ContentPage(2), False)
     assert odd.lines[0].x1 == 15
     assert even.lines[0].x1 == 133
-    assert odd.texts[0].content == "00"
-    assert even.texts[0].content == "13"
+    assert odd.texts[0].content == "13"
+    assert even.texts[0].content == "00"
     assert odd.dots
+
+
+def test_timeline_leading_blank_participates_in_page_parity():
+    with CliRunner().isolated_filesystem():
+        result = CliRunner().invoke(
+            main,
+            [
+                "render",
+                "--pages",
+                "2",
+                "--leading-blank",
+                "timeline",
+                "timeline.tex",
+            ],
+        )
+        assert result.exit_code == 0
+        assert "PDF 3 页" in result.output
+        tex = Path("timeline.tex").read_text()
+        assert tex.split(r"\end{tikzpicture}", 1)[0].count(r"\draw") == 0
+        assert "{00}" in tex.split(r"\end{tikzpicture}", 2)[1]
 
 
 def test_header_parity_odd_shows_one_date_per_spread():

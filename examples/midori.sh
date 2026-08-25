@@ -14,10 +14,9 @@ uv run base6-techo midori --reset \
   --dot-color '#7FA6A6'
 
 uv run base6-techo render \
-  --pattern midori \
   --preset A5 \
   --pages 32 \
   --binding-text '[base-6]' \
   --binding-text-2 'since 2026' \
   --binding-text-spacing 12 \
-  --pdf examples/midori.tex
+  --pdf midori examples/midori.tex

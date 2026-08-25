@@ -55,12 +55,11 @@ def test_midori_command_configures_render_pattern(tmp_path, monkeypatch):
         main,
         [
             "render",
-            "--pattern",
-            "midori",
             "--preset",
             "A5",
             "--pages",
             "1",
+            "midori",
             str(tmp_path / "midori.tex"),
         ],
     )
