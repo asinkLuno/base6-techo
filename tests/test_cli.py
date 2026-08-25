@@ -37,7 +37,16 @@ def test_lines_saved_and_used_by_render(tmp_path, monkeypatch):
     assert "10mm" in r.output
 
     r = runner.invoke(
-        main, ["render", "--preset", "A5", "--pages", "4", str(tmp_path / "out.tex")]
+        main,
+        [
+            "render",
+            "--preset",
+            "A5",
+            "--pages",
+            "4",
+            "basic",
+            str(tmp_path / "out.tex"),
+        ],
     )
     assert r.exit_code == 0, r.output
     tex = (tmp_path / "out.tex").read_text()
@@ -56,7 +65,16 @@ def test_lines_saved_and_used_by_render(tmp_path, monkeypatch):
     # margin_x without margin_color -> nothing drawn (fresh config)
     runner.invoke(main, ["lines", "--reset", "--margin-x", "20"])
     r = runner.invoke(
-        main, ["render", "--preset", "A5", "--pages", "4", str(tmp_path / "out2.tex")]
+        main,
+        [
+            "render",
+            "--preset",
+            "A5",
+            "--pages",
+            "4",
+            "basic",
+            str(tmp_path / "out2.tex"),
+        ],
     )
     assert r.exit_code == 0, r.output
     tex2 = (tmp_path / "out2.tex").read_text()
@@ -66,7 +84,16 @@ def test_lines_saved_and_used_by_render(tmp_path, monkeypatch):
     # dot grid: dots on, lines off (all off by default, explicit --dots)
     runner.invoke(main, ["lines", "--reset", "--dots", "--dot-spacing", "8"])
     r = runner.invoke(
-        main, ["render", "--preset", "A5", "--pages", "4", str(tmp_path / "out3.tex")]
+        main,
+        [
+            "render",
+            "--preset",
+            "A5",
+            "--pages",
+            "4",
+            "basic",
+            str(tmp_path / "out3.tex"),
+        ],
     )
     assert r.exit_code == 0, r.output
     tex3 = (tmp_path / "out3.tex").read_text()
@@ -76,7 +103,16 @@ def test_lines_saved_and_used_by_render(tmp_path, monkeypatch):
     # dots configured but --no-dots -> no circles
     runner.invoke(main, ["lines", "--reset", "--no-dots", "--dot-spacing", "8"])
     r = runner.invoke(
-        main, ["render", "--preset", "A5", "--pages", "4", str(tmp_path / "out4.tex")]
+        main,
+        [
+            "render",
+            "--preset",
+            "A5",
+            "--pages",
+            "4",
+            "basic",
+            str(tmp_path / "out4.tex"),
+        ],
     )
     assert r.exit_code == 0, r.output
     assert "circle (" not in (tmp_path / "out4.tex").read_text()
@@ -98,6 +134,7 @@ def test_lines_saved_and_used_by_render(tmp_path, monkeypatch):
             "wm",
             "--binding-text-font",
             r"\ttfamily",
+            "basic",
             str(tmp_path / "fonts.tex"),
         ],
     )
@@ -120,6 +157,7 @@ def test_header_dates_use_babel_locale_and_format(tmp_path):
             "--header-date-range",
             "2026-09",
             "2026-09",
+            "basic",
             str(tmp_path / "dates.tex"),
         ],
     )
@@ -137,6 +175,7 @@ def test_header_dates_use_babel_locale_and_format(tmp_path):
             "--header-date-range",
             "2026年9月",
             "2026-09",
+            "basic",
             str(tmp_path / "invalid-dates.tex"),
         ],
     )
@@ -160,6 +199,7 @@ def test_header_date_position_and_size(tmp_path):
             "binding",
             "--header-date-size",
             "12",
+            "basic",
             str(tmp_path / "dates.tex"),
         ],
     )
