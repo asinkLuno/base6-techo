@@ -58,6 +58,8 @@ class DocumentSettings:
     binding_text_size: float = 8
     binding_text_2_size: float = 8
     binding_text_spacing: float = 5
+    page_number_font: str = r"\sffamily"
+    binding_text_font: str = r"\sffamily"
 
     def __post_init__(self) -> None:
         if not 1 <= self.page_count <= MAX_PAGE_COUNT:
@@ -70,6 +72,8 @@ class DocumentSettings:
                 raise ValueError(f"{name} must be > 0")
         if self.binding_text_spacing < 0:
             raise ValueError("binding_text_spacing must be >= 0")
+        if not self.page_number_font.strip() or not self.binding_text_font.strip():
+            raise ValueError("font declarations must not be empty")
 
 
 def validate_project(page: PageSettings, doc: DocumentSettings) -> None:

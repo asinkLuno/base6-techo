@@ -117,6 +117,8 @@ def normal_output(
                         doc.binding_text_size,
                         doc.binding_text_2_size,
                         doc.binding_text_spacing,
+                        doc.page_number_font,
+                        doc.binding_text_font,
                     ),
                 )
             ],
@@ -148,6 +150,8 @@ def _two_up_output(
                         doc.binding_text_size,
                         doc.binding_text_2_size,
                         doc.binding_text_spacing,
+                        doc.page_number_font,
+                        doc.binding_text_font,
                     ),
                 ),
                 Placement(
@@ -162,6 +166,8 @@ def _two_up_output(
                         doc.binding_text_size,
                         doc.binding_text_2_size,
                         doc.binding_text_spacing,
+                        doc.page_number_font,
+                        doc.binding_text_font,
                     ),
                 ),
             ],
