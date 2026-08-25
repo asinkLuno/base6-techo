@@ -8,8 +8,11 @@ uv run base6-techo timeline \
   --start 0 \
   --end 26 \
   --pages 2 \
-  --header-date-range 2026-09 2026-12 \
+  --header-date-range 2026-09 2026-10 \
   --header-pages even \
+  --binding-text '[base-6]' --binding-text-2 'since 2026' \
+  --header-date-position binding \
+  --header-date-size 14 \
   --color '#7A7A7A' \
   --pdf \
   examples/timeline.tex
@@ -19,5 +22,5 @@ uv run base6-techo blank examples/timeline.pdf /tmp/timeline.blank.pdf --leading
 mv /tmp/timeline.blank.pdf examples/timeline.pdf
 
 # 线装本拼版：每 4 张纸一组（自动补白到 16 页倍数）
-uv run base6-techo impose examples/timeline.pdf /tmp/timeline.thread.pdf --mode thread --sheets-per-group 4
-mv /tmp/timeline.thread.pdf examples/timeline.pdf
+# uv run base6-techo impose examples/timeline.pdf /tmp/timeline.thread.pdf --mode thread --sheets-per-group 4
+# mv /tmp/timeline.thread.pdf examples/timeline.pdf

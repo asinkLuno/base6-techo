@@ -141,3 +141,30 @@ def test_header_dates_use_babel_locale_and_format(tmp_path):
         ],
     )
     assert r.exit_code != 0
+
+
+def test_header_date_position_and_size(tmp_path):
+    runner = CliRunner()
+    r = runner.invoke(
+        main,
+        [
+            "render",
+            "--preset",
+            "A5",
+            "--pages",
+            "1",
+            "--header-date-range",
+            "2026-09",
+            "2026-09",
+            "--header-date-position",
+            "binding",
+            "--header-date-size",
+            "12",
+            str(tmp_path / "dates.tex"),
+        ],
+    )
+    assert r.exit_code == 0, r.output
+    tex = (tmp_path / "dates.tex").read_text()
+    # A5 width 148, binding 15 -> date centered at binding/2 = 7.5mm, header/2 = 5mm
+    assert "at (7.5,5) {2026年9月1日星期二}" in tex
+    assert r"\fontsize{12}{14.4}" in tex
