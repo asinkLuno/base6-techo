@@ -82,7 +82,8 @@ def _page(op: OutputPage, pattern: Pattern) -> str:
         for t in p.draw.texts:
             name = "pnumcolor" if t.color == PAGE_NUMBER_COLOR else _name(t.color)
             parts.append(
-                f"\\node[{name}, rotate={t.rotation:g}, font={{{_font_command(t.font)}\\fontsize{{{t.size_pt:g}}}{{{t.size_pt * 1.2:g}}}\\selectfont}}] "
+                f"\\node[{name}, rotate={t.rotation:g}, anchor={t.anchor}, "
+                f"font={{{_font_command(t.font)}\\fontsize{{{t.size_pt:g}}}{{{t.size_pt * 1.2:g}}}\\selectfont}}] "
                 f"at ({p.dx + t.x:g},{t.y:g}) {{{_tex(t.content)}}};"
             )
     return (

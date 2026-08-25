@@ -32,6 +32,7 @@ class Text:
     color: str = PAGE_NUMBER_COLOR
     rotation: int = 0
     font: str = r"\sffamily"
+    anchor: str = "center"
 
 
 @dataclass(frozen=True)
@@ -57,6 +58,9 @@ def render_page(
     header_date_format: str | None = None,
     header_date_locale: str = "zh_CN",
     header_parity: str = "both",
+    header_date_size: float = 8,
+    header_date_font: str | None = None,
+    header_date_position: str = "center",
 ) -> PageDraw:
     """Render one complete logical page. Page numbers and binding text belong to
     the logical page (drawn here, before imposition); padding pages stay blank."""
@@ -93,12 +97,31 @@ def render_page(
                 date_str = format_date(
                     header_dates[idx], header_date_format, locale=header_date_locale
                 )
+                if header_date_position == "binding":
+                    x = (
+                        page.binding / 2
+                        if geo.binding_side == "left"
+                        else page.width - page.binding / 2
+                    )
+                    anchor = "west" if geo.binding_side == "left" else "east"
+                elif header_date_position == "outer":
+                    x = (
+                        page.width - page.non_binding / 2
+                        if geo.binding_side == "left"
+                        else page.non_binding / 2
+                    )
+                    anchor = "east" if geo.binding_side == "left" else "west"
+                else:
+                    x = page.width / 2
+                    anchor = "center"
                 texts.append(
                     Text(
-                        page.width / 2,
+                        x,
                         page.header / 2,
                         date_str,
-                        font=page_number_font,
+                        size_pt=header_date_size,
+                        font=header_date_font or page_number_font,
+                        anchor=anchor,
                     )
                 )
         center_x = (

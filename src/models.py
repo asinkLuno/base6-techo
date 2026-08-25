@@ -66,6 +66,9 @@ class DocumentSettings:
     header_date_format: str | None = None
     header_date_locale: str = "zh_CN"
     header_parity: Literal["odd", "even", "both"] = "both"
+    header_date_size: float = 8
+    header_date_font: str | None = None  # None -> page_number_font
+    header_date_position: Literal["center", "binding", "outer"] = "center"
 
     def __post_init__(self) -> None:
         if not 1 <= self.page_count <= MAX_PAGE_COUNT:
@@ -82,6 +85,10 @@ class DocumentSettings:
             raise ValueError("font declarations must not be empty")
         if self.header_parity not in ("odd", "even", "both"):
             raise ValueError("header_parity must be odd, even, or both")
+        if self.header_date_size <= 0:
+            raise ValueError("header_date_size must be > 0")
+        if self.header_date_position not in ("center", "binding", "outer"):
+            raise ValueError("header_date_position must be center, binding, or outer")
         if self.header_dates is not None:
             if len(self.header_dates) == 0:
                 raise ValueError("header_dates must not be empty")

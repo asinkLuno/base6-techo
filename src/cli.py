@@ -367,11 +367,88 @@ def midori(**kw):
     help="Pages that receive date headers: odd, even, or both.",
 )
 @click.option(
+    "--header-date-size",
+    "header_date_size",
+    type=float,
+    default=8,
+    show_default=True,
+    help="Font size of header dates in pt.",
+)
+@click.option(
+    "--header-date-font",
+    "header_date_font",
+    default=None,
+    help="LaTeX font declaration for header dates (defaults to the timeline font).",
+)
+@click.option(
+    "--header-date-position",
+    "header_date_position",
+    type=click.Choice(["center", "binding", "outer"]),
+    default="center",
+    show_default=True,
+    help="Horizontal position of header dates: center, binding (装订侧), or outer (非装订侧).",
+)
+@click.option(
+    "--binding-text",
+    default=None,
+    help="First line of the text watermark along the binding-side margin.",
+)
+@click.option(
+    "--binding-text-2",
+    default=None,
+    help="Second line of the text watermark along the binding-side margin.",
+)
+@click.option(
+    "--binding-text-size",
+    type=float,
+    default=8,
+    show_default=True,
+    help="Font size of the first binding watermark line in pt.",
+)
+@click.option(
+    "--binding-text-2-size",
+    type=float,
+    default=8,
+    show_default=True,
+    help="Font size of the second binding watermark line in pt.",
+)
+@click.option(
+    "--binding-text-spacing",
+    type=float,
+    default=5,
+    show_default=True,
+    help="Center-to-center spacing between binding watermark lines in mm.",
+)
+@click.option(
+    "--binding-text-font",
+    default=r"\sffamily",
+    show_default=True,
+    help="LaTeX font declaration for binding watermarks.",
+)
+@click.option(
     "--pdf", is_flag=True, help="Also compile to PDF if a LaTeX engine is installed."
 )
 @click.argument("out", type=click.Path(), default="timeline.tex")
 def timeline(
-    preset, start, end, pages, swap, color, header_date_range, header_parity, pdf, out
+    preset,
+    start,
+    end,
+    pages,
+    swap,
+    color,
+    header_date_range,
+    header_parity,
+    header_date_size,
+    header_date_font,
+    header_date_position,
+    binding_text,
+    binding_text_2,
+    binding_text_size,
+    binding_text_2_size,
+    binding_text_spacing,
+    binding_text_font,
+    pdf,
+    out,
 ):
     """Generate a two-page binding-edge hour timeline."""
     try:
@@ -393,10 +470,19 @@ def timeline(
         doc = DocumentSettings(
             page_count=len(dates) if dates else 2,
             show_page_number=False,
+            binding_text=binding_text,
+            binding_text_2=binding_text_2,
+            binding_text_size=binding_text_size,
+            binding_text_2_size=binding_text_2_size,
+            binding_text_spacing=binding_text_spacing,
+            binding_text_font=binding_text_font,
             header_dates=dates,
             header_date_format="yyyy-MM-dd" if dates else None,
             header_date_locale="en_US",
             header_parity=header_parity,
+            header_date_size=header_date_size,
+            header_date_font=header_date_font,
+            header_date_position=header_date_position,
             page_number_font="0xProto Nerd Font",
         )
         output_pages = normal_output(page, pattern, doc)
@@ -540,6 +626,28 @@ def timeline(
     help="Pages that receive date headers: odd, even, or both.",
 )
 @click.option(
+    "--header-date-size",
+    "header_date_size",
+    type=float,
+    default=8,
+    show_default=True,
+    help="Font size of header dates in pt.",
+)
+@click.option(
+    "--header-date-font",
+    "header_date_font",
+    default=None,
+    help="LaTeX font declaration for header dates (defaults to --page-number-font).",
+)
+@click.option(
+    "--header-date-position",
+    "header_date_position",
+    type=click.Choice(["center", "binding", "outer"]),
+    default="center",
+    show_default=True,
+    help="Horizontal position of header dates: center, binding (装订侧), or outer (非装订侧).",
+)
+@click.option(
     "--pdf", is_flag=True, help="Also compile to PDF if a LaTeX engine is installed."
 )
 @click.argument("out", type=click.Path(), default="techo.tex")
@@ -565,6 +673,9 @@ def render(
     header_date_locale,
     header_date_format,
     header_parity,
+    header_date_size,
+    header_date_font,
+    header_date_position,
     pdf,
     out,
 ):
@@ -627,6 +738,9 @@ def render(
             header_date_format=header_date_format,
             header_date_locale=header_date_locale,
             header_parity=header_parity,
+            header_date_size=header_date_size,
+            header_date_font=header_date_font,
+            header_date_position=header_date_position,
         )
         validate_project(page, doc)
     except ValueError as e:

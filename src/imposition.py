@@ -52,6 +52,9 @@ def normal_output(
                         doc.header_date_format,
                         doc.header_date_locale,
                         doc.header_parity,
+                        doc.header_date_size,
+                        doc.header_date_font,
+                        doc.header_date_position,
                     ),
                 )
             ],
