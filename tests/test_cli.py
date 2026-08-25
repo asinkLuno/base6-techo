@@ -48,7 +48,7 @@ def test_lines_saved_and_used_by_render(tmp_path, monkeypatch):
     assert (
         "\\draw (35,10) -- (35,200);" in tex
     )  # margin line, content x=15+20, full height
-    assert "\\draw (37.5,10) -- (37.5,200);" in tex  # vline grid, center 77.5-40
+    assert "\\draw (75,10) -- (75,200);" in tex  # first grid line, 40mm after margin
     assert "definecolor{c111111}{HTML}{111111}" in tex
     assert "definecolor{c222222}{HTML}{222222}" in tex
     assert "definecolor{c333333}{HTML}{333333}" in tex

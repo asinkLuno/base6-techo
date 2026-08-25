@@ -138,6 +138,19 @@ def test_french_grid_vertical_lines_every_spacing():
     assert all(l.color == "#CC0000" for l in verts)
 
 
+def test_grid_starts_after_margin_line():
+    lines, _ = draw(
+        geometry_for(A5, 1),
+        BasicPattern(
+            margin_x=15,
+            margin_color="#88AEC7",
+            vline_spacing=8,
+            draw_vlines=True,
+        ),
+    )
+    assert [line.x1 for line in lines if line.x1 == line.x2][:4] == [30, 38, 46, 54]
+
+
 def test_margin_line_vertical_full_content_height():
     lines, _ = draw(
         geometry_for(A5, 1),
