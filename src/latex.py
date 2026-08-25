@@ -4,9 +4,9 @@ pageCount / parity / booklet semantics."""
 from pathlib import Path
 
 from src.imposition import OutputPage
-from src.midori import MidoriPattern
 from src.pages import PAGE_NUMBER_COLOR, Pattern
-from src.timeline import TimelinePattern
+from src.template.midori import MidoriPattern
+from src.template.timeline import TimelinePattern
 
 _DOC = """\\documentclass[multi=tikzpicture]{standalone}
 %s

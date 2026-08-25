@@ -24,6 +24,9 @@ PDF后处理 pdfops.py: merge 合并 / blank 补白页 / impose 拼版（booklet
 ## 用法
 
 ```sh
+# 图形界面（选版式联动显示参数，页面尺寸带 A5/A6/B5/B6 等预设）
+uv run base6-techo-gui
+
 # 配置 basic 版式（`lines` 保留为兼容命令，`basic` 是同级别名称）
 uv run base6-techo basic --hlines --spacing 8
 

@@ -1,3 +1,25 @@
-from src.cli import main
+"""Public API for generating printable notebook PDFs."""
 
-__all__ = ["main"]
+from src.api import (
+    BasicPattern,
+    BindingMode,
+    DocumentSettings,
+    MidoriPattern,
+    PageSettings,
+    Pipeline,
+    PipelineResult,
+    RenderStage,
+    TimelinePattern,
+)
+
+__all__ = [
+    "BasicPattern",
+    "BindingMode",
+    "DocumentSettings",
+    "MidoriPattern",
+    "PageSettings",
+    "Pipeline",
+    "PipelineResult",
+    "RenderStage",
+    "TimelinePattern",
+]

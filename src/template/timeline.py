@@ -7,8 +7,8 @@ import re
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from src.basic import Dot, Line
 from src.layout import PageGeometry
+from src.template.basic import Dot, Line
 
 if TYPE_CHECKING:
     from src.pages import Text

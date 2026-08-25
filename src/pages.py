@@ -8,13 +8,13 @@ from datetime import date
 
 from babel.dates import format_date
 
-from src.basic import BasicPattern, Dot, Line
-from src.basic import draw as draw_basic
 from src.layout import geometry_for
-from src.midori import MidoriPattern
-from src.midori import draw as draw_midori
-from src.timeline import TimelinePattern
-from src.timeline import draw as draw_timeline
+from src.template.basic import BasicPattern, Dot, Line
+from src.template.basic import draw as draw_basic
+from src.template.midori import MidoriPattern
+from src.template.midori import draw as draw_midori
+from src.template.timeline import TimelinePattern
+from src.template.timeline import draw as draw_timeline
 
 Pattern = BasicPattern | MidoriPattern | TimelinePattern
 from src.models import ContentPage, DocumentPage, PageSettings
