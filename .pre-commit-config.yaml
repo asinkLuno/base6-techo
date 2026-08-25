@@ -32,7 +32,7 @@ repos:
       - id: vulture
         name: vulture
         entry: vulture
-        args: ["./base6_techo", "--min-confidence", "80", "--exclude", ".venv"]
+        args: ["./src", "--min-confidence", "80", "--exclude", ".venv"]
         language: python
         additional_dependencies: ["vulture>=0.16"]
         types: [python]
@@ -41,7 +41,7 @@ repos:
       - id: radon
         name: radon
         entry: radon
-        args: ["cc", "./base6_techo", "--min=C"]
+        args: ["cc", "./src", "--min=C"]
         language: python
         additional_dependencies: ["radon>=6.0"]
         types: [python]

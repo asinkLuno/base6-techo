@@ -1,5 +1,6 @@
 """CLI: base6-techo render -> whole-notebook .tex (+ optional PDF)."""
 
+import json
 import shutil
 import subprocess
 from pathlib import Path
@@ -18,11 +19,68 @@ from base6_techo.models import (
 )
 
 _ENGINES = ("tectonic", "xelatex", "pdflatex")
+_LINES_FILE = Path(click.get_app_dir("base6-techo")) / "lines.json"
+
+
+def _load_lines() -> dict:
+    if _LINES_FILE.exists():
+        return json.loads(_LINES_FILE.read_text())
+    return {}
 
 
 @click.group()
 def main() -> None:
     """base6-techo: printable ruled-notebook generator."""
+
+
+@main.command()
+@click.option("--spacing", type=float, default=None, help="Ruled line spacing in mm.")
+@click.option(
+    "--line-width", "line_width", type=float, default=None, help="Line width in pt."
+)
+@click.option("--line-color", "line_color", default=None, help="Line color, #RRGGBB.")
+@click.option(
+    "--dot-spacing",
+    "dot_spacing",
+    type=float,
+    default=None,
+    help="Also draw dots on the lines every N mm (centered, spreading outward).",
+)
+@click.option(
+    "--dot-radius", "dot_radius", type=float, default=None, help="Dot radius in mm."
+)
+@click.option(
+    "--reset", is_flag=True, help="Back to default pattern (keeps --* overrides)."
+)
+def lines(spacing, line_width, line_color, dot_spacing, dot_radius, reset):
+    """Configure the ruled-line pattern; saved for render. No options = show."""
+    cfg = {} if reset else _load_lines()
+    changed = reset
+    for name, value in (
+        ("spacing", spacing),
+        ("line_width", line_width),
+        ("line_color", line_color),
+        ("dot_spacing", dot_spacing),
+        ("dot_radius", dot_radius),
+    ):
+        if value is not None:
+            cfg[name] = value
+            changed = True
+    try:
+        pattern = RuledPattern(**cfg)
+    except (ValueError, TypeError) as e:
+        raise click.ClickException(str(e))
+    if changed:
+        _LINES_FILE.parent.mkdir(parents=True, exist_ok=True)
+        _LINES_FILE.write_text(json.dumps(cfg, indent=2))
+        click.echo(f"lines 配置已保存到 {_LINES_FILE}")
+    click.echo(
+        f"横线 间距 {pattern.spacing:g}mm · 线宽 {pattern.line_width:g}pt · 颜色 {pattern.line_color}"
+    )
+    if pattern.dot_spacing:
+        click.echo(
+            f"圆点 间距 {pattern.dot_spacing:g}mm · 半径 {pattern.dot_radius:g}mm"
+        )
 
 
 @main.command()
@@ -42,23 +100,6 @@ def main() -> None:
     type=float,
     default=8,
     help="Non-binding-side margin in mm.",
-)
-@click.option("--spacing", type=float, default=8, help="Ruled line spacing in mm.")
-@click.option(
-    "--line-width", "line_width", type=float, default=0.2, help="Line width in pt."
-)
-@click.option(
-    "--line-color", "line_color", default="#B0B0B0", help="Line color, #RRGGBB."
-)
-@click.option(
-    "--dot-spacing",
-    "dot_spacing",
-    type=float,
-    default=None,
-    help="Also draw dots on the lines every N mm (centered, spreading outward).",
-)
-@click.option(
-    "--dot-radius", "dot_radius", type=float, default=0.3, help="Dot radius in mm."
 )
 @click.option("--pages", type=int, default=32, help="Finished notebook page count.")
 @click.option(
@@ -86,18 +127,13 @@ def render(
     footer,
     binding,
     non_binding,
-    spacing,
-    line_width,
-    line_color,
-    dot_spacing,
-    dot_radius,
     pages,
     page_number,
     print_mode,
     pdf,
     out,
 ):
-    """Generate a complete printable ruled notebook."""
+    """Generate a complete printable ruled notebook (lines config from `lines`)."""
     if preset:
         if width is not None or height is not None:
             raise click.ClickException(
@@ -120,16 +156,13 @@ def render(
             non_binding=non_binding,
         )
         doc = DocumentSettings(page_count=pages, show_page_number=page_number)
-        pattern = RuledPattern(
-            spacing=spacing,
-            line_width=line_width,
-            line_color=line_color,
-            dot_spacing=dot_spacing,
-            dot_radius=dot_radius,
-        )
         validate_project(page, doc)
     except ValueError as e:
         raise click.ClickException(str(e))
+    try:
+        pattern = RuledPattern(**_load_lines())
+    except (ValueError, TypeError) as e:
+        raise click.ClickException(f"lines 配置无效: {e}")
 
     if print_mode == "booklet":
         output_pages = booklet_output(page, pattern, doc)
