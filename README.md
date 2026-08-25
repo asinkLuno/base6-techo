@@ -2,10 +2,10 @@
 
 可打印横线笔记本生成器。生成整本可直接打印的 PDF。
 
-所有尺寸统一 mm（线宽/字号 pt），数据层不保存 px。架构三级，每级一个模块：
+所有尺寸统一 mm（线宽/字号 pt），数据层不保存 px。架构三级，每级一个模块；`basic` 和 `midori` 是并列版式子命令：
 
 ```
-版式 basic.py: BasicPattern(参数) + draw(坐标) → [Line, Dot]
+版式 basic.py / midori.py: Pattern(参数) + draw(坐标) → [Line, Dot]
   ↓
 页面 pages.py: render_page → PageDraw（奇偶镜像几何 + 版式 + 逻辑页码）
   ↓
@@ -21,8 +21,11 @@
 ## 用法
 
 ```sh
-# 配置版式（横线/竖线/点默认全关，显式开启；保存到用户配置目录，render 自动读取）
-uv run base6-techo lines            # 查看当前版式配置
+# 配置 basic 版式（`lines` 保留为兼容命令，`basic` 是同级别名称）
+uv run base6-techo basic --hlines --spacing 8
+
+# 配置 Midori 版式
+uv run base6-techo midori --reset --spacing 5 --gap 1 --edge-extension 1.2
 
 # 30 页 A5 小册子（双面打印 → 叠放 → 对折）
 uv run base6-techo render --preset A5 --pages 30 --mode booklet --pdf out.tex
@@ -31,7 +34,7 @@ uv run base6-techo render --preset A5 --pages 30 --mode booklet --pdf out.tex
 uv run base6-techo render --preset A5 --pages 32 --mode thread --sheets-per-group 4 --pdf out.tex
 
 # 普通顺序 PDF
-uv run base6-techo render --preset A5 --pages 30 --mode normal --pdf out.tex
+uv run base6-techo render --preset A5 --pattern midori --pages 30 --mode normal --pdf out.tex
 
 # 在装订侧正中心纵向打印一排或两排页面水印（奇偶页自动镜像到实际装订侧）
 uv run base6-techo render --preset A5 --binding-text base-6 --binding-text-2 notebook --binding-text-size 10 --binding-text-2-size 8 --binding-text-spacing 12 --pdf out.tex
@@ -39,7 +42,7 @@ uv run base6-techo render --preset A5 --binding-text base-6 --binding-text-2 not
 
 生成 `out.tex`；`--pdf` 自动调用 tectonic/xelatex/pdflatex 编译出同名 PDF。
 纸张预设只是自动填写宽高；`--no-page-number` 可关页码；`--page-number-font` 设置页码字体，`--binding-text-font` 设置水印字体（传字体名时使用 XeLaTeX，传 `\\rmfamily` / `\\ttfamily` 等 LaTeX 声明时无需指定字体文件）；`--binding-text` / `--binding-text-2` 可设置装订侧一到两排水印，分别用 `--binding-text-size` / `--binding-text-2-size` 设置字号，用 `--binding-text-spacing` 设置两排中心间距（mm）；线装本用 `--mode thread --sheets-per-group N` 指定每组纸张数；非法参数（如 footer\<5mm 开页码、页数超限）会被拒绝。
-横线/圆点样式统一由 `lines` 子命令管理，`render` 不再接收线宽等参数。
+basic 样式由 `basic`（兼容命令 `lines`）管理，Midori 样式由 `midori` 管理；`render --pattern basic|midori` 选择实际版式。两种版式都只在各自的 header/footer/inner/outer 范围绘制，页码和 binding 水印仍可独立绘制到页脚和装订侧。
 
 ## 样例版式
 
@@ -52,7 +55,8 @@ sh examples/ruled.sh          # 横线本（顶底加粗）
 sh examples/dot-line.sh       # 国誉点线本
 sh examples/us-notebook.sh    # 美式笔记本
 sh examples/french-ruled.sh   # 法文格
-sh examples/square-grid.sh    # 方格
+sh examples/square-grid.sh    # 基础 5mm 方格
+sh examples/midori.sh          # Midori 方格
 ```
 
 ```sh

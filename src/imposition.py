@@ -5,7 +5,6 @@ Renderers never see pageCount/parity/sheet order - they only draw OutputPage.
 
 from dataclasses import dataclass
 
-from src.basic import BasicPattern
 from src.models import (
     ContentPage,
     DocumentPage,
@@ -13,7 +12,7 @@ from src.models import (
     PaddingPage,
     PageSettings,
 )
-from src.pages import PageDraw, render_page
+from src.pages import PageDraw, Pattern, render_page
 
 
 @dataclass(frozen=True)
@@ -97,7 +96,7 @@ def thread_sheets(
 
 
 def normal_output(
-    page: PageSettings, pattern: BasicPattern, doc: DocumentSettings
+    page: PageSettings, pattern: Pattern, doc: DocumentSettings
 ) -> list[OutputPage]:
     """1 logical page = 1 PDF page, original order."""
     return [
@@ -119,6 +118,9 @@ def normal_output(
                         doc.binding_text_spacing,
                         doc.page_number_font,
                         doc.binding_text_font,
+                        doc.header_dates,
+                        doc.header_date_format,
+                        doc.header_date_locale,
                     ),
                 )
             ],
@@ -129,7 +131,7 @@ def normal_output(
 
 def _two_up_output(
     page: PageSettings,
-    pattern: BasicPattern,
+    pattern: Pattern,
     sheets: list[BookletSheet],
     doc: DocumentSettings,
 ) -> list[OutputPage]:
@@ -152,6 +154,9 @@ def _two_up_output(
                         doc.binding_text_spacing,
                         doc.page_number_font,
                         doc.binding_text_font,
+                        doc.header_dates,
+                        doc.header_date_format,
+                        doc.header_date_locale,
                     ),
                 ),
                 Placement(
@@ -168,6 +173,9 @@ def _two_up_output(
                         doc.binding_text_spacing,
                         doc.page_number_font,
                         doc.binding_text_font,
+                        doc.header_dates,
+                        doc.header_date_format,
+                        doc.header_date_locale,
                     ),
                 ),
             ],
@@ -177,7 +185,7 @@ def _two_up_output(
 
 
 def booklet_output(
-    page: PageSettings, pattern: BasicPattern, doc: DocumentSettings
+    page: PageSettings, pattern: Pattern, doc: DocumentSettings
 ) -> list[OutputPage]:
     """Each sheet side = one 2W×H PDF page, front then back."""
     padded = pad_for_booklet(logical_pages(doc))
@@ -186,7 +194,7 @@ def booklet_output(
 
 def thread_output(
     page: PageSettings,
-    pattern: BasicPattern,
+    pattern: Pattern,
     doc: DocumentSettings,
     sheets_per_group: int,
 ) -> list[OutputPage]:

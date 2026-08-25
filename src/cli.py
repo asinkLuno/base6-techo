@@ -1,8 +1,10 @@
 """CLI: base6-techo render -> whole-notebook .tex (+ optional PDF)."""
 
+import calendar
 import json
 import shutil
 import subprocess
+from datetime import date, timedelta
 from pathlib import Path
 
 import click
@@ -17,6 +19,7 @@ from src.imposition import (
     thread_summary,
 )
 from src.latex import render_latex
+from src.midori import MidoriPattern
 from src.models import (
     PAGE_PRESETS,
     DocumentSettings,
@@ -26,11 +29,31 @@ from src.models import (
 
 _ENGINES = ("tectonic", "xelatex", "pdflatex")
 _LINES_FILE = Path(click.get_app_dir("base6-techo")) / "lines.json"
+_MIDORI_FILE = Path(click.get_app_dir("base6-techo")) / "midori.json"
+
+
+def _generate_dates(start_month: str, end_month: str) -> list[date]:
+    """Generate every day in an inclusive yyyy-MM month range."""
+    try:
+        start = date.fromisoformat(f"{start_month}-01")
+        end = date.fromisoformat(f"{end_month}-01")
+    except ValueError as e:
+        raise ValueError("months must use yyyy-MM format") from e
+    if start > end:
+        raise ValueError("start month must be <= end month")
+    end = end.replace(day=calendar.monthrange(end.year, end.month)[1])
+    return [start + timedelta(days=i) for i in range((end - start).days + 1)]
 
 
 def _load_lines() -> dict:
     if _LINES_FILE.exists():
         return json.loads(_LINES_FILE.read_text())
+    return {}
+
+
+def _load_midori() -> dict:
+    if _MIDORI_FILE.exists():
+        return json.loads(_MIDORI_FILE.read_text())
     return {}
 
 
@@ -241,6 +264,70 @@ def lines(**kw):
             click.echo(f"竖线 最左线宽 {pattern.vline_edge_width:g}pt")
 
 
+# Keep the original `lines` command while exposing the pattern-level name too.
+main.add_command(lines, "basic")
+
+
+@main.command()
+@click.option("--spacing", type=float, default=None, help="Grid cell size in mm.")
+@click.option(
+    "--gap",
+    type=float,
+    default=None,
+    help="Gap before each vertical grid segment in mm.",
+)
+@click.option(
+    "--edge-extension",
+    type=float,
+    default=None,
+    help="Length of short edge extensions in mm.",
+)
+@click.option(
+    "--dot-frequency",
+    type=int,
+    default=None,
+    help="Place helper dots every N grid cells.",
+)
+@click.option("--dot-radius", type=float, default=None, help="Helper dot radius in mm.")
+@click.option("--line-width", type=float, default=None, help="Grid line width in pt.")
+@click.option("--line-color", default=None, help="Grid line color, #RRGGBB.")
+@click.option("--dot-color", default=None, help="Helper dot color, #RRGGBB.")
+@click.option(
+    "--header/--no-header", default=None, help="Extend the grid into the page header."
+)
+@click.option(
+    "--footer/--no-footer", default=None, help="Extend the grid into the page footer."
+)
+@click.option(
+    "--inner/--no-inner", default=None, help="Extend the grid to the binding-side edge."
+)
+@click.option(
+    "--outer/--no-outer", default=None, help="Extend the grid to the outer edge."
+)
+@click.option("--reset", is_flag=True, help="Back to the default Midori pattern.")
+def midori(**kw):
+    """Configure the Midori pattern; saved for render."""
+    reset = kw.pop("reset")
+    cfg = {} if reset else _load_midori()
+    changed = reset
+    for name, value in kw.items():
+        if value is not None:
+            cfg[name] = value
+            changed = True
+    try:
+        pattern = MidoriPattern(**cfg)
+    except (ValueError, TypeError) as e:
+        raise click.ClickException(str(e))
+    if changed:
+        _MIDORI_FILE.parent.mkdir(parents=True, exist_ok=True)
+        _MIDORI_FILE.write_text(json.dumps(cfg, indent=2))
+        click.echo(f"midori 配置已保存到 {_MIDORI_FILE}")
+    click.echo(
+        f"Midori {pattern.spacing:g}mm 网格 · 间隙 {pattern.gap:g}mm · "
+        f"线宽 {pattern.line_width:g}pt · 颜色 {pattern.line_color}"
+    )
+
+
 @main.command()
 @click.option(
     "--preset",
@@ -310,6 +397,14 @@ def lines(**kw):
     help="LaTeX font declaration for binding watermarks.",
 )
 @click.option(
+    "--pattern",
+    "pattern_name",
+    type=click.Choice(["basic", "midori"]),
+    default="basic",
+    show_default=True,
+    help="Page pattern configured by `lines` or `midori`.",
+)
+@click.option(
     "--mode",
     "print_mode",
     type=click.Choice(["normal", "booklet", "thread"]),
@@ -322,6 +417,29 @@ def lines(**kw):
     default=4,
     show_default=True,
     help="Sheets in each thread-bound group (only used with --mode thread).",
+)
+@click.option(
+    "--header-date-range",
+    "header_date_range",
+    nargs=2,
+    type=str,
+    default=None,
+    help="Start and end months (yyyy-MM) for auto-dating pages.",
+)
+@click.option(
+    "--header-locale",
+    "header_date_locale",
+    type=click.Choice(["zh_CN", "en_US"]),
+    default="zh_CN",
+    show_default=True,
+    help="Locale used to format header dates.",
+)
+@click.option(
+    "--header-date-format",
+    "header_date_format",
+    type=str,
+    default=None,
+    help="Date format for header (ICU pattern, e.g., yyyy年M月d日EEEE). Defaults to yyyy年M月d日EEEE.",
 )
 @click.option(
     "--pdf", is_flag=True, help="Also compile to PDF if a LaTeX engine is installed."
@@ -344,12 +462,35 @@ def render(
     binding_text_spacing,
     page_number_font,
     binding_text_font,
+    pattern_name,
     print_mode,
     sheets_per_group,
+    header_date_range,
+    header_date_locale,
+    header_date_format,
     pdf,
     out,
 ):
     """Generate a complete printable ruled notebook (lines config from `lines`)."""
+    # Validate header date options
+    if header_date_format is not None and header_date_range is None:
+        raise click.ClickException("--header-date-format requires --header-date-range")
+    header_dates: tuple[date, ...] | None = None
+    if header_date_range is not None:
+        header_date_format = header_date_format or "yyyy年M月d日EEEE"
+        try:
+            all_dates = _generate_dates(header_date_range[0], header_date_range[1])
+        except ValueError as e:
+            raise click.ClickException(str(e))
+        # Cap pages at the number of days
+        effective_pages = min(pages, len(all_dates))
+        header_dates = tuple(all_dates[:effective_pages])
+        if effective_pages != pages:
+            click.echo(
+                f"页数从 {pages} 调整为 {effective_pages}（日期范围共 {len(all_dates)} 天）"
+            )
+        pages = effective_pages
+
     if preset:
         if width is not None or height is not None:
             raise click.ClickException(
@@ -381,14 +522,21 @@ def render(
             binding_text_spacing=binding_text_spacing,
             page_number_font=page_number_font,
             binding_text_font=binding_text_font,
+            header_dates=header_dates,
+            header_date_format=header_date_format,
+            header_date_locale=header_date_locale,
         )
         validate_project(page, doc)
     except ValueError as e:
         raise click.ClickException(str(e))
     try:
-        pattern = BasicPattern(**_load_lines())
+        pattern = (
+            MidoriPattern(**_load_midori())
+            if pattern_name == "midori"
+            else BasicPattern(**_load_lines())
+        )
     except (ValueError, TypeError) as e:
-        raise click.ClickException(f"lines 配置无效: {e}")
+        raise click.ClickException(f"{pattern_name} 配置无效: {e}")
 
     if print_mode == "booklet":
         output_pages = booklet_output(page, pattern, doc)
