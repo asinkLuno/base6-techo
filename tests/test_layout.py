@@ -1,6 +1,5 @@
 import pytest
 
-from src.basic import BasicPattern, draw, ruled_ys
 from src.imposition import normal_output
 from src.layout import Rect, geometry_for
 from src.models import (
@@ -11,6 +10,7 @@ from src.models import (
     validate_project,
 )
 from src.pages import Text, render_page
+from src.template.basic import BasicPattern, draw, ruled_ys
 
 A5 = PageSettings(
     width=148, height=210, header=10, footer=10, binding=15, non_binding=8

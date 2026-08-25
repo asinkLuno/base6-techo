@@ -7,8 +7,8 @@ and ``inner``/``outer`` extend that region in the same way as ``basic``.
 import math
 from dataclasses import dataclass
 
-from src.basic import _HEX_COLOR, Dot, Line, _region
 from src.layout import PageGeometry
+from src.template.basic import _HEX_COLOR, Dot, Line, _region
 
 
 @dataclass(frozen=True)
