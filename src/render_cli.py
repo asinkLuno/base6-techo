@@ -11,15 +11,14 @@ from src.basic import BasicPattern
 from src.imposition import OutputPage, normal_output
 from src.latex import render_latex
 from src.midori import MidoriPattern
-from src.models import PAGE_PRESETS, DocumentSettings, PageSettings, validate_project
+from src.models import DocumentSettings, PageSettings, validate_project
 from src.timeline import TimelinePattern
 
 
 def make_render(load_lines, load_midori, generate_dates, engines):
     @click.group()
-    @click.option("--preset", "--size", type=click.Choice(sorted(PAGE_PRESETS)))
-    @click.option("--width", type=float)
-    @click.option("--height", type=float)
+    @click.option("--width", type=float, required=True)
+    @click.option("--height", type=float, required=True)
     @click.option("--header", type=float, default=10, show_default=True)
     @click.option("--footer", type=float, default=10, show_default=True)
     @click.option("--binding", type=float, default=15, show_default=True)
@@ -60,17 +59,7 @@ def make_render(load_lines, load_midori, generate_dates, engines):
         ctx.obj = options
 
     def run(common, pattern, out, default_pages, default_page_number):
-        preset, width, height = common["preset"], common["width"], common["height"]
-        if preset and (width is not None or height is not None):
-            raise click.ClickException(
-                "--preset is mutually exclusive with --width/--height"
-            )
-        if preset:
-            width, height = PAGE_PRESETS[preset]
-        elif width is None and height is None:
-            width, height = PAGE_PRESETS["A5"]
-        elif width is None or height is None:
-            raise click.ClickException("--width and --height must be used together")
+        width, height = common["width"], common["height"]
 
         pages = common["pages"] or default_pages
         header_dates = None

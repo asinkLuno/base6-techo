@@ -55,8 +55,10 @@ def test_midori_command_configures_render_pattern(tmp_path, monkeypatch):
         main,
         [
             "render",
-            "--preset",
-            "A5",
+            "--width",
+            "148",
+            "--height",
+            "210",
             "--pages",
             "1",
             "midori",

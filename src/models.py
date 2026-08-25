@@ -7,16 +7,6 @@ from dataclasses import dataclass
 from datetime import date
 from typing import Literal
 
-PAGE_PRESETS: dict[str, tuple[float, float]] = {
-    "A3": (297, 420),
-    "A4": (210, 297),
-    "A5": (148, 210),
-    "A6": (105, 148),
-    "B5": (176, 250),
-    "B6": (125, 176),
-    "Letter": (215.9, 279.4),
-}
-
 MIN_FOOTER_FOR_PAGE_NUMBER = 5  # mm
 MAX_PAGE_COUNT = 500
 
