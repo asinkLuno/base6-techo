@@ -163,7 +163,19 @@ def test_page_number_belongs_to_logical_page():
     assert render_page(A5, RULED, ContentPage(17), show_page_number=False).texts == []
 
 
-def test_binding_text_is_page_content_and_mirrors_side():
+def test_page_number_and_binding_fonts():
+    d = render_page(
+        A5,
+        RULED,
+        ContentPage(17),
+        True,
+        "watermark",
+        page_number_font=r"\rmfamily",
+        binding_text_font=r"\ttfamily",
+    )
+    assert d.texts[0].font == r"\rmfamily"
+    assert d.texts[1].font == r"\ttfamily"
+
     odd = render_page(A5, RULED, ContentPage(1), False, "base-6")
     even = render_page(A5, RULED, ContentPage(2), False, "base-6")
     assert odd.texts == [Text(7.5, 105, "base-6", rotation=90)]
@@ -184,8 +196,8 @@ def test_binding_text_supports_two_lines_and_sizes():
         12,
     )
     assert d.texts == [
-        Text(7.5, 99, "top", size_pt=10, rotation=90),
-        Text(7.5, 111, "bottom", size_pt=6, rotation=90),
+        Text(1.5, 105, "top", size_pt=10, rotation=90),
+        Text(13.5, 105, "bottom", size_pt=6, rotation=90),
     ]
 
 

@@ -13,3 +13,7 @@ wheels/
 out.*
 examples/*.pdf
 examples/*.tex
+
+# Test font assets
+0xProto.zip
+LICENSE

@@ -298,6 +298,18 @@ def lines(**kw):
     help="Center-to-center spacing between binding watermark lines in mm.",
 )
 @click.option(
+    "--page-number-font",
+    default=r"\sffamily",
+    show_default=True,
+    help="LaTeX font declaration for page numbers.",
+)
+@click.option(
+    "--binding-text-font",
+    default=r"\sffamily",
+    show_default=True,
+    help="LaTeX font declaration for binding watermarks.",
+)
+@click.option(
     "--mode",
     "print_mode",
     type=click.Choice(["normal", "booklet", "thread"]),
@@ -330,6 +342,8 @@ def render(
     binding_text_size,
     binding_text_2_size,
     binding_text_spacing,
+    page_number_font,
+    binding_text_font,
     print_mode,
     sheets_per_group,
     pdf,
@@ -365,6 +379,8 @@ def render(
             binding_text_size=binding_text_size,
             binding_text_2_size=binding_text_2_size,
             binding_text_spacing=binding_text_spacing,
+            page_number_font=page_number_font,
+            binding_text_font=binding_text_font,
         )
         validate_project(page, doc)
     except ValueError as e:

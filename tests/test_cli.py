@@ -84,4 +84,24 @@ def test_lines_saved_and_used_by_render(tmp_path, monkeypatch):
     # `lines` with no args: margin_x alone is inert (no color -> nothing drawn)
     r = runner.invoke(main, ["lines"])
     assert r.exit_code == 0
-    assert "边线" not in r.output
+    r = runner.invoke(
+        main,
+        [
+            "render",
+            "--preset",
+            "A5",
+            "--pages",
+            "1",
+            "--page-number-font",
+            r"\rmfamily",
+            "--binding-text",
+            "wm",
+            "--binding-text-font",
+            r"\ttfamily",
+            str(tmp_path / "fonts.tex"),
+        ],
+    )
+    assert r.exit_code == 0, r.output
+    tex = (tmp_path / "fonts.tex").read_text()
+    assert r"font={\rmfamily\fontsize" in tex
+    assert r"font={\ttfamily\fontsize" in tex

@@ -38,7 +38,7 @@ uv run base6-techo render --preset A5 --binding-text base-6 --binding-text-2 not
 ```
 
 生成 `out.tex`；`--pdf` 自动调用 tectonic/xelatex/pdflatex 编译出同名 PDF。
-纸张预设只是自动填写宽高；`--no-page-number` 可关页码；`--binding-text` / `--binding-text-2` 可设置装订侧一到两排水印，分别用 `--binding-text-size` / `--binding-text-2-size` 设置字号，用 `--binding-text-spacing` 设置两排中心间距（mm）；线装本用 `--mode thread --sheets-per-group N` 指定每组纸张数；非法参数（如 footer\<5mm 开页码、页数超限）会被拒绝。
+纸张预设只是自动填写宽高；`--no-page-number` 可关页码；`--page-number-font` 设置页码字体，`--binding-text-font` 设置水印字体（传字体名时使用 XeLaTeX，传 `\\rmfamily` / `\\ttfamily` 等 LaTeX 声明时无需指定字体文件）；`--binding-text` / `--binding-text-2` 可设置装订侧一到两排水印，分别用 `--binding-text-size` / `--binding-text-2-size` 设置字号，用 `--binding-text-spacing` 设置两排中心间距（mm）；线装本用 `--mode thread --sheets-per-group N` 指定每组纸张数；非法参数（如 footer\<5mm 开页码、页数超限）会被拒绝。
 横线/圆点样式统一由 `lines` 子命令管理，`render` 不再接收线宽等参数。
 
 ## 样例版式

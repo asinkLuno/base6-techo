@@ -1,11 +1,14 @@
 """LaTeX renderer: draws precomputed OutputPages, knows nothing about
 pageCount / parity / booklet semantics."""
 
+from pathlib import Path
+
 from src.basic import BasicPattern
 from src.imposition import OutputPage
 from src.pages import PAGE_NUMBER_COLOR
 
 _DOC = """\\documentclass[multi=tikzpicture]{standalone}
+%s
 \\usepackage{tikz}
 %s
 \\begin{document}
@@ -35,6 +38,18 @@ def _tex(text: str) -> str:
     return "".join(escaped.get(char, char) for char in text)
 
 
+def _font_command(font: str) -> str:
+    if font.lstrip().startswith("\\"):
+        return font
+    path = Path(font)
+    if path.suffix.lower() in {".otf", ".ttf", ".ttc"}:
+        return (
+            f"\\fontspec[Path={_tex(path.parent.as_posix() + '/')}]"
+            f"{{{_tex(path.name)}}}"
+        )
+    return f"\\fontspec{{{_tex(font)}}}"
+
+
 def _page(op: OutputPage, pattern: BasicPattern) -> str:
     parts = [f"\\useasboundingbox (0,0) rectangle ({op.width:g},{op.height:g});"]
     line_cmds: dict[tuple[str, float | None], list[str]] = {}
@@ -62,7 +77,7 @@ def _page(op: OutputPage, pattern: BasicPattern) -> str:
     for p in op.placements:
         for t in p.draw.texts:
             parts.append(
-                f"\\node[pnumcolor, rotate={t.rotation:g}, font=\\sffamily\\fontsize{{{t.size_pt:g}}}{{{t.size_pt * 1.2:g}}}\\selectfont] "
+                f"\\node[pnumcolor, rotate={t.rotation:g}, font={{{_font_command(t.font)}\\fontsize{{{t.size_pt:g}}}{{{t.size_pt * 1.2:g}}}\\selectfont}}] "
                 f"at ({p.dx + t.x:g},{t.y:g}) {{{_tex(t.content)}}};"
             )
     return (
@@ -87,4 +102,11 @@ def render_latex(output_pages: list[OutputPage], pattern: BasicPattern) -> str:
         for name, color in colors.items()
     )
     body = "\n\n".join(_page(op, pattern) for op in output_pages)
-    return _DOC % (defines, body)
+    uses_font_name = any(
+        t.font and not t.font.lstrip().startswith("\\")
+        for op in output_pages
+        for placement in op.placements
+        for t in placement.draw.texts
+    )
+    packages = "\\usepackage{fontspec}" if uses_font_name else ""
+    return _DOC % (packages, defines, body)
