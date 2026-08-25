@@ -4,6 +4,7 @@ All user-facing lengths are in mm; font size is in pt.
 """
 
 from dataclasses import dataclass
+from datetime import date
 
 PAGE_PRESETS: dict[str, tuple[float, float]] = {
     "A3": (297, 420),
@@ -60,6 +61,9 @@ class DocumentSettings:
     binding_text_spacing: float = 5
     page_number_font: str = r"\sffamily"
     binding_text_font: str = r"\sffamily"
+    header_dates: tuple[date, ...] | None = None
+    header_date_format: str | None = None
+    header_date_locale: str = "zh_CN"
 
     def __post_init__(self) -> None:
         if not 1 <= self.page_count <= MAX_PAGE_COUNT:
@@ -74,6 +78,14 @@ class DocumentSettings:
             raise ValueError("binding_text_spacing must be >= 0")
         if not self.page_number_font.strip() or not self.binding_text_font.strip():
             raise ValueError("font declarations must not be empty")
+        if self.header_dates is not None:
+            if len(self.header_dates) == 0:
+                raise ValueError("header_dates must not be empty")
+            if len(self.header_dates) != self.page_count:
+                raise ValueError(
+                    f"header_dates length ({len(self.header_dates)}) must match "
+                    f"page_count ({self.page_count})"
+                )
 
 
 def validate_project(page: PageSettings, doc: DocumentSettings) -> None:

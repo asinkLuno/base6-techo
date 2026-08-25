@@ -105,3 +105,39 @@ def test_lines_saved_and_used_by_render(tmp_path, monkeypatch):
     tex = (tmp_path / "fonts.tex").read_text()
     assert r"font={\rmfamily\fontsize" in tex
     assert r"font={\ttfamily\fontsize" in tex
+
+
+def test_header_dates_use_babel_locale_and_format(tmp_path):
+    runner = CliRunner()
+    r = runner.invoke(
+        main,
+        [
+            "render",
+            "--preset",
+            "A5",
+            "--pages",
+            "1",
+            "--header-date-range",
+            "2026-09",
+            "2026-09",
+            str(tmp_path / "dates.tex"),
+        ],
+    )
+    assert r.exit_code == 0, r.output
+    assert "2026年9月1日星期二" in (tmp_path / "dates.tex").read_text()
+
+    r = runner.invoke(
+        main,
+        [
+            "render",
+            "--preset",
+            "A5",
+            "--pages",
+            "1",
+            "--header-date-range",
+            "2026年9月",
+            "2026-09",
+            str(tmp_path / "invalid-dates.tex"),
+        ],
+    )
+    assert r.exit_code != 0

@@ -3,9 +3,9 @@ pageCount / parity / booklet semantics."""
 
 from pathlib import Path
 
-from src.basic import BasicPattern
 from src.imposition import OutputPage
-from src.pages import PAGE_NUMBER_COLOR
+from src.midori import MidoriPattern
+from src.pages import PAGE_NUMBER_COLOR, Pattern
 
 _DOC = """\\documentclass[multi=tikzpicture]{standalone}
 %s
@@ -50,7 +50,7 @@ def _font_command(font: str) -> str:
     return f"\\fontspec{{{_tex(font)}}}"
 
 
-def _page(op: OutputPage, pattern: BasicPattern) -> str:
+def _page(op: OutputPage, pattern: Pattern) -> str:
     parts = [f"\\useasboundingbox (0,0) rectangle ({op.width:g},{op.height:g});"]
     line_cmds: dict[tuple[str, float | None], list[str]] = {}
     dot_cmds: dict[str, list[str]] = {}
@@ -87,13 +87,14 @@ def _page(op: OutputPage, pattern: BasicPattern) -> str:
     )
 
 
-def render_latex(output_pages: list[OutputPage], pattern: BasicPattern) -> str:
+def render_latex(output_pages: list[OutputPage], pattern: Pattern) -> str:
     colors = {"patterncolor": pattern.line_color, "pnumcolor": PAGE_NUMBER_COLOR}
     for h in (
-        pattern.margin_color,
-        pattern.hline_edge_color,
-        pattern.vline_edge_color,
-        pattern.dot_center_color,
+        getattr(pattern, "margin_color", None),
+        getattr(pattern, "hline_edge_color", None),
+        getattr(pattern, "vline_edge_color", None),
+        getattr(pattern, "dot_center_color", None),
+        pattern.dot_color if isinstance(pattern, MidoriPattern) else None,
     ):
         if h is not None:
             colors[_name(h)] = h

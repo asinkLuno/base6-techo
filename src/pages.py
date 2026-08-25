@@ -4,9 +4,17 @@ PageDraw is pure mm geometry; imposition only moves these finished pages.
 """
 
 from dataclasses import dataclass
+from datetime import date
 
-from src.basic import BasicPattern, Dot, Line, draw
+from babel.dates import format_date
+
+from src.basic import BasicPattern, Dot, Line
+from src.basic import draw as draw_basic
 from src.layout import geometry_for
+from src.midori import MidoriPattern
+from src.midori import draw as draw_midori
+
+Pattern = BasicPattern | MidoriPattern
 from src.models import ContentPage, DocumentPage, PageSettings
 
 PAGE_NUMBER_SIZE = 8  # pt
@@ -33,7 +41,7 @@ class PageDraw:
 
 def render_page(
     page: PageSettings,
-    pattern: BasicPattern,
+    pattern: Pattern,
     doc_page: DocumentPage,
     show_page_number: bool,
     binding_text: str | None = None,
@@ -43,12 +51,18 @@ def render_page(
     binding_text_spacing: float = 5,
     page_number_font: str = r"\sffamily",
     binding_text_font: str = r"\sffamily",
+    header_dates: tuple[date, ...] | None = None,
+    header_date_format: str | None = None,
+    header_date_locale: str = "zh_CN",
 ) -> PageDraw:
     """Render one complete logical page. Page numbers and binding text belong to
     the logical page (drawn here, before imposition); padding pages stay blank."""
     if isinstance(doc_page, ContentPage):
         geo = geometry_for(page, doc_page.page_number)
-        lines, dots = draw(geo, pattern)
+        if isinstance(pattern, MidoriPattern):
+            lines, dots = draw_midori(geo, pattern)
+        else:
+            lines, dots = draw_basic(geo, pattern)
         texts = (
             [
                 Text(
@@ -61,6 +75,21 @@ def render_page(
             if show_page_number
             else []
         )
+        # Header date
+        if header_dates is not None and header_date_format is not None:
+            idx = doc_page.page_number - 1
+            if 0 <= idx < len(header_dates):
+                date_str = format_date(
+                    header_dates[idx], header_date_format, locale=header_date_locale
+                )
+                texts.append(
+                    Text(
+                        page.width / 2,
+                        page.header / 2,
+                        date_str,
+                        font=page_number_font,
+                    )
+                )
         center_x = (
             page.binding / 2
             if geo.binding_side == "left"
