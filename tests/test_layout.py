@@ -19,7 +19,7 @@ from base6_techo.models import (
     RuledPattern,
     validate_project,
 )
-from base6_techo.pages import dot_xs, render_page
+from base6_techo.pages import render_page
 
 A5 = PageSettings(
     width=148, height=210, header=10, footer=10, binding=15, non_binding=8

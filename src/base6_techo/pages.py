@@ -49,7 +49,9 @@ def dot_xs(content: Rect, spacing: float) -> list[float]:
     content area, spreading left/right by spacing; symmetric edge gaps."""
     center = content.x + content.width / 2
     k = math.floor(content.width / 2 / spacing + 1e-9)
-    return [center - i * spacing for i in range(k, 0, -1)] + [center + i * spacing for i in range(k + 1)]
+    return [center - i * spacing for i in range(k, 0, -1)] + [
+        center + i * spacing for i in range(k + 1)
+    ]
 
 
 def render_page(
@@ -65,12 +67,22 @@ def render_page(
         c = geo.content
         lines = [Line(c.x, y, c.x + c.width, y) for y in ruled_ys(geo, pattern.spacing)]
         dots = (
-            [Dot(x, line.y1, pattern.dot_radius) for line in lines for x in dot_xs(c, pattern.dot_spacing)]
+            [
+                Dot(x, line.y1, pattern.dot_radius)
+                for line in lines
+                for x in dot_xs(c, pattern.dot_spacing)
+            ]
             if pattern.dot_spacing
             else []
         )
         texts = (
-            [Text(page.width / 2, page.height - page.footer / 2, str(doc_page.page_number))]
+            [
+                Text(
+                    page.width / 2,
+                    page.height - page.footer / 2,
+                    str(doc_page.page_number),
+                )
+            ]
             if show_page_number
             else []
         )

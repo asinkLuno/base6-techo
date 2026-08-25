@@ -57,7 +57,9 @@ def main() -> None:
     default=None,
     help="Also draw dots on the lines every N mm (centered, spreading outward).",
 )
-@click.option("--dot-radius", "dot_radius", type=float, default=0.3, help="Dot radius in mm.")
+@click.option(
+    "--dot-radius", "dot_radius", type=float, default=0.3, help="Dot radius in mm."
+)
 @click.option("--pages", type=int, default=32, help="Finished notebook page count.")
 @click.option(
     "--page-number/--no-page-number",
@@ -147,7 +149,9 @@ def render(
             if engine == "tectonic"
             else [engine, "-interaction=nonstopmode", "-halt-on-error", str(out_path)]
         )
-        r = subprocess.run(cmd, cwd=out_path.parent, capture_output=True, text=True, check=False)
+        r = subprocess.run(
+            cmd, cwd=out_path.parent, capture_output=True, text=True, check=False
+        )
         if r.returncode != 0:
             raise click.ClickException(
                 f"{engine} failed:\n{r.stdout[-2000:]}{r.stderr[-2000:]}"

@@ -19,6 +19,7 @@ base6-techo = "base6_techo:main"
 dev = [
     "pytest>=8",
     "ruff>=0.16.4",
+    "ty>=0.0.1",
     "uv>=0.12.5",
 ]
 

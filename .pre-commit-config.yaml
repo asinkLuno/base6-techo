@@ -24,9 +24,8 @@ repos:
 
       - id: ty
         name: ty
-        entry: ty check
-        language: python
-        additional_dependencies: ["ty>=0.0.1"]
+        entry: uv run ty check
+        language: system
         types: [python]
         pass_filenames: false
 
