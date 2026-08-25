@@ -5,7 +5,7 @@ Renderers never see pageCount/parity/sheet order — they only draw OutputPage.
 
 from dataclasses import dataclass
 
-from src.lines import RuledPattern
+from src.basic import BasicPattern
 from src.models import (
     ContentPage,
     DocumentPage,
@@ -70,7 +70,7 @@ def booklet_sheets(pages: list[DocumentPage]) -> list[BookletSheet]:
 
 
 def normal_output(
-    page: PageSettings, pattern: RuledPattern, doc: DocumentSettings
+    page: PageSettings, pattern: BasicPattern, doc: DocumentSettings
 ) -> list[OutputPage]:
     """1 logical page = 1 PDF page, original order."""
     return [
@@ -84,7 +84,7 @@ def normal_output(
 
 
 def booklet_output(
-    page: PageSettings, pattern: RuledPattern, doc: DocumentSettings
+    page: PageSettings, pattern: BasicPattern, doc: DocumentSettings
 ) -> list[OutputPage]:
     """Each sheet side = one 2W×H PDF page, front then back."""
     padded = pad_for_booklet(logical_pages(doc))

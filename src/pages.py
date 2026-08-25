@@ -5,8 +5,8 @@ PageDraw is pure mm geometry; imposition only moves these finished pages.
 
 from dataclasses import dataclass
 
+from src.basic import BasicPattern, Dot, Line, draw
 from src.layout import geometry_for
-from src.lines import Dot, Line, RuledPattern, draw
 from src.models import ContentPage, DocumentPage, PageSettings
 
 PAGE_NUMBER_SIZE = 8  # pt
@@ -31,7 +31,7 @@ class PageDraw:
 
 def render_page(
     page: PageSettings,
-    pattern: RuledPattern,
+    pattern: BasicPattern,
     doc_page: DocumentPage,
     show_page_number: bool,
 ) -> PageDraw:

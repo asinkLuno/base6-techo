@@ -8,9 +8,9 @@ from pathlib import Path
 import click
 from loguru import logger
 
+from src.basic import BasicPattern
 from src.imposition import booklet_output, booklet_summary, normal_output
 from src.latex import render_latex
-from src.lines import RuledPattern
 from src.models import (
     PAGE_PRESETS,
     DocumentSettings,
@@ -40,6 +40,116 @@ def main() -> None:
 )
 @click.option("--line-color", "line_color", default=None, help="Line color, #RRGGBB.")
 @click.option(
+    "--hlines/--no-hlines",
+    "draw_hlines",
+    default=None,
+    help="Draw horizontal ruled lines.",
+)
+@click.option(
+    "--vlines/--no-vlines",
+    "draw_vlines",
+    default=None,
+    help="Draw vertical lines (margin/grid) when configured.",
+)
+@click.option(
+    "--dots/--no-dots",
+    "draw_dots",
+    default=None,
+    help="Draw dots when dot-spacing configured.",
+)
+@click.option(
+    "--hline-header/--no-hline-header",
+    default=None,
+    help="Extend horizontal lines to the paper header.",
+)
+@click.option(
+    "--hline-footer/--no-hline-footer",
+    default=None,
+    help="Extend horizontal lines to the paper footer.",
+)
+@click.option(
+    "--hline-inner/--no-hline-inner",
+    default=None,
+    help="Extend horizontal lines to the binding-side edge.",
+)
+@click.option(
+    "--hline-outer/--no-hline-outer",
+    default=None,
+    help="Extend horizontal lines to the outer edge.",
+)
+@click.option(
+    "--vline-header/--no-vline-header",
+    default=None,
+    help="Extend vertical lines to the paper header.",
+)
+@click.option(
+    "--vline-footer/--no-vline-footer",
+    default=None,
+    help="Extend vertical lines to the paper footer.",
+)
+@click.option(
+    "--vline-inner/--no-vline-inner",
+    default=None,
+    help="Extend vertical lines to the binding-side edge.",
+)
+@click.option(
+    "--vline-outer/--no-vline-outer",
+    default=None,
+    help="Extend vertical lines to the outer edge.",
+)
+@click.option(
+    "--dot-header/--no-dot-header",
+    default=None,
+    help="Extend dots to the paper header.",
+)
+@click.option(
+    "--dot-footer/--no-dot-footer",
+    default=None,
+    help="Extend dots to the paper footer.",
+)
+@click.option(
+    "--dot-inner/--no-dot-inner",
+    default=None,
+    help="Extend dots to the binding-side edge.",
+)
+@click.option(
+    "--dot-outer/--no-dot-outer",
+    default=None,
+    help="Extend dots to the outer edge.",
+)
+@click.option(
+    "--hline-edge-color",
+    "hline_edge_color",
+    default=None,
+    help="Color of the topmost/bottommost hlines, #RRGGBB.",
+)
+@click.option(
+    "--hline-edge-width",
+    "hline_edge_width",
+    type=float,
+    default=None,
+    help="Line width (pt) of the topmost/bottommost hlines.",
+)
+@click.option(
+    "--vline-edge-color",
+    "vline_edge_color",
+    default=None,
+    help="Color of the leftmost vline, #RRGGBB.",
+)
+@click.option(
+    "--vline-edge-width",
+    "vline_edge_width",
+    type=float,
+    default=None,
+    help="Line width (pt) of the leftmost vline.",
+)
+@click.option(
+    "--dot-center-color",
+    "dot_center_color",
+    default=None,
+    help="Color of the center dot, #RRGGBB.",
+)
+@click.option(
     "--dot-spacing",
     "dot_spacing",
     type=float,
@@ -50,37 +160,79 @@ def main() -> None:
     "--dot-radius", "dot_radius", type=float, default=None, help="Dot radius in mm."
 )
 @click.option(
+    "--margin-x",
+    "margin_x",
+    type=float,
+    default=None,
+    help="Left margin vertical line, mm from content left (US notebook).",
+)
+@click.option(
+    "--margin-color",
+    "margin_color",
+    default=None,
+    help="Margin line color, #RRGGBB.",
+)
+@click.option(
+    "--vline-spacing",
+    "vline_spacing",
+    type=float,
+    default=None,
+    help="Vertical grid lines every N mm from content left (French Seyes).",
+)
+@click.option(
     "--reset", is_flag=True, help="Back to default pattern (keeps --* overrides)."
 )
-def lines(spacing, line_width, line_color, dot_spacing, dot_radius, reset):
-    """Configure the ruled-line pattern; saved for render. No options = show."""
+def lines(**kw):
+    """Configure the basic pattern; saved for render. No options = show."""
+    reset = kw.pop("reset")
     cfg = {} if reset else _load_lines()
     changed = reset
-    for name, value in (
-        ("spacing", spacing),
-        ("line_width", line_width),
-        ("line_color", line_color),
-        ("dot_spacing", dot_spacing),
-        ("dot_radius", dot_radius),
-    ):
+    for name, value in kw.items():
         if value is not None:
             cfg[name] = value
             changed = True
     try:
-        pattern = RuledPattern(**cfg)
+        pattern = BasicPattern(**cfg)
     except (ValueError, TypeError) as e:
         raise click.ClickException(str(e))
     if changed:
         _LINES_FILE.parent.mkdir(parents=True, exist_ok=True)
         _LINES_FILE.write_text(json.dumps(cfg, indent=2))
         click.echo(f"lines 配置已保存到 {_LINES_FILE}")
-    click.echo(
-        f"横线 间距 {pattern.spacing:g}mm · 线宽 {pattern.line_width:g}pt · 颜色 {pattern.line_color}"
-    )
-    if pattern.dot_spacing:
+    if pattern.draw_hlines:
+        click.echo(
+            f"横线 间距 {pattern.spacing:g}mm · 线宽 {pattern.line_width:g}pt · 颜色 {pattern.line_color}"
+        )
+        if pattern.hline_edge_color:
+            click.echo(f"横线 顶底颜色 {pattern.hline_edge_color}")
+        if pattern.hline_edge_width:
+            click.echo(f"横线 顶底线宽 {pattern.hline_edge_width:g}pt")
+    else:
+        click.echo("横线 不画")
+    if pattern.dot_spacing and pattern.draw_dots:
         click.echo(
             f"圆点 间距 {pattern.dot_spacing:g}mm · 半径 {pattern.dot_radius:g}mm"
         )
+        if pattern.dot_center_color:
+            click.echo(f"圆点 中心颜色 {pattern.dot_center_color}")
+    if (
+        pattern.margin_x is not None
+        and pattern.margin_color is not None
+        and pattern.draw_vlines
+    ):
+        click.echo(f"边线 左距 {pattern.margin_x:g}mm · 颜色 {pattern.margin_color}")
+    if (
+        pattern.vline_spacing is not None
+        and pattern.margin_color is not None
+        and pattern.draw_vlines
+    ):
+        click.echo(
+            f"竖线 间距 {pattern.vline_spacing:g}mm · 颜色 {pattern.margin_color}"
+        )
+        if pattern.vline_edge_color:
+            click.echo(f"竖线 最左颜色 {pattern.vline_edge_color}")
+        if pattern.vline_edge_width:
+            click.echo(f"竖线 最左线宽 {pattern.vline_edge_width:g}pt")
 
 
 @main.command()
@@ -160,7 +312,7 @@ def render(
     except ValueError as e:
         raise click.ClickException(str(e))
     try:
-        pattern = RuledPattern(**_load_lines())
+        pattern = BasicPattern(**_load_lines())
     except (ValueError, TypeError) as e:
         raise click.ClickException(f"lines 配置无效: {e}")
 
@@ -188,9 +340,9 @@ def render(
         if engine is None:
             raise click.ClickException(f"no LaTeX engine found: {'/'.join(_ENGINES)}")
         cmd = (
-            [engine, str(out_path)]
+            [engine, out_path.name]
             if engine == "tectonic"
-            else [engine, "-interaction=nonstopmode", "-halt-on-error", str(out_path)]
+            else [engine, "-interaction=nonstopmode", "-halt-on-error", out_path.name]
         )
         r = subprocess.run(
             cmd, cwd=out_path.parent, capture_output=True, text=True, check=False
@@ -199,4 +351,10 @@ def render(
             raise click.ClickException(
                 f"{engine} failed:\n{r.stdout[-2000:]}{r.stderr[-2000:]}"
             )
+        log = out_path.with_suffix(".log")
+        if log.exists():
+            log.unlink()
+        aux = out_path.with_suffix(".aux")
+        if aux.exists():
+            aux.unlink()
         logger.info(f"wrote {out_path.with_suffix('.pdf')}")
