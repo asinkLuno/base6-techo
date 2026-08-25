@@ -17,3 +17,6 @@ examples/*.tex
 # Test font assets
 0xProto.zip
 LICENSE
+
+# Editor session files
+Session.vim
