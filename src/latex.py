@@ -1,42 +1,47 @@
 """LaTeX renderer: draws precomputed OutputPages, knows nothing about
 pageCount / parity / booklet semantics."""
 
+from src.basic import BasicPattern
 from src.imposition import OutputPage
-from src.lines import RuledPattern
 from src.pages import PAGE_NUMBER_COLOR
 
 _DOC = """\\documentclass[multi=tikzpicture]{standalone}
 \\usepackage{tikz}
-\\definecolor{patterncolor}{HTML}{%s}
-\\definecolor{pnumcolor}{HTML}{%s}
+%s
 \\begin{document}
 %s
 \\end{document}
 """
 
 
-def _page(op: OutputPage, pattern: RuledPattern) -> str:
+def _name(h: str) -> str:
+    return "c" + h.lstrip("#")
+
+
+def _page(op: OutputPage, pattern: BasicPattern) -> str:
     parts = [f"\\useasboundingbox (0,0) rectangle ({op.width:g},{op.height:g});"]
-    lines = [
-        f"  \\draw ({p.dx + l.x1:g},{l.y1:g}) -- ({p.dx + l.x2:g},{l.y2:g});"
-        for p in op.placements
-        for l in p.draw.lines
-    ]
-    if lines:
+    line_cmds: dict[tuple[str, float | None], list[str]] = {}
+    dot_cmds: dict[str, list[str]] = {}
+    for p in op.placements:
+        for l in p.draw.lines:
+            name = "patterncolor" if l.color is None else _name(l.color)
+            line_cmds.setdefault((name, l.width), []).append(
+                f"  \\draw ({p.dx + l.x1:g},{l.y1:g}) -- ({p.dx + l.x2:g},{l.y2:g});"
+            )
+        for d in p.draw.dots:
+            name = "patterncolor" if d.color is None else _name(d.color)
+            dot_cmds.setdefault(name, []).append(
+                f"  \\fill ({p.dx + d.x:g},{d.y:g}) circle ({d.radius:g});"
+            )
+    for (name, width), cmds in line_cmds.items():
+        w = pattern.line_width if width is None else width
         parts.append(
-            f"\\begin{{scope}}[patterncolor, line width={pattern.line_width:g}pt]\n"
-            + "\n".join(lines)
+            f"\\begin{{scope}}[{name}, line width={w:g}pt]\n"
+            + "\n".join(cmds)
             + "\n\\end{scope}"
         )
-    dots = [
-        f"  \\fill ({p.dx + d.x:g},{d.y:g}) circle ({d.radius:g});"
-        for p in op.placements
-        for d in p.draw.dots
-    ]
-    if dots:
-        parts.append(
-            "\\begin{scope}[patterncolor]\n" + "\n".join(dots) + "\n\\end{scope}"
-        )
+    for name, cmds in dot_cmds.items():
+        parts.append(f"\\begin{{scope}}[{name}]\n" + "\n".join(cmds) + "\n\\end{scope}")
     for p in op.placements:
         for t in p.draw.texts:
             parts.append(
@@ -50,10 +55,19 @@ def _page(op: OutputPage, pattern: RuledPattern) -> str:
     )
 
 
-def render_latex(output_pages: list[OutputPage], pattern: RuledPattern) -> str:
-    body = "\n\n".join(_page(op, pattern) for op in output_pages)
-    return _DOC % (
-        pattern.line_color.lstrip("#").upper(),
-        PAGE_NUMBER_COLOR.lstrip("#").upper(),
-        body,
+def render_latex(output_pages: list[OutputPage], pattern: BasicPattern) -> str:
+    colors = {"patterncolor": pattern.line_color, "pnumcolor": PAGE_NUMBER_COLOR}
+    for h in (
+        pattern.margin_color,
+        pattern.hline_edge_color,
+        pattern.vline_edge_color,
+        pattern.dot_center_color,
+    ):
+        if h is not None:
+            colors[_name(h)] = h
+    defines = "\n".join(
+        f"\\definecolor{{{name}}}{{HTML}}{{{color.lstrip('#').upper()}}}"
+        for name, color in colors.items()
     )
+    body = "\n\n".join(_page(op, pattern) for op in output_pages)
+    return _DOC % (defines, body)

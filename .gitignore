@@ -11,3 +11,5 @@ wheels/
 
 # LaTeX build output
 out.*
+examples/*.pdf
+examples/*.tex

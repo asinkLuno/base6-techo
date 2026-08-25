@@ -8,7 +8,30 @@ def test_lines_saved_and_used_by_render(tmp_path, monkeypatch):
     runner = CliRunner()
     r = runner.invoke(
         main,
-        ["lines", "--spacing", "10", "--line-color", "#112233", "--dot-spacing", "5"],
+        [
+            "lines",
+            "--hlines",
+            "--vlines",
+            "--dots",
+            "--spacing",
+            "10",
+            "--line-color",
+            "#112233",
+            "--dot-spacing",
+            "5",
+            "--margin-x",
+            "20",
+            "--margin-color",
+            "#CC0000",
+            "--vline-spacing",
+            "40",
+            "--hline-edge-color",
+            "#111111",
+            "--vline-edge-color",
+            "#222222",
+            "--dot-center-color",
+            "#333333",
+        ],
     )
     assert r.exit_code == 0, r.output
     assert "10mm" in r.output
@@ -21,8 +44,44 @@ def test_lines_saved_and_used_by_render(tmp_path, monkeypatch):
     assert "112233" in tex
     assert "line width=0.2pt" in tex
     assert "circle (" in tex
+    assert "definecolor{cCC0000}{HTML}{CC0000}" in tex
+    assert (
+        "\\draw (35,10) -- (35,200);" in tex
+    )  # margin line, content x=15+20, full height
+    assert "\\draw (37.5,10) -- (37.5,200);" in tex  # vline grid, center 77.5-40
+    assert "definecolor{c111111}{HTML}{111111}" in tex
+    assert "definecolor{c222222}{HTML}{222222}" in tex
+    assert "definecolor{c333333}{HTML}{333333}" in tex
 
-    # `lines` with no args shows the same saved pattern
+    # margin_x without margin_color -> nothing drawn (fresh config)
+    runner.invoke(main, ["lines", "--reset", "--margin-x", "20"])
+    r = runner.invoke(
+        main, ["render", "--preset", "A5", "--pages", "4", str(tmp_path / "out2.tex")]
+    )
+    assert r.exit_code == 0, r.output
+    tex2 = (tmp_path / "out2.tex").read_text()
+    assert "definecolor{c" not in tex2  # no special colors at all
+    assert r"\draw (35,10) -- (35,200);" not in tex2
+
+    # dot grid: dots on, lines off (all off by default, explicit --dots)
+    runner.invoke(main, ["lines", "--reset", "--dots", "--dot-spacing", "8"])
+    r = runner.invoke(
+        main, ["render", "--preset", "A5", "--pages", "4", str(tmp_path / "out3.tex")]
+    )
+    assert r.exit_code == 0, r.output
+    tex3 = (tmp_path / "out3.tex").read_text()
+    assert "\\draw" not in tex3
+    assert "circle (" in tex3
+
+    # dots configured but --no-dots -> no circles
+    runner.invoke(main, ["lines", "--reset", "--no-dots", "--dot-spacing", "8"])
+    r = runner.invoke(
+        main, ["render", "--preset", "A5", "--pages", "4", str(tmp_path / "out4.tex")]
+    )
+    assert r.exit_code == 0, r.output
+    assert "circle (" not in (tmp_path / "out4.tex").read_text()
+
+    # `lines` with no args: margin_x alone is inert (no color -> nothing drawn)
     r = runner.invoke(main, ["lines"])
     assert r.exit_code == 0
-    assert "10mm" in r.output and "#112233" in r.output
+    assert "边线" not in r.output
