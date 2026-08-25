@@ -8,13 +8,13 @@ from pathlib import Path
 import click
 from loguru import logger
 
-from base6_techo.imposition import booklet_output, booklet_summary, normal_output
-from base6_techo.latex import render_latex
-from base6_techo.models import (
+from src.imposition import booklet_output, booklet_summary, normal_output
+from src.latex import render_latex
+from src.lines import RuledPattern
+from src.models import (
     PAGE_PRESETS,
     DocumentSettings,
     PageSettings,
-    RuledPattern,
     validate_project,
 )
 

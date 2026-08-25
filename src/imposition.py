@@ -5,15 +5,15 @@ Renderers never see pageCount/parity/sheet order — they only draw OutputPage.
 
 from dataclasses import dataclass
 
-from base6_techo.models import (
+from src.lines import RuledPattern
+from src.models import (
     ContentPage,
     DocumentPage,
     DocumentSettings,
     PaddingPage,
     PageSettings,
-    RuledPattern,
 )
-from base6_techo.pages import PageDraw, render_page
+from src.pages import PageDraw, render_page
 
 
 @dataclass(frozen=True)

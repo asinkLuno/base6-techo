@@ -6,11 +6,10 @@ matching both the TikZ output (y=-1mm) and SVG.
 Standard left-bound book: odd pages bind on the left, even pages mirror.
 """
 
-import math
 from dataclasses import dataclass
 from typing import Literal
 
-from base6_techo.models import PageSettings
+from src.models import PageSettings
 
 Side = Literal["left", "right"]
 
@@ -44,15 +43,3 @@ def geometry_for(page: PageSettings, page_number: int) -> PageGeometry:
         ),
         binding_side=binding_side,
     )
-
-
-def ruled_ys(geo: PageGeometry, spacing: float) -> list[float]:
-    """Y positions (mm) of ruled lines: first line at the vertical center of the
-    content area, spreading up/down by spacing; only fully-inside lines, spacing
-    is never rescaled to fill the page."""
-    c = geo.content
-    center = c.y + c.height / 2
-    k = math.floor(c.height / 2 / spacing + 1e-9)
-    return [center - i * spacing for i in range(k, 0, -1)] + [
-        center + i * spacing for i in range(k + 1)
-    ]

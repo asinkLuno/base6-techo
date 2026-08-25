@@ -2,7 +2,7 @@ from typing import cast
 
 import pytest
 
-from base6_techo.imposition import (
+from src.imposition import (
     booklet_output,
     booklet_sheets,
     booklet_summary,
@@ -10,16 +10,16 @@ from base6_techo.imposition import (
     normal_output,
     pad_for_booklet,
 )
-from base6_techo.layout import Rect, geometry_for, ruled_ys
-from base6_techo.models import (
+from src.layout import Rect, geometry_for
+from src.lines import RuledPattern, ruled_ys
+from src.models import (
     ContentPage,
     DocumentSettings,
     PaddingPage,
     PageSettings,
-    RuledPattern,
     validate_project,
 )
-from base6_techo.pages import render_page
+from src.pages import render_page
 
 A5 = PageSettings(
     width=148, height=210, header=10, footer=10, binding=15, non_binding=8

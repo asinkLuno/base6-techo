@@ -1,10 +1,10 @@
 from click.testing import CliRunner
 
-from base6_techo.cli import main
+from src.cli import main
 
 
 def test_lines_saved_and_used_by_render(tmp_path, monkeypatch):
-    monkeypatch.setattr("base6_techo.cli._LINES_FILE", tmp_path / "lines.json")
+    monkeypatch.setattr("src.cli._LINES_FILE", tmp_path / "lines.json")
     runner = CliRunner()
     r = runner.invoke(
         main,

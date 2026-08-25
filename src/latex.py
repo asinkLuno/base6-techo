@@ -1,9 +1,9 @@
 """LaTeX renderer: draws precomputed OutputPages, knows nothing about
 pageCount / parity / booklet semantics."""
 
-from base6_techo.imposition import OutputPage
-from base6_techo.models import RuledPattern
-from base6_techo.pages import PAGE_NUMBER_COLOR
+from src.imposition import OutputPage
+from src.lines import RuledPattern
+from src.pages import PAGE_NUMBER_COLOR
 
 _DOC = """\\documentclass[multi=tikzpicture]{standalone}
 \\usepackage{tikz}

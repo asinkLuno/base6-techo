@@ -1,9 +1,8 @@
-"""Data model: page / pattern / document / print settings.
+"""Data model: page / document / print settings.
 
-All user-facing lengths are in mm; line width and font size are in pt.
+All user-facing lengths are in mm; font size is in pt.
 """
 
-import re
 from dataclasses import dataclass
 
 PAGE_PRESETS: dict[str, tuple[float, float]] = {
@@ -78,32 +77,3 @@ class PaddingPage:
 
 
 DocumentPage = ContentPage | PaddingPage
-
-_HEX_COLOR = re.compile(r"^#[0-9A-Fa-f]{6}$")
-
-
-@dataclass(frozen=True)
-class RuledPattern:
-    """Ruled-paper pattern, optionally with dots on the lines.
-
-    spacing/dot_spacing in mm, line_width in pt, line_color as #RRGGBB.
-    dot_spacing=None means plain ruled paper."""
-
-    type: str = "ruled"
-    spacing: float = 8
-    line_width: float = 0.2
-    line_color: str = "#B0B0B0"
-    dot_spacing: float | None = None
-    dot_radius: float = 0.3
-
-    def __post_init__(self) -> None:
-        if self.spacing <= 0:
-            raise ValueError("spacing must be > 0")
-        if self.line_width <= 0:
-            raise ValueError("line_width must be > 0")
-        if not _HEX_COLOR.match(self.line_color):
-            raise ValueError("line_color must be #RRGGBB")
-        if self.dot_spacing is not None and self.dot_spacing <= 0:
-            raise ValueError("dot_spacing must be > 0")
-        if self.dot_radius <= 0:
-            raise ValueError("dot_radius must be > 0")
