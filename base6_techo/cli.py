@@ -29,10 +29,10 @@ def main() -> None:
 @click.option(
     "--preset",
     type=click.Choice(sorted(PAGE_PRESETS)),
-    help="Paper preset; fills width/height.",
+    help="Paper preset; mutually exclusive with --width/--height.",
 )
-@click.option("--width", type=float, default=148, help="Page width in mm.")
-@click.option("--height", type=float, default=210, help="Page height in mm.")
+@click.option("--width", type=float, default=None, help="Page width in mm.")
+@click.option("--height", type=float, default=None, help="Page height in mm.")
 @click.option("--header", type=float, default=10, help="Header height in mm.")
 @click.option("--footer", type=float, default=10, help="Footer height in mm.")
 @click.option("--binding", type=float, default=15, help="Binding-side margin in mm.")
@@ -99,7 +99,17 @@ def render(
 ):
     """Generate a complete printable ruled notebook."""
     if preset:
+        if width is not None or height is not None:
+            raise click.ClickException(
+                "--preset is mutually exclusive with --width/--height"
+            )
         width, height = PAGE_PRESETS[preset]
+    elif width is not None and height is not None:
+        pass
+    else:
+        raise click.ClickException(
+            "must specify either --preset or both --width and --height"
+        )
     try:
         page = PageSettings(
             width=width,
