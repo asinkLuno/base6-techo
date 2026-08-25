@@ -190,11 +190,37 @@ def draw(geo: PageGeometry, pattern: BasicPattern) -> tuple[list[Line], list[Dot
         if pattern.margin_x is not None and pattern.margin_color is not None:
             x = c.x + pattern.margin_x
             lines.append(
-                Line(x, top, x, bottom, pattern.margin_color, pattern.vline_edge_width)
+                Line(
+                    x,
+                    top,
+                    x,
+                    bottom,
+                    pattern.vline_edge_color or pattern.margin_color,
+                    pattern.vline_edge_width,
+                )
             )
         if pattern.vline_spacing is not None and pattern.margin_color is not None:
-            for i, x in enumerate(_xs(vregion, pattern.vline_spacing)):
-                color = pattern.vline_edge_color if i == 0 else pattern.margin_color
+            xs = (
+                [
+                    c.x + pattern.margin_x + i * pattern.vline_spacing
+                    for i in range(
+                        1,
+                        math.floor(
+                            (vregion.x + vregion.width - c.x - pattern.margin_x)
+                            / pattern.vline_spacing
+                        )
+                        + 1,
+                    )
+                ]
+                if pattern.margin_x is not None
+                else _xs(vregion, pattern.vline_spacing)
+            )
+            for i, x in enumerate(xs):
+                color = (
+                    pattern.vline_edge_color
+                    if i == 0 and pattern.margin_x is None
+                    else pattern.margin_color
+                )
                 if color is None:
                     color = pattern.margin_color
                 lines.append(

@@ -44,7 +44,7 @@ uv run base6-techo render --preset A5 --binding-text base-6 --binding-text-2 not
 ## 样例版式
 
 每种样例都是独立完整配置（--reset 清掉旧值）；先用 `lines` 配置，再跑 `render`。
-也可以直接跑 `examples/*.sh` 一键生成 PDF（A5 · 32 页）：
+也可以直接跑 `examples/*.sh` 一键生成 PDF（A5 · 32 页，均带页码及 `[base-6]` / `since 2026` 水印）：
 
 ```sh
 sh examples/dot-grid.sh       # 纯点阵
@@ -57,23 +57,24 @@ sh examples/square-grid.sh    # 方格
 
 ```sh
 # 纯点阵：只画点不画线
-uv run base6-techo lines --reset --dots --dot-spacing 5
+uv run base6-techo lines --reset --dots --dot-spacing 5 --dot-radius 0.22 --line-color '#A8BBC8'
 
-# 横线本：最上面和最下面的线加粗（顶底线宽 0.5pt，其余 0.2pt）
-uv run base6-techo lines --reset --hlines --spacing 8 --hline-edge-width 0.5
+# 横线本：低饱和蓝灰横线，顶底线略加重
+uv run base6-techo lines --reset --hlines --spacing 9 --line-width 0.15 --line-color '#9DB7C8' --hline-edge-width 0.35
 
 # 国誉点线本：横线上叠等距的点（点落在每条线上）
-uv run base6-techo lines --reset --hlines --dots --spacing 8 --dot-spacing 10
+uv run base6-techo lines --reset --hlines --dots --spacing 9 --dot-spacing 10 --line-width 0.15 --line-color '#9DB7C8' --dot-radius 0.22
 
 # 美式笔记本（college ruled）：7.1mm 横线 + 左侧红色竖边线
-uv run base6-techo lines --reset --hlines --vlines --hline-inner --hline-outer --vline-header --vline-footer --spacing 7.1 --line-width 0.2 --line-color '#B0B0B0' --margin-x 17 --margin-color '#CC0000' --vline-edge-width 0.5
+uv run base6-techo lines --reset --hlines --vlines --hline-inner --hline-outer --vline-header --vline-footer --spacing 7.1 --line-width 0.15 --line-color '#9DB7C8' --margin-x 17 --margin-color '#C98F8F' --vline-edge-width 0.35
 
-# 法文格（Seyes）：2mm 密横线 + 8mm 竖格，最左竖线红色
-uv run base6-techo lines --reset --hlines --vlines --hline-inner --hline-outer --vline-header --vline-footer --spacing 2 --vline-spacing 8 --line-width 0.15 --line-color '#7BAFD4' --margin-color '#7BAFD4' --vline-edge-color '#CC0000' --vline-edge-width 0.5
+# 法文格（Seyes）：左侧宽边栏，之后为 2×8mm 等分格
+uv run base6-techo lines --reset --hlines --vlines --hline-inner --hline-outer --vline-header --vline-footer --spacing 2 --margin-x 15 --vline-spacing 8 --line-width 0.12 --line-color '#A7C5D8' --margin-color '#88AEC7' --vline-edge-color '#C98F8F' --vline-edge-width 0.35
+uv run base6-techo render --preset A5 --binding 15 --non-binding 15 --pages 32 --binding-text '[base-6]' --binding-text-2 'since 2026' --binding-text-font '0xProto Nerd Font' --pdf examples/french-ruled.tex
 
 # 方格：5mm 横纵网格，保留 10mm 页头/页尾；A5 内容区 120×190mm，均为 5 的偶数倍
-uv run base6-techo lines --reset --hlines --vlines --spacing 5 --vline-spacing 5 --line-width 0.15 --line-color '#B0B0B0' --margin-color '#B0B0B0'
-uv run base6-techo render --preset A5 --header 10 --footer 10 --binding 15 --non-binding 13 --pages 32 --no-page-number --pdf examples/square-grid.tex
+uv run base6-techo lines --reset --hlines --vlines --spacing 5 --vline-spacing 5 --line-width 0.12 --line-color '#A8BBC8' --margin-color '#A8BBC8'
+uv run base6-techo render --preset A5 --header 10 --footer 10 --binding 15 --non-binding 13 --pages 32 --binding-text '[base-6]' --binding-text-2 'since 2026' --binding-text-font '0xProto Nerd Font' --pdf examples/square-grid.tex
 ```
 
 ## 测试
