@@ -9,7 +9,13 @@ import click
 from loguru import logger
 
 from src.basic import BasicPattern
-from src.imposition import booklet_output, booklet_summary, normal_output
+from src.imposition import (
+    booklet_output,
+    booklet_summary,
+    normal_output,
+    thread_output,
+    thread_summary,
+)
 from src.latex import render_latex
 from src.models import (
     PAGE_PRESETS,
@@ -261,11 +267,49 @@ def lines(**kw):
     help="Print page numbers in footer.",
 )
 @click.option(
+    "--binding-text",
+    default=None,
+    help="First line of the text watermark along the binding-side margin.",
+)
+@click.option(
+    "--binding-text-2",
+    default=None,
+    help="Second line of the text watermark along the binding-side margin.",
+)
+@click.option(
+    "--binding-text-size",
+    type=float,
+    default=8,
+    show_default=True,
+    help="Font size of the first binding watermark line in pt.",
+)
+@click.option(
+    "--binding-text-2-size",
+    type=float,
+    default=8,
+    show_default=True,
+    help="Font size of the second binding watermark line in pt.",
+)
+@click.option(
+    "--binding-text-spacing",
+    type=float,
+    default=5,
+    show_default=True,
+    help="Center-to-center spacing between binding watermark lines in mm.",
+)
+@click.option(
     "--mode",
     "print_mode",
-    type=click.Choice(["normal", "booklet"]),
+    type=click.Choice(["normal", "booklet", "thread"]),
     default="normal",
-    help="normal: 1 page per PDF page; booklet: saddle-stitch imposition.",
+    help="normal: 1 page; booklet: saddle stitch; thread: grouped signatures.",
+)
+@click.option(
+    "--sheets-per-group",
+    type=click.IntRange(min=1),
+    default=4,
+    show_default=True,
+    help="Sheets in each thread-bound group (only used with --mode thread).",
 )
 @click.option(
     "--pdf", is_flag=True, help="Also compile to PDF if a LaTeX engine is installed."
@@ -281,7 +325,13 @@ def render(
     non_binding,
     pages,
     page_number,
+    binding_text,
+    binding_text_2,
+    binding_text_size,
+    binding_text_2_size,
+    binding_text_spacing,
     print_mode,
+    sheets_per_group,
     pdf,
     out,
 ):
@@ -307,7 +357,15 @@ def render(
             binding=binding,
             non_binding=non_binding,
         )
-        doc = DocumentSettings(page_count=pages, show_page_number=page_number)
+        doc = DocumentSettings(
+            page_count=pages,
+            show_page_number=page_number,
+            binding_text=binding_text,
+            binding_text_2=binding_text_2,
+            binding_text_size=binding_text_size,
+            binding_text_2_size=binding_text_2_size,
+            binding_text_spacing=binding_text_spacing,
+        )
         validate_project(page, doc)
     except ValueError as e:
         raise click.ClickException(str(e))
@@ -326,6 +384,18 @@ def render(
             f"打印纸尺寸 {output_pages[0].width:g} × {output_pages[0].height:g} mm"
         )
         click.echo("打印后：双面打印 → 叠放 → 对折 → 装订")
+    elif print_mode == "thread":
+        output_pages = thread_output(page, pattern, doc, sheets_per_group)
+        _padded, pad_added, sheets, sides = thread_summary(doc, sheets_per_group)
+        groups = sheets // sheets_per_group
+        click.echo(
+            f"成品 {doc.page_count} 页 · 补白 {pad_added} 页 · {groups} 组 · "
+            f"每组 {sheets_per_group} 张纸 · 打印面 {sides} 面"
+        )
+        click.echo(
+            f"打印纸尺寸 {output_pages[0].width:g} × {output_pages[0].height:g} mm"
+        )
+        click.echo("打印后：每组分别双面打印 → 每组叠放 → 对折 → 线装")
     else:
         output_pages = normal_output(page, pattern, doc)
         click.echo(f"成品 {doc.page_count} 页 · PDF {len(output_pages)} 页")

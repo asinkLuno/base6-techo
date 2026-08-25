@@ -1,6 +1,6 @@
-"""Print imposition: logical document -> output pages (normal or booklet).
+"""Print imposition: logical document -> output pages.
 
-Renderers never see pageCount/parity/sheet order — they only draw OutputPage.
+Renderers never see pageCount/parity/sheet order - they only draw OutputPage.
 """
 
 from dataclasses import dataclass
@@ -53,6 +53,17 @@ def pad_for_booklet(pages: list[ContentPage]) -> list[DocumentPage]:
     return [*pages, *(PaddingPage() for _ in range(target - len(pages)))]
 
 
+def pad_for_thread(
+    pages: list[ContentPage], sheets_per_group: int
+) -> list[DocumentPage]:
+    """Pad to complete thread-bound groups of ``sheets_per_group`` sheets."""
+    if sheets_per_group < 1:
+        raise ValueError("sheets_per_group must be >= 1")
+    group_size = sheets_per_group * 4
+    target = -(-len(pages) // group_size) * group_size
+    return [*pages, *(PaddingPage() for _ in range(target - len(pages)))]
+
+
 def booklet_sheets(pages: list[DocumentPage]) -> list[BookletSheet]:
     """Classic saddle stitch: front = high|low, back = low+1|high-1 (§24)."""
     sheets: list[BookletSheet] = []
@@ -69,6 +80,22 @@ def booklet_sheets(pages: list[DocumentPage]) -> list[BookletSheet]:
     return sheets
 
 
+def thread_sheets(
+    pages: list[DocumentPage], sheets_per_group: int
+) -> list[BookletSheet]:
+    """Impose each thread-bound group independently as a folded signature."""
+    if sheets_per_group < 1:
+        raise ValueError("sheets_per_group must be >= 1")
+    group_size = sheets_per_group * 4
+    if len(pages) % group_size:
+        raise ValueError("pages must be padded to a complete thread group")
+    return [
+        sheet
+        for start in range(0, len(pages), group_size)
+        for sheet in booklet_sheets(pages[start : start + group_size])
+    ]
+
+
 def normal_output(
     page: PageSettings, pattern: BasicPattern, doc: DocumentSettings
 ) -> list[OutputPage]:
@@ -77,10 +104,70 @@ def normal_output(
         OutputPage(
             page.width,
             page.height,
-            [Placement(0, render_page(page, pattern, p, doc.show_page_number))],
+            [
+                Placement(
+                    0,
+                    render_page(
+                        page,
+                        pattern,
+                        p,
+                        doc.show_page_number,
+                        doc.binding_text,
+                        doc.binding_text_2,
+                        doc.binding_text_size,
+                        doc.binding_text_2_size,
+                        doc.binding_text_spacing,
+                    ),
+                )
+            ],
         )
         for p in logical_pages(doc)
     ]
+
+
+def _two_up_output(
+    page: PageSettings,
+    pattern: BasicPattern,
+    sheets: list[BookletSheet],
+    doc: DocumentSettings,
+) -> list[OutputPage]:
+    def side(side_: BookletSide) -> OutputPage:
+        return OutputPage(
+            page.width * 2,
+            page.height,
+            [
+                Placement(
+                    0,
+                    render_page(
+                        page,
+                        pattern,
+                        side_.left,
+                        doc.show_page_number,
+                        doc.binding_text,
+                        doc.binding_text_2,
+                        doc.binding_text_size,
+                        doc.binding_text_2_size,
+                        doc.binding_text_spacing,
+                    ),
+                ),
+                Placement(
+                    page.width,
+                    render_page(
+                        page,
+                        pattern,
+                        side_.right,
+                        doc.show_page_number,
+                        doc.binding_text,
+                        doc.binding_text_2,
+                        doc.binding_text_size,
+                        doc.binding_text_2_size,
+                        doc.binding_text_spacing,
+                    ),
+                ),
+            ],
+        )
+
+    return [out for sheet in sheets for out in (side(sheet.front), side(sheet.back))]
 
 
 def booklet_output(
@@ -88,31 +175,34 @@ def booklet_output(
 ) -> list[OutputPage]:
     """Each sheet side = one 2W×H PDF page, front then back."""
     padded = pad_for_booklet(logical_pages(doc))
+    return _two_up_output(page, pattern, booklet_sheets(padded), doc)
 
-    def side(side_: BookletSide) -> OutputPage:
-        return OutputPage(
-            page.width * 2,
-            page.height,
-            [
-                Placement(
-                    0, render_page(page, pattern, side_.left, doc.show_page_number)
-                ),
-                Placement(
-                    page.width,
-                    render_page(page, pattern, side_.right, doc.show_page_number),
-                ),
-            ],
-        )
 
-    return [
-        out
-        for sheet in booklet_sheets(padded)
-        for out in (side(sheet.front), side(sheet.back))
-    ]
+def thread_output(
+    page: PageSettings,
+    pattern: BasicPattern,
+    doc: DocumentSettings,
+    sheets_per_group: int,
+) -> list[OutputPage]:
+    """Each thread-bound group is imposed separately, two-up, front then back."""
+    padded = pad_for_thread(logical_pages(doc), sheets_per_group)
+    return _two_up_output(page, pattern, thread_sheets(padded, sheets_per_group), doc)
 
 
 def booklet_summary(doc: DocumentSettings) -> tuple[int, int, int, int]:
     """(padded pages, padding added, sheets, printed sides)."""
     padded = -(-doc.page_count // 4) * 4
+    sheets = padded // 4
+    return padded, padded - doc.page_count, sheets, sheets * 2
+
+
+def thread_summary(
+    doc: DocumentSettings, sheets_per_group: int
+) -> tuple[int, int, int, int]:
+    """(padded pages, padding added, sheets, printed sides) for thread groups."""
+    if sheets_per_group < 1:
+        raise ValueError("sheets_per_group must be >= 1")
+    group_size = sheets_per_group * 4
+    padded = -(-doc.page_count // group_size) * group_size
     sheets = padded // 4
     return padded, padded - doc.page_count, sheets, sheets * 2

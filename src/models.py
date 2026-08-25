@@ -53,10 +53,23 @@ class DocumentSettings:
 
     page_count: int = 32
     show_page_number: bool = True
+    binding_text: str | None = None
+    binding_text_2: str | None = None
+    binding_text_size: float = 8
+    binding_text_2_size: float = 8
+    binding_text_spacing: float = 5
 
     def __post_init__(self) -> None:
         if not 1 <= self.page_count <= MAX_PAGE_COUNT:
             raise ValueError(f"page_count must be in 1..{MAX_PAGE_COUNT}")
+        for name, v in (
+            ("binding_text_size", self.binding_text_size),
+            ("binding_text_2_size", self.binding_text_2_size),
+        ):
+            if v <= 0:
+                raise ValueError(f"{name} must be > 0")
+        if self.binding_text_spacing < 0:
+            raise ValueError("binding_text_spacing must be >= 0")
 
 
 def validate_project(page: PageSettings, doc: DocumentSettings) -> None:
