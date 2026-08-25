@@ -1,0 +1,63 @@
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-toml
+      - id: check-added-large-files
+
+  - repo: local
+    hooks:
+      - id: ruff
+        name: ruff
+        entry: ruff check --fix --exit-non-zero-on-fix
+        language: system
+        types: [python]
+
+      - id: ruff-format
+        name: ruff-format
+        entry: ruff format
+        language: system
+        types: [python]
+
+      - id: ty
+        name: ty
+        entry: ty check
+        language: python
+        additional_dependencies: ["ty>=0.0.1"]
+        types: [python]
+        pass_filenames: false
+
+      - id: vulture
+        name: vulture
+        entry: vulture
+        args: ["./src", "--min-confidence", "80", "--exclude", ".venv"]
+        language: python
+        additional_dependencies: ["vulture>=0.16"]
+        types: [python]
+        pass_filenames: false
+
+      - id: radon
+        name: radon
+        entry: radon
+        args: ["cc", "./src", "--min=C"]
+        language: python
+        additional_dependencies: ["radon>=6.0"]
+        types: [python]
+        pass_filenames: false
+
+      - id: mdformat
+        name: mdformat
+        entry: mdformat
+        language: python
+        additional_dependencies: ["mdformat>=0.7"]
+        types: [markdown]
+
+      - id: pytest
+        name: pytest
+        entry: pytest
+        language: system
+        types: [python]
+        pass_filenames: false

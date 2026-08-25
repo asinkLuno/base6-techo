@@ -1,0 +1,31 @@
+[project]
+name = "base6-techo"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [
+    { name = "guozr", email = "guozr1997@hotmail.com" }
+]
+requires-python = ">=3.13"
+dependencies = [
+    "click>=8.4.2",
+    "loguru>=0.7.3",
+]
+
+[project.scripts]
+base6-techo = "base6_techo:main"
+
+[dependency-groups]
+dev = [
+    "pytest>=8",
+    "ruff>=0.16.4",
+    "uv>=0.12.5",
+]
+
+[[tool.uv.index]]
+url = "https://mirrors.aliyun.com/pypi/simple"
+default = true
+
+[build-system]
+requires = ["uv_build>=0.12.1,<0.13.0"]
+build-backend = "uv_build"
