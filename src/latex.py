@@ -18,6 +18,23 @@ def _name(h: str) -> str:
     return "c" + h.lstrip("#")
 
 
+def _tex(text: str) -> str:
+    """Escape user text before inserting it into a TikZ node."""
+    escaped = {
+        "\\": r"\textbackslash{}",
+        "&": r"\&",
+        "%": r"\%",
+        "#": r"\#",
+        "$": r"\$",
+        "_": r"\_",
+        "{": r"\{",
+        "}": r"\}",
+        "^": r"\textasciicircum{}",
+        "~": r"\textasciitilde{}",
+    }
+    return "".join(escaped.get(char, char) for char in text)
+
+
 def _page(op: OutputPage, pattern: BasicPattern) -> str:
     parts = [f"\\useasboundingbox (0,0) rectangle ({op.width:g},{op.height:g});"]
     line_cmds: dict[tuple[str, float | None], list[str]] = {}
@@ -45,8 +62,8 @@ def _page(op: OutputPage, pattern: BasicPattern) -> str:
     for p in op.placements:
         for t in p.draw.texts:
             parts.append(
-                f"\\node[pnumcolor, font=\\sffamily\\fontsize{{{t.size_pt:g}}}{{{t.size_pt * 1.2:g}}}\\selectfont] "
-                f"at ({p.dx + t.x:g},{t.y:g}) {{{t.content}}};"
+                f"\\node[pnumcolor, rotate={t.rotation:g}, font=\\sffamily\\fontsize{{{t.size_pt:g}}}{{{t.size_pt * 1.2:g}}}\\selectfont] "
+                f"at ({p.dx + t.x:g},{t.y:g}) {{{_tex(t.content)}}};"
             )
     return (
         "\\begin{tikzpicture}[x=1mm, y=-1mm]\n"

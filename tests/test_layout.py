@@ -10,6 +10,10 @@ from src.imposition import (
     logical_pages,
     normal_output,
     pad_for_booklet,
+    pad_for_thread,
+    thread_output,
+    thread_sheets,
+    thread_summary,
 )
 from src.layout import Rect, geometry_for
 from src.models import (
@@ -19,7 +23,7 @@ from src.models import (
     PageSettings,
     validate_project,
 )
-from src.pages import render_page
+from src.pages import Text, render_page
 
 A5 = PageSettings(
     width=148, height=210, header=10, footer=10, binding=15, non_binding=8
@@ -159,9 +163,37 @@ def test_page_number_belongs_to_logical_page():
     assert render_page(A5, RULED, ContentPage(17), show_page_number=False).texts == []
 
 
-def test_padding_pages_are_blank():
-    d = render_page(A5, RULED, PaddingPage(), show_page_number=True)
-    assert d.lines == [] and d.texts == []
+def test_binding_text_is_page_content_and_mirrors_side():
+    odd = render_page(A5, RULED, ContentPage(1), False, "base-6")
+    even = render_page(A5, RULED, ContentPage(2), False, "base-6")
+    assert odd.texts == [Text(7.5, 105, "base-6", rotation=90)]
+    assert even.texts == [Text(140.5, 105, "base-6", rotation=90)]
+    assert render_page(A5, RULED, PaddingPage(), False, "base-6").texts == []
+
+
+def test_binding_text_supports_two_lines_and_sizes():
+    d = render_page(
+        A5,
+        RULED,
+        ContentPage(1),
+        False,
+        "top",
+        "bottom",
+        10,
+        6,
+        12,
+    )
+    assert d.texts == [
+        Text(7.5, 99, "top", size_pt=10, rotation=90),
+        Text(7.5, 111, "bottom", size_pt=6, rotation=90),
+    ]
+
+
+def test_binding_text_spacing_validation():
+    with pytest.raises(ValueError, match="binding_text_size"):
+        DocumentSettings(binding_text_size=0)
+    with pytest.raises(ValueError, match="binding_text_spacing"):
+        DocumentSettings(binding_text_spacing=-1)
 
 
 def test_pad_for_booklet_appends_at_end():
@@ -187,6 +219,40 @@ def test_booklet_sheets_8_pages():
         (8, 1, 2, 7),
         (6, 3, 4, 5),
     ]
+
+
+def test_thread_groups_are_imposed_independently():
+    doc = DocumentSettings(page_count=20)
+    padded = pad_for_thread(logical_pages(doc), sheets_per_group=2)
+    sheets = thread_sheets(padded, sheets_per_group=2)
+    assert [
+        (
+            cast("ContentPage", s.front.left).page_number,
+            cast("ContentPage", s.front.right).page_number,
+            cast("ContentPage", s.back.left).page_number,
+            cast("ContentPage", s.back.right).page_number,
+        )
+        for s in sheets[:4]
+    ] == [
+        (8, 1, 2, 7),
+        (6, 3, 4, 5),
+        (16, 9, 10, 15),
+        (14, 11, 12, 13),
+    ]
+    assert sheets[4].front.right == ContentPage(17)
+    assert isinstance(sheets[4].front.left, PaddingPage)
+    assert sheets[4].back.left == ContentPage(18)
+    assert isinstance(sheets[4].back.right, PaddingPage)
+    assert thread_summary(doc, 2) == (24, 4, 6, 12)
+
+
+def test_thread_output_groups_and_padding():
+    out = thread_output(A5, RULED, DocumentSettings(page_count=17), 2)
+    assert len(out) == 12  # three complete 2-sheet groups
+    assert out[0].placements[1].draw.texts[0].content == "1"
+    assert out[8].placements[1].draw.texts[0].content == "17"
+    assert out[8].placements[0].draw.texts == []
+    assert out[11].placements[1].draw.texts == []
 
 
 def test_booklet_30_pages_acceptance():
