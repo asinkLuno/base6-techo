@@ -2,13 +2,14 @@
 
 可打印横线笔记本生成器。生成整本可直接打印的 PDF。
 
-所有尺寸统一 mm（线宽/字号 pt），数据层不保存 px。架构：
+所有尺寸统一 mm（线宽/字号 pt），数据层不保存 px。架构三级，每级一个模块：
 
 ```
-PageSettings + RuledPattern + DocumentSettings(pageCount, showPageNumber)
-    → Page Renderer（奇偶镜像 + 横线 + 逻辑页码）→ PageDraw
-    → Imposition（normal：1页1PDF页 / booklet：鞍式拼版 2W×H）
-    → LaTeX Renderer (PDF) / SVG Renderer (预览)
+版式 lines.py: RuledPattern(参数) + draw(坐标) → [Line, Dot]
+  ↓
+页面 pages.py: render_page → PageDraw（奇偶镜像几何 + 版式 + 逻辑页码）
+  ↓
+整本PDF imposition.py: normal/booklet 拼版 → latex.py: TikZ → .tex (+ PDF)
 ```
 
 关键语义：
