@@ -131,7 +131,7 @@ function App() {
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
   const [selectedId, setSelectedId] = useState("render");
   const [runState, setRunState] = useState<RunState>("idle");
-  const [outputPath, setOutputPath] = useState("");
+  const [, setOutputPath] = useState("");
   const selectedNode = nodes.find((node) => node.id === selectedId);
 
   const onConnect = useCallback(
