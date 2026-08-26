@@ -95,10 +95,11 @@ def render_page(
             )
         # Header date (dates are already expanded to one entry per page)
         if show_header and header_dates is not None and header_date_format is not None:
+            header_page_number = idx + 1
             show_header = (
                 header_parity == "both"
-                or (header_parity == "odd" and doc_page.page_number % 2 == 1)
-                or (header_parity == "even" and doc_page.page_number % 2 == 0)
+                or (header_parity == "odd" and header_page_number % 2 == 1)
+                or (header_parity == "even" and header_page_number % 2 == 0)
             )
             if show_header and 0 <= idx < len(header_dates):
                 date_str = format_date(

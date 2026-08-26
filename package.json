@@ -12,19 +12,27 @@
     "schema": "uv run python src-tauri/src-python/gen_schema.py && node scripts/gen-ts.mjs"
   },
   "dependencies": {
+    "@dnd-kit/core": "^6.3.1",
+    "@dnd-kit/sortable": "^10.0.0",
+    "@dnd-kit/utilities": "^3.2.2",
     "@tauri-apps/api": "^2",
     "@tauri-apps/plugin-dialog": "^2",
-    "@xyflow/react": "^12.11.3",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "lucide-react": "^0.468.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
+    "tailwind-merge": "^2.6.0",
     "tauri-plugin-pytauri-api": "^0.8.0"
   },
   "devDependencies": {
+    "@tailwindcss/vite": "^4.1.0",
     "@tauri-apps/cli": "^2",
     "@types/react": "^18.3.1",
     "@types/react-dom": "^18.3.1",
     "@vitejs/plugin-react": "^4.3.4",
     "json-schema-to-typescript": "^15.0.4",
+    "tailwindcss": "^4.1.0",
     "typescript": "~5.6.2",
     "vite": "^6.3.6"
   }
