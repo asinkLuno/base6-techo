@@ -2,32 +2,61 @@ from pathlib import Path
 
 from anyio import to_thread
 from anyio.from_thread import start_blocking_portal
-from api import DocumentSettings, PageSettings, Pipeline
+from api import Pipeline
+from models import (
+    BasicPatternRequest,
+    BindRequest,
+    MidoriPatternRequest,
+    PatternRequest,
+    RunPipelineRequest,
+    TimelinePatternRequest,
+)
 from pytauri import Commands, builder_factory, context_factory
 from template.basic import BasicPattern
+from template.midori import MidoriPattern
+from template.timeline import TimelinePattern
 
 commands = Commands()
 
 
-def _generate_pdf(output: Path) -> None:
-    (
-        Pipeline(
-            BasicPattern(spacing=8, draw_hlines=True),
-            PageSettings(148, 210),
-            DocumentSettings(page_count=32, show_page_number=False),
-        )
-        .add_pages(trailing=2)
-        .bind("booklet")
-        .run(output)
+def _pattern_from_request(pattern: PatternRequest):
+    values = pattern.model_dump(exclude={"kind"})
+    if isinstance(pattern, BasicPatternRequest):
+        return BasicPattern(**values)
+    if isinstance(pattern, MidoriPatternRequest):
+        return MidoriPattern(**values)
+    if isinstance(pattern, TimelinePatternRequest):
+        return TimelinePattern(**values)
+    raise TypeError(f"unsupported pattern: {type(pattern).__name__}")
+
+
+def _generate_pdf(request: RunPipelineRequest) -> Path:
+    output = Path(request.output)
+    if not output.name:
+        raise ValueError("输出文件名不能为空")
+
+    first, *rest = request.sections
+    pipeline = Pipeline(
+        _pattern_from_request(first.pattern),
+        first.page.to_settings(),
+        first.document.to_settings(),
     )
+    for section in rest:
+        pipeline.add_section(
+            _pattern_from_request(section.pattern),
+            section.document.to_settings(),
+            section.page.to_settings(),
+        )
+    pipeline.add_pages(**request.add_pages.model_dump())
+    bind: BindRequest = request.bind
+    pipeline.bind(bind.mode, sheets_per_group=bind.sheets_per_group)
+    pipeline.run(output)
+    return output
 
 
 @commands.command()
-async def run_pipeline(body: str) -> str:
-    output = Path(body)
-    if not output.name:
-        raise ValueError("输出文件名不能为空")
-    await to_thread.run_sync(_generate_pdf, output)
+async def run_pipeline(body: RunPipelineRequest) -> str:
+    output = await to_thread.run_sync(_generate_pdf, body)
     return str(output)
 
 
