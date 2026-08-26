@@ -10,6 +10,7 @@ export type Footer = number;
 export type Binding = number;
 export type NonBinding = number;
 export type PageCount = number;
+export type ShowHeader = boolean;
 export type ShowPageNumber = boolean;
 export type BindingText = string | null;
 export type BindingText2 = string | null;
@@ -76,6 +77,12 @@ export type Swap = boolean;
 export type LineColor2 = string;
 export type LineWidth2 = number;
 export type LabelSize = number;
+export type CityName = string | null;
+export type Latitude = number | null;
+export type Longitude = number | null;
+export type Timezone = string | null;
+export type DaylightColor = string;
+export type NightColor = string;
 export type Leading = number;
 export type Trailing = number;
 export type Mode = ("booklet" | "thread") | null;
@@ -102,6 +109,7 @@ export interface PageRequest {
 }
 export interface DocumentRequest {
   page_count?: PageCount;
+  show_header?: ShowHeader;
   show_page_number?: ShowPageNumber;
   binding_text?: BindingText;
   binding_text_2?: BindingText2;
@@ -173,6 +181,12 @@ export interface TimelinePatternRequest {
   line_color?: LineColor2;
   line_width?: LineWidth2;
   label_size?: LabelSize;
+  city_name?: CityName;
+  latitude?: Latitude;
+  longitude?: Longitude;
+  timezone?: Timezone;
+  daylight_color?: DaylightColor;
+  night_color?: NightColor;
 }
 export interface AddPagesRequest {
   leading?: Leading;

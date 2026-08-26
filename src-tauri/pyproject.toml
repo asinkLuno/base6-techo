@@ -10,7 +10,7 @@ requires-python = ">=3.13"
 dependencies = [
     "pytauri == 0.8.*",
     "Babel>=2.17.0",
-    "pypdf>=6.16.2",
+    "astral>=3.2",
 ]
 
 [project.entry-points.pytauri]
@@ -21,7 +21,7 @@ requires = ["setuptools >= 80", "setuptools-scm >= 8"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
-py-modules = ["api", "app", "imposition", "latex", "layout", "models", "pages", "pdfops", "__main__"]
+py-modules = ["api", "app", "imposition", "latex", "layout", "models", "pages", "__main__"]
 
 [tool.setuptools.packages]
 find = { where = ["src-python"] }

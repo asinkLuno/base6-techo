@@ -8,6 +8,7 @@ dependencies = []
 dev = [
     "base6-techo",
     "pytest>=8",
+    "pypdf>=6.16.2",
     "ruff>=0.16.4",
     "ty>=0.0.1",
 ]

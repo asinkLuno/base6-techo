@@ -6,8 +6,17 @@ import gen_schema
 from models import RunPipelineRequest
 
 _SCHEMA = (
-    Path(__file__).resolve().parent.parent / "src-tauri" / "src-python" / "gen_schema.py"
-).resolve().parent.parent.parent / "src" / "pipeline-request.schema.json"
+    (
+        Path(__file__).resolve().parent.parent
+        / "src-tauri"
+        / "src-python"
+        / "gen_schema.py"
+    )
+    .resolve()
+    .parent.parent.parent
+    / "src"
+    / "pipeline-request.schema.json"
+)
 
 
 def test_frontend_schema_matches_request_models():

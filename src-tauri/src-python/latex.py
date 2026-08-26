@@ -51,13 +51,13 @@ def _font_command(font: str) -> str:
     return f"\\fontspec{{{_tex(font)}}}"
 
 
-def _page(op: OutputPage, pattern: Pattern) -> str:
+def _page(op: OutputPage, pattern: Pattern, pattern_color: str = "patterncolor") -> str:
     parts = [f"\\useasboundingbox (0,0) rectangle ({op.width:g},{op.height:g});"]
     line_cmds: dict[tuple[str, float | None], list[str]] = {}
     dot_cmds: dict[str, list[str]] = {}
     for p in op.placements:
         for l in p.draw.lines:
-            name = "patterncolor" if l.color is None else _name(l.color)
+            name = pattern_color if l.color is None else _name(l.color)
             line_cmds.setdefault((name, l.width), []).append(
                 f"  \\draw ({p.dx + l.x1:g},{l.y1:g}) -- ({p.dx + l.x2:g},{l.y2:g});"
             )
@@ -118,3 +118,40 @@ def render_latex(output_pages: list[OutputPage], pattern: Pattern) -> str:
     )
     packages = "\\usepackage{fontspec}" if uses_font_name else ""
     return _DOC % (packages, defines, body)
+
+
+def render_sections_latex(
+    output_pages: list[tuple[OutputPage, Pattern]],
+) -> str:
+    """Render mixed-pattern pages as one LaTeX document."""
+    colors = {"pnumcolor": PAGE_NUMBER_COLOR}
+    body = []
+    for index, (page, pattern) in enumerate(output_pages):
+        name = f"patterncolor{index}"
+        colors[name] = pattern.line_color
+        for color in (
+            getattr(pattern, "margin_color", None),
+            getattr(pattern, "hline_edge_color", None),
+            getattr(pattern, "vline_edge_color", None),
+            getattr(pattern, "dot_center_color", None),
+            pattern.dot_color if isinstance(pattern, MidoriPattern) else None,
+        ):
+            if color is not None:
+                colors[_name(color)] = color
+        body.append(_page(page, pattern, name))
+        for placement in page.placements:
+            for item in (*placement.draw.lines, *placement.draw.dots):
+                if item.color is not None:
+                    colors[_name(item.color)] = item.color
+    defines = "\n".join(
+        f"\\definecolor{{{name}}}{{HTML}}{{{color.lstrip('#').upper()}}}"
+        for name, color in colors.items()
+    )
+    uses_font_name = any(
+        text.font and not text.font.lstrip().startswith("\\")
+        for page, _ in output_pages
+        for placement in page.placements
+        for text in placement.draw.texts
+    )
+    packages = "\\usepackage{fontspec}" if uses_font_name else ""
+    return _DOC % (packages, defines, "\n\n".join(body))
