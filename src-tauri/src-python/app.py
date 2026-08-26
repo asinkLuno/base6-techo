@@ -1,3 +1,5 @@
+import json
+import subprocess
 from base64 import b64encode
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -14,12 +16,58 @@ from models import (
     RunPipelineRequest,
     TimelinePatternRequest,
 )
+from pydantic import BaseModel
 from pytauri import Commands, builder_factory, context_factory
 from template.basic import BasicPattern
 from template.midori import MidoriPattern
 from template.timeline import TimelinePattern
 
 commands = Commands()
+
+
+def _system_font_names() -> list[str]:
+    """Family names of every font fontconfig can find."""
+    try:
+        output = subprocess.run(
+            ["fc-list", ":", "family"], capture_output=True, text=True, check=True
+        ).stdout
+    except (FileNotFoundError, subprocess.CalledProcessError):
+        return []
+    names: set[str] = set()
+    for line in output.splitlines():
+        for name in line.split(":")[0].split(","):
+            name = name.strip()
+            if name:
+                names.add(name)
+    return sorted(names)
+
+
+@commands.command()
+async def list_system_fonts() -> str:
+    return await to_thread.run_sync(
+        lambda: json.dumps(_system_font_names(), ensure_ascii=False)
+    )
+
+
+class _WriteFileRequest(BaseModel):
+    path: str
+    content: str
+
+
+class _ReadFileRequest(BaseModel):
+    path: str
+
+
+@commands.command()
+async def write_text_file(body: _WriteFileRequest) -> str:
+    return await to_thread.run_sync(
+        lambda: Path(body.path).write_text(body.content, encoding="utf-8") or body.path
+    )
+
+
+@commands.command()
+async def read_text_file(body: _ReadFileRequest) -> str:
+    return await to_thread.run_sync(lambda: Path(body.path).read_text(encoding="utf-8"))
 
 
 def _pattern_from_request(pattern: PatternRequest):

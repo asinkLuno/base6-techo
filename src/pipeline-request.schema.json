@@ -299,6 +299,19 @@
           "title": "Binding Text Spacing",
           "type": "number"
         },
+        "binding_text_edge": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Binding Text Edge"
+        },
         "binding_text_font": {
           "default": "\\sffamily",
           "title": "Binding Text Font",
@@ -454,6 +467,19 @@
           "default": 5,
           "title": "Non Binding Text Spacing",
           "type": "number"
+        },
+        "non_binding_text_edge": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Non Binding Text Edge"
         },
         "footer_text": {
           "anyOf": [
@@ -673,11 +699,6 @@
           ],
           "title": "Pages",
           "type": "integer"
-        },
-        "swap": {
-          "default": false,
-          "title": "Swap",
-          "type": "boolean"
         },
         "line_color": {
           "default": "#7A7A7A",

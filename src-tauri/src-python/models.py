@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from datetime import date
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 MIN_FOOTER_FOR_TEXT = 5  # mm
 MAX_PAGE_COUNT = 500
@@ -52,8 +52,9 @@ class DocumentSettings:
     binding_text_size: float = 8
     binding_text_2_size: float = 8
     binding_text_spacing: float = 5
+    binding_text_edge: float | None = None  # None -> 边距居中
     binding_text_font: str = r"\sffamily"
-    header_dates: tuple[date, ...] | None = None
+    header_dates: tuple[date | None, ...] | None = None
     header_date_format: str | None = None
     header_date_locale: str = "zh_CN"
     header_parity: Literal["odd", "even", "both"] = "both"
@@ -70,6 +71,7 @@ class DocumentSettings:
     non_binding_text_size: float = 8
     non_binding_text_2_size: float = 8
     non_binding_text_spacing: float = 5
+    non_binding_text_edge: float | None = None  # None -> 边距居中
     footer_text: str | None = None
     footer_text_2: str | None = None
     footer_text_size: float = 8
@@ -98,6 +100,10 @@ class DocumentSettings:
             or self.header_text_spacing < 0
         ):
             raise ValueError("binding_text_spacing must be >= 0")
+        if (self.binding_text_edge is not None and self.binding_text_edge < 0) or (
+            self.non_binding_text_edge is not None and self.non_binding_text_edge < 0
+        ):
+            raise ValueError("text edge distance must be >= 0")
         if not self.binding_text_font.strip():
             raise ValueError("binding_text_font must not be empty")
         if self.header_parity not in ("odd", "even", "both"):
@@ -152,6 +158,7 @@ class DocumentRequest(BaseModel):
     binding_text_size: float = 8
     binding_text_2_size: float = 8
     binding_text_spacing: float = 5
+    binding_text_edge: float | None = Field(default=None, ge=0)
     binding_text_font: str = r"\sffamily"
     header_date: date | None = None
     header_date_end: date | None = None
@@ -171,25 +178,57 @@ class DocumentRequest(BaseModel):
     non_binding_text_size: float = 8
     non_binding_text_2_size: float = 8
     non_binding_text_spacing: float = 5
+    non_binding_text_edge: float | None = Field(default=None, ge=0)
     footer_text: str | None = None
     footer_text_2: str | None = None
     footer_text_size: float = 8
     footer_text_2_size: float = 8
     footer_text_spacing: float = 5
 
+    @model_validator(mode="after")
+    def _end_date_not_before_start(self) -> "DocumentRequest":
+        if (
+            self.header_date is not None
+            and self.header_date_end is not None
+            and self.header_date_end < self.header_date
+        ):
+            raise ValueError("结束日期必须晚于或等于开始日期")
+        return self
+
     def to_settings(self) -> DocumentSettings:
         header_dates = None
-        if self.header_date is not None and self.header_date_end is not None:
-            days = (self.header_date_end - self.header_date).days + 1
-            # 页数与天数取小者：预览（2 页）时只取前 2 天；天数不足时只有前几页有日期
-            n = min(max(days, 1), self.page_count)
-            header_dates = tuple(
-                date.fromordinal(self.header_date.toordinal() + i) for i in range(n)
+        if self.header_date is not None:
+            days = (
+                max((self.header_date_end - self.header_date).days + 1, 1)
+                if self.header_date_end is not None
+                else None  # 单日期：每个可见页重复
             )
-        elif self.header_date is not None:
-            header_dates = tuple(
-                self.header_date for _ in range(self.page_count)
-            )
+            # both：一天一页；odd/even：一天一个跨页，两页共享同一天
+            arr: list[date | None] = [None] * self.page_count
+            if self.header_parity == "both":
+                n = self.page_count if days is None else min(days, self.page_count)
+                for k in range(n):
+                    arr[k] = (
+                        self.header_date
+                        if days is None
+                        else date.fromordinal(self.header_date.toordinal() + k)
+                    )
+            else:
+                n = (
+                    self.page_count
+                    if days is None
+                    else min(days, (self.page_count + 1) // 2)
+                )
+                for k in range(n):
+                    day = (
+                        self.header_date
+                        if days is None
+                        else date.fromordinal(self.header_date.toordinal() + k)
+                    )
+                    arr[2 * k] = day
+                    if 2 * k + 1 < self.page_count:
+                        arr[2 * k + 1] = day
+            header_dates = tuple(arr)
         return DocumentSettings(
             page_count=self.page_count,
             show_header=self.show_header,
@@ -198,11 +237,13 @@ class DocumentRequest(BaseModel):
             binding_text_size=self.binding_text_size,
             binding_text_2_size=self.binding_text_2_size,
             binding_text_spacing=self.binding_text_spacing,
+            binding_text_edge=self.binding_text_edge,
             non_binding_text=self.non_binding_text,
             non_binding_text_2=self.non_binding_text_2,
             non_binding_text_size=self.non_binding_text_size,
             non_binding_text_2_size=self.non_binding_text_2_size,
             non_binding_text_spacing=self.non_binding_text_spacing,
+            non_binding_text_edge=self.non_binding_text_edge,
             footer_text=self.footer_text,
             footer_text_2=self.footer_text_2,
             footer_text_size=self.footer_text_size,
@@ -283,7 +324,6 @@ class TimelinePatternRequest(BaseModel):
     start: int = 0
     end: int = 26
     pages: Literal[1, 2] = 1
-    swap: bool = False
     line_color: str = "#7A7A7A"
     line_width: float = 0.4 / (25.4 / 72.27)
     label_size: float = 10.2
