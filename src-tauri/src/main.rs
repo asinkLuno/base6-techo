@@ -33,6 +33,16 @@ fn main() -> Result<Infallible, Box<dyn Error>> {
         // 👉 Remove the UNC prefix `\\?\`, Python ecosystems don't like it.
         let resource_dir = simplified(&resource_dir).to_owned();
 
+        let tectonic = std::env::current_exe()?
+            .parent()
+            .ok_or("application executable has no parent directory")?
+            .join(if cfg!(windows) {
+                "tectonic.exe"
+            } else {
+                "tectonic"
+            });
+        std::env::set_var("BASE6_TECTONIC", tectonic);
+
         // 👉 When bundled as a standalone App, we will put python in the resource directory
         PythonInterpreterEnv::Standalone(resource_dir.into())
     };

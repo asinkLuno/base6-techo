@@ -1,13 +1,9 @@
 {
   "bundle": {
     "active": true,
-    "targets": [
-      "deb",
-      "rpm",
-      "msi",
-      "nsis",
-      "app",
-      "dmg"
+    "targets": "all",
+    "externalBin": [
+      "binaries/tectonic"
     ],
     "resources": {
       "pyembed/python": "./"
