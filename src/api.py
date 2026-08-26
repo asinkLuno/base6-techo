@@ -15,9 +15,9 @@ from __future__ import annotations
 import shutil
 import subprocess
 import tempfile
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Literal
+from typing import Literal, Protocol
 
 from src.imposition import normal_output
 from src.latex import render_latex
@@ -48,6 +48,93 @@ class RenderStage:
     pattern: Pattern
     page: PageSettings
     document: DocumentSettings
+
+
+@dataclass
+class PipelineContext:
+    """Mutable state passed through each pipeline step."""
+
+    workdir: Path
+    engine: str | None = None
+    current_pdf: Path | None = None
+    logical_pages: int = 0
+    merged_pages: int = 0
+    sheets: int | None = None
+    generated_pdfs: list[Path] = field(default_factory=list)
+
+
+class PipelineStep(Protocol):
+    """A synchronous filter that reads or updates the pipeline context."""
+
+    def __call__(self, context: PipelineContext) -> None: ...
+
+
+@dataclass(frozen=True)
+class _RenderSections:
+    sections: tuple[RenderStage, ...]
+
+    def __call__(self, context: PipelineContext) -> None:
+        for index, section in enumerate(self.sections):
+            tex = context.workdir / f"section-{index}.tex"
+            tex.write_text(
+                render_latex(
+                    normal_output(section.page, section.pattern, section.document),
+                    section.pattern,
+                )
+            )
+            context.generated_pdfs.append(_compile(tex, context.engine))
+        context.logical_pages = sum(
+            section.document.page_count for section in self.sections
+        )
+
+
+@dataclass(frozen=True)
+class _MergePdfs:
+    inputs: tuple[Path, ...]
+
+    def __call__(self, context: PipelineContext) -> None:
+        inputs = [*context.generated_pdfs, *self.inputs]
+        context.current_pdf = inputs[0]
+        context.merged_pages = context.logical_pages
+        if len(inputs) > 1:
+            context.current_pdf = context.workdir / "merged.pdf"
+            context.merged_pages = merge_pdfs(inputs, context.current_pdf)
+
+
+@dataclass(frozen=True)
+class _AddPages:
+    leading: int
+    trailing: int
+
+    def __call__(self, context: PipelineContext) -> None:
+        if not (self.leading or self.trailing):
+            return
+        source = _current_pdf(context)
+        context.current_pdf = context.workdir / "padded.pdf"
+        context.merged_pages = blank_pdf(
+            source, context.current_pdf, self.leading, self.trailing
+        )
+
+
+@dataclass(frozen=True)
+class _Bind:
+    mode: BindingMode | None
+    sheets_per_group: int
+
+    def __call__(self, context: PipelineContext) -> None:
+        if self.mode is None:
+            return
+        source = _current_pdf(context)
+        context.current_pdf = context.workdir / "imposed.pdf"
+        context.sheets = impose_pdf(
+            source, context.current_pdf, self.mode, self.sheets_per_group
+        )
+
+
+def _current_pdf(context: PipelineContext) -> Path:
+    if context.current_pdf is None:
+        raise RuntimeError("pipeline has not produced a PDF")
+    return context.current_pdf
 
 
 class Pipeline:
@@ -88,6 +175,7 @@ class Pipeline:
         self._trailing = 0
         self._binding: BindingMode | None = None
         self._sheets_per_group = 4
+        self._custom_steps: list[PipelineStep] = []
 
     def add_section(
         self,
@@ -140,57 +228,36 @@ class Pipeline:
         self._sheets_per_group = sheets_per_group
         return self
 
+    def append(self, step: PipelineStep) -> Pipeline:
+        """Run a custom step after padding and before binding."""
+        self._custom_steps.append(step)
+        return self
+
     def run(self, output: str | Path, *, engine: str | None = None) -> PipelineResult:
         """Render and execute all configured stages, writing ``output``."""
         output = Path(output)
         output.parent.mkdir(parents=True, exist_ok=True)
         with tempfile.TemporaryDirectory(prefix="base6-techo-") as directory:
-            work = Path(directory)
-            generated_files: list[Path] = []
-            for index, section in enumerate(self._sections):
-                tex = work / f"section-{index}.tex"
-                tex.write_text(
-                    render_latex(
-                        [
-                            *normal_output(
-                                section.page, section.pattern, section.document
-                            )
-                        ],
-                        section.pattern,
-                    )
-                )
-                generated = work / f"section-{index}.pdf"
-                _compile(tex, generated, engine)
-                generated_files.append(generated)
-
-            current = generated_files[0]
-            logical_pages = sum(
-                section.document.page_count for section in self._sections
+            context = PipelineContext(Path(directory), engine)
+            steps: list[PipelineStep] = [
+                _RenderSections(tuple(self._sections)),
+                _MergePdfs(tuple(self._inputs)),
+                _AddPages(self._leading, self._trailing),
+                *self._custom_steps,
+                _Bind(self._binding, self._sheets_per_group),
+            ]
+            for step in steps:
+                step(context)
+            shutil.copyfile(_current_pdf(context), output)
+            return PipelineResult(
+                output,
+                context.logical_pages,
+                context.merged_pages,
+                context.sheets,
             )
-            merged_pages = logical_pages
-            if len(generated_files) > 1 or self._inputs:
-                merged = work / "merged.pdf"
-                merged_pages = merge_pdfs([*generated_files, *self._inputs], merged)
-                current = merged
-            if self._leading or self._trailing:
-                padded = work / "padded.pdf"
-                merged_pages = blank_pdf(current, padded, self._leading, self._trailing)
-                current = padded
-            sheets = None
-            if self._binding is not None:
-                imposed = work / "imposed.pdf"
-                sheets = impose_pdf(
-                    current,
-                    imposed,
-                    self._binding,
-                    self._sheets_per_group,
-                )
-                current = imposed
-            shutil.copyfile(current, output)
-        return PipelineResult(output, logical_pages, merged_pages, sheets)
 
 
-def _compile(tex: Path, pdf: Path, engine: str | None) -> None:
+def _compile(tex: Path, engine: str | None) -> Path:
     """Compile a generated TeX file without exposing a CLI concern publicly."""
     engines = [engine] if engine else ["tectonic", "xelatex", "pdflatex"]
     executable = next((name for name in engines if name and shutil.which(name)), None)
@@ -210,9 +277,9 @@ def _compile(tex: Path, pdf: Path, engine: str | None) -> None:
     produced = tex.with_suffix(".pdf")
     if not produced.is_file():
         raise RuntimeError(f"{executable} did not produce {produced.name}")
-    shutil.move(produced, pdf)
     for suffix in (".log", ".aux"):
         tex.with_suffix(suffix).unlink(missing_ok=True)
+    return produced
 
 
 __all__ = [
@@ -222,7 +289,9 @@ __all__ = [
     "MidoriPattern",
     "PageSettings",
     "Pipeline",
+    "PipelineContext",
     "PipelineResult",
+    "PipelineStep",
     "RenderStage",
     "TimelinePattern",
 ]
