@@ -38,7 +38,6 @@ def test_schema_accepts_real_frontend_payload():
                     "pattern": {"kind": "basic", "spacing": 8, "draw_hlines": True},
                 }
             ],
-            "add_pages": {"leading": 0, "trailing": 2},
             "bind": {"mode": "booklet", "sheets_per_group": 4},
         }
     )

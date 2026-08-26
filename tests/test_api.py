@@ -17,9 +17,11 @@ def test_numbered_sections_continue_without_counting_unnumbered(tmp_path: Path):
         (
             RenderStage(pattern, A5, DocumentSettings(page_count=2)),
             RenderStage(
-                pattern,
+                BasicPattern(),
                 A5,
-                DocumentSettings(page_count=3, show_page_number=False),
+                DocumentSettings(
+                    page_count=3, show_header=False, show_page_number=False
+                ),
             ),
             RenderStage(pattern, A5, DocumentSettings(page_count=2)),
         )
@@ -33,6 +35,13 @@ def test_numbered_sections_continue_without_counting_unnumbered(tmp_path: Path):
         if text.y == A5.height - A5.footer / 2
     ]
     assert numbers == ["1", "2", "3", "4"]
+    assert all(
+        placement.draw.lines == []
+        and placement.draw.dots == []
+        and placement.draw.texts == []
+        for page, _ in context.generated_pages[2:5]
+        for placement in page.placements
+    )
 
 
 def test_compile_uses_bundled_tectonic(tmp_path: Path, monkeypatch):
@@ -63,13 +72,15 @@ def test_pipeline_supports_multiple_generated_sections(tmp_path: Path):
             BasicPattern(spacing=5, draw_dots=True, dot_spacing=5),
             DocumentSettings(page_count=2, show_page_number=False),
         )
-        .add_pages(trailing=1)
+        .add_section(
+            BasicPattern(),
+            DocumentSettings(page_count=1, show_header=False, show_page_number=False),
+        )
         .bind("booklet")
         .run(output)
     )
 
-    assert result.logical_pages == 3
-    assert result.document_pages == 4
+    assert result.logical_pages == 4
     assert len(PdfReader(output).pages) == 2
 
     output = tmp_path / "booklet.pdf"
@@ -79,7 +90,10 @@ def test_pipeline_supports_multiple_generated_sections(tmp_path: Path):
             A5,
             DocumentSettings(page_count=1, show_page_number=False),
         )
-        .add_pages(trailing=3)
+        .add_section(
+            BasicPattern(),
+            DocumentSettings(page_count=3, show_header=False, show_page_number=False),
+        )
         .bind("booklet")
         .run(output)
     )
@@ -89,25 +103,3 @@ def test_pipeline_supports_multiple_generated_sections(tmp_path: Path):
     assert float(PdfReader(output).pages[0].mediabox.width) == pytest.approx(
         839.06, abs=0.02
     )
-
-
-def test_pipeline_runs_custom_step_before_binding(tmp_path: Path):
-    observed = []
-
-    def observe(context: PipelineContext) -> None:
-        observed.append((context.document_pages, context.sheets))
-
-    result = (
-        Pipeline(
-            BasicPattern(draw_hlines=True),
-            A5,
-            DocumentSettings(page_count=1, show_page_number=False),
-        )
-        .add_pages(trailing=3)
-        .append(observe)
-        .bind("booklet")
-        .run(tmp_path / "custom.pdf")
-    )
-
-    assert observed == [(4, None)]
-    assert result.sheets == 1

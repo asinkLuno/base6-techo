@@ -1,24 +1,5 @@
 {
   "$defs": {
-    "AddPagesRequest": {
-      "additionalProperties": false,
-      "properties": {
-        "leading": {
-          "default": 0,
-          "minimum": 0,
-          "title": "Leading",
-          "type": "integer"
-        },
-        "trailing": {
-          "default": 2,
-          "minimum": 0,
-          "title": "Trailing",
-          "type": "integer"
-        }
-      },
-      "title": "AddPagesRequest",
-      "type": "object"
-    },
     "BasicPatternRequest": {
       "additionalProperties": false,
       "properties": {
@@ -673,9 +654,6 @@
       "minItems": 1,
       "title": "Sections",
       "type": "array"
-    },
-    "add_pages": {
-      "$ref": "#/$defs/AddPagesRequest"
     },
     "bind": {
       "$ref": "#/$defs/BindRequest"
