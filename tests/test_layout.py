@@ -230,6 +230,24 @@ def test_binding_text_supports_two_lines_and_sizes():
     ]
 
 
+def test_watermark_text_edge_distance_from_paper_edge():
+    odd = render_page(
+        A5, RULED, ContentPage(1),
+        DocumentSettings(binding_text="base-6", binding_text_edge=3),
+    )
+    even = render_page(
+        A5, RULED, ContentPage(2),
+        DocumentSettings(binding_text="base-6", binding_text_edge=3),
+    )
+    assert odd.texts == [Text(3, 105, "base-6", rotation=90)]
+    assert even.texts == [Text(145, 105, "base-6", rotation=90)]  # 148 - 3
+    outer = render_page(
+        A5, RULED, ContentPage(1),
+        DocumentSettings(non_binding_text="edge", non_binding_text_edge=2),
+    )
+    assert outer.texts == [Text(2, 105, "edge", rotation=90)]
+
+
 def test_binding_text_spacing_validation():
     with pytest.raises(ValueError, match="binding_text_size"):
         DocumentSettings(binding_text_size=0)
@@ -279,7 +297,7 @@ def test_section_can_opt_out_of_header():
 
 
 def test_header_date_range_takes_min_of_days_and_pages():
-    def dates(page_count: int, start: str, end: str):
+    def dates(page_count: int, start: str, end: str, parity: str = "both"):
         return [
             d.isoformat()
             for d in RenderSectionRequest(
@@ -287,9 +305,11 @@ def test_header_date_range_takes_min_of_days_and_pages():
                     page_count=page_count,
                     header_date=start,
                     header_date_end=end,
+                    header_parity=parity,
                 ),
                 pattern=BasicPatternRequest(),
             ).document.to_settings().header_dates
+            if d is not None
         ]
 
     assert dates(3, "2025-03-01", "2025-03-03") == [
@@ -301,8 +321,58 @@ def test_header_date_range_takes_min_of_days_and_pages():
     assert dates(2, "2025-03-01", "2025-03-03") == ["2025-03-01", "2025-03-02"]
     # 天数 < 页数：只有前 2 页有日期
     assert dates(5, "2025-03-01", "2025-03-02") == ["2025-03-01", "2025-03-02"]
-    # 结束早于开始：退化为仅开始日期
-    assert dates(3, "2025-03-03", "2025-03-01") == ["2025-03-03"]
+    # 结束早于开始：校验拒绝
+    with pytest.raises(ValueError, match="结束日期必须晚于或等于开始日期"):
+        dates(3, "2025-03-03", "2025-03-01")
+    # 奇数/偶数页模式：一天一个跨页，两页共享同一天
+    assert dates(6, "2025-03-01", "2025-03-02", "odd") == [
+        "2025-03-01",
+        "2025-03-01",
+        "2025-03-02",
+        "2025-03-02",
+    ]
+    # 天数超过跨页数：截断到跨页数
+    assert dates(6, "2025-03-01", "2025-03-10", "odd") == [
+        "2025-03-01",
+        "2025-03-01",
+        "2025-03-02",
+        "2025-03-02",
+        "2025-03-03",
+        "2025-03-03",
+    ]
+    # 偶数页模式同样一天一个跨页
+    assert dates(6, "2025-03-01", "2025-03-03", "even") == [
+        "2025-03-01",
+        "2025-03-01",
+        "2025-03-02",
+        "2025-03-02",
+        "2025-03-03",
+        "2025-03-03",
+    ]
+
+
+def test_parity_dates_share_each_spread():
+    # 奇数/偶数页模式：每跨页共享同一天，所有页都有日期
+    doc = DocumentRequest(
+        page_count=4,
+        header_date="2025-03-01",
+        header_date_end="2025-03-02",
+        header_parity="odd",
+        header_date_format="yyyy-MM-dd",
+    ).to_settings()
+    assert doc.header_dates == (
+        date(2025, 3, 1),
+        date(2025, 3, 1),
+        date(2025, 3, 2),
+        date(2025, 3, 2),
+    )
+    doc_even = DocumentRequest(
+        page_count=4,
+        header_date="2025-03-01",
+        header_date_end="2025-03-02",
+        header_parity="even",
+    ).to_settings()
+    assert doc_even.header_dates == doc.header_dates
 
 
 def test_request_models_map_to_settings_and_patterns():

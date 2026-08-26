@@ -20,22 +20,18 @@ if TYPE_CHECKING:
     from pages import Text
 
 _HEX_COLOR = re.compile(r"^#[0-9A-Fa-f]{6}$")
-MAX_HOUR = 99
+MAX_HOUR = 30
 MM_PER_PT = 25.4 / 72.27
 
 
-def page_range(
-    start: int, end: int, pages: int, swap: bool, is_odd: bool
-) -> tuple[int, int]:
+def page_range(start: int, end: int, pages: int, is_odd: bool) -> tuple[int, int]:
     """Return the hour range drawn on one page of a spread."""
     if pages == 1:
         return start, end
     midpoint = (start + end) // 2
     first, second = (start, midpoint), (midpoint, end)
     # A spread is even/left then odd/right: earlier hours belong on the left.
-    return (
-        (second if not is_odd else first) if swap else (first if not is_odd else second)
-    )
+    return first if not is_odd else second
 
 
 @dataclass(frozen=True)
@@ -45,7 +41,6 @@ class TimelinePattern:
     start: int = 0
     end: int = 26
     pages: int = 1
-    swap: bool = False
     line_color: str = "#7A7A7A"
     line_width: float = 0.4 / MM_PER_PT  # 0.4mm, expressed in pt
     label_size: float = 10.2
@@ -85,7 +80,10 @@ class TimelinePattern:
 
 
 def draw(
-    geo: PageGeometry, pattern: TimelinePattern, page_date: date | None = None
+    geo: PageGeometry,
+    pattern: TimelinePattern,
+    page_date: date | None = None,
+    font: str = r"\sffamily",
 ) -> tuple[list[Line], list[Dot], list[Text]]:
     """Draw timeline ticks, half-hour guide dots, and hour labels."""
     from pages import Text
@@ -94,7 +92,6 @@ def draw(
         pattern.start,
         pattern.end,
         pattern.pages,
-        pattern.swap,
         geo.binding_side == "left",
     )
     span = end - start
@@ -136,12 +133,8 @@ def draw(
                 f"{hour:02d}",
                 size_pt=pattern.label_size,
                 color=color or pattern.line_color,
-                font="0xProto Nerd Font",
-                anchor="north"
-                if hour == start
-                else "south"
-                if hour == end
-                else "center",
+                font=font,
+                anchor="center",
             )
         )
         if hour < end:

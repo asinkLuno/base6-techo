@@ -90,26 +90,28 @@ def render_page(
         else None
     )
     if isinstance(pattern, TimelinePattern):
-        lines, dots, texts = draw_timeline(geo, pattern, page_date)
+        lines, dots, texts = draw_timeline(geo, pattern, page_date, doc.binding_text_font)
     else:
         if isinstance(pattern, MidoriPattern):
             lines, dots = draw_midori(geo, pattern)
         else:
             lines, dots = draw_basic(geo, pattern)
         texts = []
-    # Header date (dates are already expanded to one entry per page)
+    # Header date (dates are already expanded to one entry per page;
+    # the text only shows on pages matching the parity; colors stay shared)
     if (
         doc.show_header
         and doc.header_dates is not None
         and doc.header_date_format is not None
+        and 0 <= idx < len(doc.header_dates)
+        and doc.header_dates[idx] is not None
     ):
         header_page_number = idx + 1
-        show = (
+        if (
             doc.header_parity == "both"
             or (doc.header_parity == "odd" and header_page_number % 2 == 1)
             or (doc.header_parity == "even" and header_page_number % 2 == 0)
-        )
-        if show and 0 <= idx < len(doc.header_dates):
+        ):
             date_str = format_date(
                 doc.header_dates[idx],
                 doc.header_date_format,
@@ -138,7 +140,7 @@ def render_page(
                     page.header / 2,
                     date_str,
                     size_pt=doc.header_date_size,
-                    font=doc.header_date_font or r"\sffamily",
+                    font=doc.header_date_font or doc.binding_text_font,
                     anchor=anchor,
                 )
             )
@@ -150,7 +152,18 @@ def render_page(
             (doc.binding_text_2, doc.binding_text_2_size),
         ],
         doc.binding_text_spacing,
-        page.binding / 2 if geo.binding_side == "left" else page.width - page.binding / 2,
+        (
+            doc.binding_text_edge
+            if doc.binding_text_edge is not None
+            else page.binding / 2
+        )
+        if geo.binding_side == "left"
+        else page.width
+        - (
+            doc.binding_text_edge
+            if doc.binding_text_edge is not None
+            else page.binding / 2
+        ),
         page.height / 2,
         rotation=90,
         direction=1 if geo.binding_side == "left" else -1,
@@ -164,9 +177,18 @@ def render_page(
             (doc.non_binding_text_2, doc.non_binding_text_2_size),
         ],
         doc.non_binding_text_spacing,
-        page.non_binding / 2
+        (
+            doc.non_binding_text_edge
+            if doc.non_binding_text_edge is not None
+            else page.non_binding / 2
+        )
         if geo.binding_side == "left"
-        else page.width - page.non_binding / 2,
+        else page.width
+        - (
+            doc.non_binding_text_edge
+            if doc.non_binding_text_edge is not None
+            else page.non_binding / 2
+        ),
         page.height / 2,
         rotation=90,
         direction=-1 if geo.binding_side == "left" else 1,
