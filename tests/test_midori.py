@@ -1,5 +1,5 @@
 from layout import geometry_for
-from models import ContentPage, PageSettings
+from models import ContentPage, DocumentSettings, PageSettings
 from pages import render_page
 from template.midori import MidoriPattern, draw
 
@@ -30,8 +30,7 @@ def test_midori_keeps_page_footer_text_and_binding_watermark():
         A5,
         MidoriPattern(),
         ContentPage(1),
-        binding_text="base-6",
-        footer_text="note",
+        DocumentSettings(binding_text="base-6", footer_text="note"),
     )
 
     assert any(text.content == "note" and text.y == 205 for text in page_draw.texts)
