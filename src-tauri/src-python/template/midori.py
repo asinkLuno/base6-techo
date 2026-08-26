@@ -22,8 +22,8 @@ class MidoriPattern:
     dot_frequency: int = 10
     dot_radius: float = 0.4
     line_width: float = 0.7
-    line_color: str = "#99FFFF"
-    dot_color: str = "#99FFFF"
+    line_color: str = "#a9d1ae"
+    dot_color: str = "#a9d1ae"
     header: bool = False
     footer: bool = False
     inner: bool = False

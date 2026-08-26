@@ -3,6 +3,7 @@
 All user-facing lengths are in mm; font size is in pt.
 """
 
+import re
 from dataclasses import dataclass
 from datetime import date
 from typing import Annotated, Literal
@@ -11,6 +12,8 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 MIN_FOOTER_FOR_TEXT = 5  # mm
 MAX_PAGE_COUNT = 500
+
+_HEX_COLOR = re.compile(r"^#[0-9A-Fa-f]{6}$")
 
 
 @dataclass(frozen=True)
@@ -54,6 +57,7 @@ class DocumentSettings:
     binding_text_spacing: float = 5
     binding_text_edge: float | None = None  # None -> 边距居中
     binding_text_font: str = r"\sffamily"
+    binding_text_color: str = "#7a7a7a"
     header_dates: tuple[date | None, ...] | None = None
     header_date_format: str | None = None
     header_date_locale: str = "zh_CN"
@@ -66,17 +70,20 @@ class DocumentSettings:
     header_text_size: float = 8
     header_text_2_size: float = 8
     header_text_spacing: float = 5
+    header_text_color: str = "#7a7a7a"
     non_binding_text: str | None = None
     non_binding_text_2: str | None = None
     non_binding_text_size: float = 8
     non_binding_text_2_size: float = 8
     non_binding_text_spacing: float = 5
     non_binding_text_edge: float | None = None  # None -> 边距居中
+    non_binding_text_color: str = "#7a7a7a"
     footer_text: str | None = None
     footer_text_2: str | None = None
     footer_text_size: float = 8
     footer_text_2_size: float = 8
     footer_text_spacing: float = 5
+    footer_text_color: str = "#7a7a7a"
 
     def __post_init__(self) -> None:
         if not 1 <= self.page_count <= MAX_PAGE_COUNT:
@@ -106,6 +113,14 @@ class DocumentSettings:
             raise ValueError("text edge distance must be >= 0")
         if not self.binding_text_font.strip():
             raise ValueError("binding_text_font must not be empty")
+        for name in (
+            "binding_text_color",
+            "header_text_color",
+            "footer_text_color",
+            "non_binding_text_color",
+        ):
+            if not _HEX_COLOR.match(getattr(self, name)):
+                raise ValueError(f"{name} must be #RRGGBB")
         if self.header_parity not in ("odd", "even", "both"):
             raise ValueError("header_parity must be odd, even, or both")
         if self.header_date_size <= 0:
@@ -160,6 +175,7 @@ class DocumentRequest(BaseModel):
     binding_text_spacing: float = 5
     binding_text_edge: float | None = Field(default=None, ge=0)
     binding_text_font: str = r"\sffamily"
+    binding_text_color: str = "#7a7a7a"
     header_date: date | None = None
     header_date_end: date | None = None
     header_date_format: str = "yyyy-MM-dd"
@@ -173,17 +189,20 @@ class DocumentRequest(BaseModel):
     header_text_size: float = 8
     header_text_2_size: float = 8
     header_text_spacing: float = 5
+    header_text_color: str = "#7a7a7a"
     non_binding_text: str | None = None
     non_binding_text_2: str | None = None
     non_binding_text_size: float = 8
     non_binding_text_2_size: float = 8
     non_binding_text_spacing: float = 5
     non_binding_text_edge: float | None = Field(default=None, ge=0)
+    non_binding_text_color: str = "#7a7a7a"
     footer_text: str | None = None
     footer_text_2: str | None = None
     footer_text_size: float = 8
     footer_text_2_size: float = 8
     footer_text_spacing: float = 5
+    footer_text_color: str = "#7a7a7a"
 
     @model_validator(mode="after")
     def _end_date_not_before_start(self) -> "DocumentRequest":
@@ -244,17 +263,21 @@ class DocumentRequest(BaseModel):
             non_binding_text_2_size=self.non_binding_text_2_size,
             non_binding_text_spacing=self.non_binding_text_spacing,
             non_binding_text_edge=self.non_binding_text_edge,
+            non_binding_text_color=self.non_binding_text_color,
             footer_text=self.footer_text,
             footer_text_2=self.footer_text_2,
             footer_text_size=self.footer_text_size,
             footer_text_2_size=self.footer_text_2_size,
             footer_text_spacing=self.footer_text_spacing,
+            footer_text_color=self.footer_text_color,
             binding_text_font=self.binding_text_font,
+            binding_text_color=self.binding_text_color,
             header_text=self.header_text,
             header_text_2=self.header_text_2,
             header_text_size=self.header_text_size,
             header_text_2_size=self.header_text_2_size,
             header_text_spacing=self.header_text_spacing,
+            header_text_color=self.header_text_color,
             header_dates=header_dates,
             header_date_format=self.header_date_format if header_dates else None,
             header_date_locale=self.header_date_locale,
@@ -309,8 +332,8 @@ class MidoriPatternRequest(BaseModel):
     dot_frequency: int = 10
     dot_radius: float = 0.4
     line_width: float = 0.7
-    line_color: str = "#99FFFF"
-    dot_color: str = "#99FFFF"
+    line_color: str = "#a9d1ae"
+    dot_color: str = "#a9d1ae"
     header: bool = False
     footer: bool = False
     inner: bool = False
@@ -331,8 +354,8 @@ class TimelinePatternRequest(BaseModel):
     latitude: float | None = Field(default=None, ge=-90, le=90)
     longitude: float | None = Field(default=None, ge=-180, le=180)
     timezone: str | None = None
-    daylight_color: str = "#E5B93F"
-    night_color: str = "#496A9F"
+    daylight_color: str = "#ffd700"
+    night_color: str = "#0047ab"
 
 
 PatternRequest = Annotated[

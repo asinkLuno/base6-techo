@@ -317,6 +317,11 @@
           "title": "Binding Text Font",
           "type": "string"
         },
+        "binding_text_color": {
+          "default": "#7a7a7a",
+          "title": "Binding Text Color",
+          "type": "string"
+        },
         "header_date": {
           "anyOf": [
             {
@@ -429,6 +434,11 @@
           "title": "Header Text Spacing",
           "type": "number"
         },
+        "header_text_color": {
+          "default": "#7a7a7a",
+          "title": "Header Text Color",
+          "type": "string"
+        },
         "non_binding_text": {
           "anyOf": [
             {
@@ -481,6 +491,11 @@
           "default": null,
           "title": "Non Binding Text Edge"
         },
+        "non_binding_text_color": {
+          "default": "#7a7a7a",
+          "title": "Non Binding Text Color",
+          "type": "string"
+        },
         "footer_text": {
           "anyOf": [
             {
@@ -519,6 +534,11 @@
           "default": 5,
           "title": "Footer Text Spacing",
           "type": "number"
+        },
+        "footer_text_color": {
+          "default": "#7a7a7a",
+          "title": "Footer Text Color",
+          "type": "string"
         }
       },
       "title": "DocumentRequest",
@@ -564,12 +584,12 @@
           "type": "number"
         },
         "line_color": {
-          "default": "#99FFFF",
+          "default": "#a9d1ae",
           "title": "Line Color",
           "type": "string"
         },
         "dot_color": {
-          "default": "#99FFFF",
+          "default": "#a9d1ae",
           "title": "Dot Color",
           "type": "string"
         },
@@ -768,12 +788,12 @@
           "title": "Timezone"
         },
         "daylight_color": {
-          "default": "#E5B93F",
+          "default": "#ffd700",
           "title": "Daylight Color",
           "type": "string"
         },
         "night_color": {
-          "default": "#496A9F",
+          "default": "#0047ab",
           "title": "Night Color",
           "type": "string"
         }
