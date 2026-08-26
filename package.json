@@ -6,9 +6,10 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc && vite build",
+    "build": "yarn schema && tsc && vite build",
     "preview": "vite preview",
-    "tauri": "tauri"
+    "tauri": "tauri",
+    "schema": "uv run python src-tauri/src-python/gen_schema.py && node scripts/gen-ts.mjs"
   },
   "dependencies": {
     "@tauri-apps/api": "^2",
@@ -23,6 +24,7 @@
     "@types/react": "^18.3.1",
     "@types/react-dom": "^18.3.1",
     "@vitejs/plugin-react": "^4.3.4",
+    "json-schema-to-typescript": "^15.0.4",
     "typescript": "~5.6.2",
     "vite": "^6.3.6"
   }

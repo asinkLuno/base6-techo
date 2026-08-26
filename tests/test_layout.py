@@ -1,14 +1,24 @@
+from datetime import date
+
 import pytest
 from imposition import normal_output
 from layout import Rect, geometry_for
 from models import (
+    BasicPatternRequest,
     ContentPage,
+    DocumentRequest,
     DocumentSettings,
+    MidoriPatternRequest,
     PaddingPage,
+    PageRequest,
     PageSettings,
+    RenderSectionRequest,
+    RunPipelineRequest,
+    TimelinePatternRequest,
     validate_project,
 )
 from pages import Text, render_page
+from pydantic import ValidationError
 from template.basic import BasicPattern, draw, ruled_ys
 
 A5 = PageSettings(
@@ -235,7 +245,39 @@ def test_no_dots_by_default():
     assert render_page(A5, RULED, ContentPage(1), True).dots == []
 
 
-def test_validation():
+def test_request_models_map_to_settings_and_patterns():
+    section = RenderSectionRequest(
+        page=PageRequest(width=148, height=210, footer=12),
+        document=DocumentRequest(page_count=3, header_date="2025-01-01", binding_text="base-6"),
+        pattern=BasicPatternRequest(kind="basic", spacing=8, draw_hlines=True),
+    )
+    assert section.page.to_settings() == PageSettings(148, 210, footer=12)
+    doc = section.document.to_settings()
+    assert doc.page_count == 3
+    assert doc.binding_text == "base-6"
+    assert doc.header_dates == (date(2025, 1, 1),) * 3
+    assert doc.header_date_format == "yyyy-MM-dd"
+
+    request = RunPipelineRequest(
+        output="/tmp/out.pdf",
+        sections=[
+            section,
+            RenderSectionRequest(pattern=MidoriPatternRequest()),
+            RenderSectionRequest(pattern=TimelinePatternRequest(pages=2)),
+        ],
+    )
+    assert [s.pattern.kind for s in request.sections] == ["basic", "midori", "timeline"]
+
+
+def test_request_models_reject_unknown_and_wrong_fields():
+    with pytest.raises(ValidationError, match="kind"):
+        RenderSectionRequest(pattern={"spacing": 8})  # no kind
+    with pytest.raises(ValidationError):
+        RenderSectionRequest(
+            pattern=MidoriPatternRequest(),
+            page={"width": 148, "totally_unknown": 1},
+        )  # extra=forbid
+
     with pytest.raises(ValueError):
         DocumentSettings(page_count=0)
     with pytest.raises(ValueError):

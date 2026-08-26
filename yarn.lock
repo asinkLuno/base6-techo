@@ -5,6 +5,17 @@ __metadata:
   version: 10
   cacheKey: 10c0
 
+"@apidevtools/json-schema-ref-parser@npm:^11.5.5":
+  version: 11.9.3
+  resolution: "@apidevtools/json-schema-ref-parser@npm:11.9.3"
+  dependencies:
+    "@jsdevtools/ono": "npm:^7.1.3"
+    "@types/json-schema": "npm:^7.0.15"
+    js-yaml: "npm:^4.1.0"
+  checksum: 10c0/5745813b3d964279f387677b7a903ba6634cdeaf879ff3a331a694392cbc923763f398506df190be114f2574b8b570baab3e367c2194bb35f50147ff6cf27d7a
+  languageName: node
+  linkType: hard
+
 "@babel/code-frame@npm:^7.29.7":
   version: 7.29.7
   resolution: "@babel/code-frame@npm:7.29.7"
@@ -444,6 +455,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@jsdevtools/ono@npm:^7.1.3":
+  version: 7.1.3
+  resolution: "@jsdevtools/ono@npm:7.1.3"
+  checksum: 10c0/a9f7e3e8e3bc315a34959934a5e2f874c423cf4eae64377d3fc9de0400ed9f36cb5fd5ebce3300d2e8f4085f557c4a8b591427a583729a87841fda46e6c216b9
+  languageName: node
+  linkType: hard
+
 "@napi-rs/lzma-linux-x64-gnu@npm:1.5.1":
   version: 1.5.1
   resolution: "@napi-rs/lzma-linux-x64-gnu@npm:1.5.1"
@@ -869,6 +887,20 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@types/json-schema@npm:^7.0.15":
+  version: 7.0.15
+  resolution: "@types/json-schema@npm:7.0.15"
+  checksum: 10c0/a996a745e6c5d60292f36731dd41341339d4eeed8180bb09226e5c8d23759067692b1d88e5d91d72ee83dfc00d3aca8e7bd43ea120516c17922cbcb7c3e252db
+  languageName: node
+  linkType: hard
+
+"@types/lodash@npm:^4.17.7":
+  version: 4.17.25
+  resolution: "@types/lodash@npm:4.17.25"
+  checksum: 10c0/ca2049f16bf527e04d6e27702e3912a484faaff587de77a5c58e0d243b9292a655e1d7f7e5bdf2ffdf49a76da10673097f8dd4901990679058d47ccd99051877
+  languageName: node
+  linkType: hard
+
 "@types/prop-types@npm:*":
   version: 15.7.15
   resolution: "@types/prop-types@npm:15.7.15"
@@ -956,6 +988,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"argparse@npm:^2.0.1":
+  version: 2.0.1
+  resolution: "argparse@npm:2.0.1"
+  checksum: 10c0/c5640c2d89045371c7cedd6a70212a04e360fd34d6edeae32f6952c63949e3525ea77dbec0289d8213a99bbaeab5abfa860b5c12cf88a2e6cf8106e90dd27a7e
+  languageName: node
+  linkType: hard
+
 "base6-techo@workspace:.":
   version: 0.0.0-use.local
   resolution: "base6-techo@workspace:."
@@ -967,6 +1006,7 @@ __metadata:
     "@types/react-dom": "npm:^18.3.1"
     "@vitejs/plugin-react": "npm:^4.3.4"
     "@xyflow/react": "npm:^12.11.3"
+    json-schema-to-typescript: "npm:^15.0.4"
     react: "npm:^18.3.1"
     react-dom: "npm:^18.3.1"
     tauri-plugin-pytauri-api: "npm:^0.8.0"
@@ -1290,6 +1330,22 @@ __metadata:
   languageName: node
   linkType: hard
 
+"is-extglob@npm:^2.1.1":
+  version: 2.1.1
+  resolution: "is-extglob@npm:2.1.1"
+  checksum: 10c0/5487da35691fbc339700bbb2730430b07777a3c21b9ebaecb3072512dfd7b4ba78ac2381a87e8d78d20ea08affb3f1971b4af629173a6bf435ff8a4c47747912
+  languageName: node
+  linkType: hard
+
+"is-glob@npm:^4.0.3":
+  version: 4.0.3
+  resolution: "is-glob@npm:4.0.3"
+  dependencies:
+    is-extglob: "npm:^2.1.1"
+  checksum: 10c0/17fb4014e22be3bbecea9b2e3a76e9e34ff645466be702f1693e8f1ee1adac84710d0be0bd9f967d6354036fd51ab7c2741d954d6e91dae6bb69714de92c197a
+  languageName: node
+  linkType: hard
+
 "isexe@npm:^4.0.0":
   version: 4.0.0
   resolution: "isexe@npm:4.0.0"
@@ -1304,6 +1360,17 @@ __metadata:
   languageName: node
   linkType: hard
 
+"js-yaml@npm:^4.1.0":
+  version: 4.3.1
+  resolution: "js-yaml@npm:4.3.1"
+  dependencies:
+    argparse: "npm:^2.0.1"
+  bin:
+    js-yaml: bin/js-yaml.js
+  checksum: 10c0/13c500ca322e0c3f8c81686e6ecda96d2ea37b45247a420c17c7db36932d6965cc27391abc2d1a104501600e7f0d947a5f8b7be6db619c4fefa87901b3512807
+  languageName: node
+  linkType: hard
+
 "jsesc@npm:^3.0.2":
   version: 3.1.0
   resolution: "jsesc@npm:3.1.0"
@@ -1313,12 +1380,38 @@ __metadata:
   languageName: node
   linkType: hard
 
+"json-schema-to-typescript@npm:^15.0.4":
+  version: 15.0.4
+  resolution: "json-schema-to-typescript@npm:15.0.4"
+  dependencies:
+    "@apidevtools/json-schema-ref-parser": "npm:^11.5.5"
+    "@types/json-schema": "npm:^7.0.15"
+    "@types/lodash": "npm:^4.17.7"
+    is-glob: "npm:^4.0.3"
+    js-yaml: "npm:^4.1.0"
+    lodash: "npm:^4.17.21"
+    minimist: "npm:^1.2.8"
+    prettier: "npm:^3.2.5"
+    tinyglobby: "npm:^0.2.9"
+  bin:
+    json2ts: dist/src/cli.js
+  checksum: 10c0/1af8a68d5121710f6f2b9998eea062b751ffc45166b0272a17068e64443010b3c6b02360d3446ca696fcb77102bcb82abd717be0869299d1e12bab437287331b
+  languageName: node
+  linkType: hard
+
 "json5@npm:^2.2.3":
   version: 2.2.3
   resolution: "json5@npm:2.2.3"
   bin:
     json5: lib/cli.js
   checksum: 10c0/5a04eed94810fa55c5ea138b2f7a5c12b97c3750bc63d11e511dcecbfef758003861522a070c2272764ee0f4e3e323862f386945aeb5b85b87ee43f084ba586c
+  languageName: node
+  linkType: hard
+
+"lodash@npm:^4.17.21":
+  version: 4.18.1
+  resolution: "lodash@npm:4.18.1"
+  checksum: 10c0/757228fc68805c59789e82185135cf85f05d0b2d3d54631d680ca79ec21944ec8314d4533639a14b8bcfbd97a517e78960933041a5af17ecb693ec6eecb99a27
   languageName: node
   linkType: hard
 
@@ -1339,6 +1432,13 @@ __metadata:
   dependencies:
     yallist: "npm:^3.0.2"
   checksum: 10c0/89b2ef2ef45f543011e38737b8a8622a2f8998cddf0e5437174ef8f1f70a8b9d14a918ab3e232cb3ba343b7abddffa667f0b59075b2b80e6b4d63c3de6127482
+  languageName: node
+  linkType: hard
+
+"minimist@npm:^1.2.8":
+  version: 1.2.8
+  resolution: "minimist@npm:1.2.8"
+  checksum: 10c0/19d3fcdca050087b84c2029841a093691a91259a47def2f18222f41e7645a0b7c44ef4b40e88a1e58a40c84d2ef0ee6047c55594d298146d0eb3f6b737c20ce6
   languageName: node
   linkType: hard
 
@@ -1434,6 +1534,15 @@ __metadata:
     picocolors: "npm:^1.1.1"
     source-map-js: "npm:^1.2.1"
   checksum: 10c0/2bdafc00d96bd57b6649a52e458864a4bf58ee56cfdbe4aea1472b5cccc127e6c1ad653bd0bec50d211e650eb0b9270c80e1e72aff2e2fa40d9e7363234d6e43
+  languageName: node
+  linkType: hard
+
+"prettier@npm:^3.2.5":
+  version: 3.9.6
+  resolution: "prettier@npm:3.9.6"
+  bin:
+    prettier: bin/prettier.cjs
+  checksum: 10c0/9f7ddae234035868f3daab3dc34e6de7e54622185afb017378029f0c09a9c023248ccf6f34def0b17a0538e18c47aa1b3188bab72965d1bf735919baa0747e99
   languageName: node
   linkType: hard
 
@@ -1621,7 +1730,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"tinyglobby@npm:^0.2.12, tinyglobby@npm:^0.2.13":
+"tinyglobby@npm:^0.2.12, tinyglobby@npm:^0.2.13, tinyglobby@npm:^0.2.9":
   version: 0.2.17
   resolution: "tinyglobby@npm:0.2.17"
   dependencies:

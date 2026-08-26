@@ -1,0 +1,184 @@
+export type Output = string;
+/**
+ * @minItems 1
+ */
+export type Sections = [RenderSectionRequest, ...RenderSectionRequest[]];
+export type Width = number;
+export type Height = number;
+export type Header = number;
+export type Footer = number;
+export type Binding = number;
+export type NonBinding = number;
+export type PageCount = number;
+export type ShowPageNumber = boolean;
+export type BindingText = string | null;
+export type BindingText2 = string | null;
+export type BindingTextSize = number;
+export type BindingText2Size = number;
+export type BindingTextSpacing = number;
+export type PageNumberFont = string;
+export type BindingTextFont = string;
+export type HeaderDate = string | null;
+export type HeaderDateFormat = string;
+export type HeaderDateLocale = string;
+export type HeaderParity = "odd" | "even" | "both";
+export type HeaderDateSize = number;
+export type HeaderDateFont = string | null;
+export type HeaderDatePosition = "center" | "binding" | "outer";
+export type Pattern = BasicPatternRequest | MidoriPatternRequest | TimelinePatternRequest;
+export type Kind = "basic";
+export type Spacing = number;
+export type LineWidth = number;
+export type LineColor = string;
+export type DrawHlines = boolean;
+export type DrawVlines = boolean;
+export type DrawDots = boolean;
+export type HlineEdgeColor = string | null;
+export type HlineEdgeWidth = number | null;
+export type VlineEdgeColor = string | null;
+export type VlineEdgeWidth = number | null;
+export type DotCenterColor = string | null;
+export type HlineHeader = boolean;
+export type HlineFooter = boolean;
+export type HlineInner = boolean;
+export type HlineOuter = boolean;
+export type VlineHeader = boolean;
+export type VlineFooter = boolean;
+export type VlineInner = boolean;
+export type VlineOuter = boolean;
+export type DotHeader = boolean;
+export type DotFooter = boolean;
+export type DotInner = boolean;
+export type DotOuter = boolean;
+export type DotSpacing = number | null;
+export type DotRadius = number;
+export type MarginX = number | null;
+export type MarginColor = string | null;
+export type VlineSpacing = number | null;
+export type Kind1 = "midori";
+export type Spacing1 = number;
+export type Gap = number;
+export type EdgeExtension = number;
+export type DotFrequency = number;
+export type DotRadius1 = number;
+export type LineWidth1 = number;
+export type LineColor1 = string;
+export type DotColor = string;
+export type Header1 = boolean;
+export type Footer1 = boolean;
+export type Inner = boolean;
+export type Outer = boolean;
+export type Kind2 = "timeline";
+export type Start = number;
+export type End = number;
+export type Pages = 1 | 2;
+export type Swap = boolean;
+export type LineColor2 = string;
+export type LineWidth2 = number;
+export type LabelSize = number;
+export type Leading = number;
+export type Trailing = number;
+export type Mode = ("booklet" | "thread") | null;
+export type SheetsPerGroup = number;
+
+export interface RunPipelineRequest {
+  output: Output;
+  sections: Sections;
+  add_pages?: AddPagesRequest;
+  bind?: BindRequest;
+}
+export interface RenderSectionRequest {
+  page?: PageRequest;
+  document?: DocumentRequest;
+  pattern: Pattern;
+}
+export interface PageRequest {
+  width?: Width;
+  height?: Height;
+  header?: Header;
+  footer?: Footer;
+  binding?: Binding;
+  non_binding?: NonBinding;
+}
+export interface DocumentRequest {
+  page_count?: PageCount;
+  show_page_number?: ShowPageNumber;
+  binding_text?: BindingText;
+  binding_text_2?: BindingText2;
+  binding_text_size?: BindingTextSize;
+  binding_text_2_size?: BindingText2Size;
+  binding_text_spacing?: BindingTextSpacing;
+  page_number_font?: PageNumberFont;
+  binding_text_font?: BindingTextFont;
+  header_date?: HeaderDate;
+  header_date_format?: HeaderDateFormat;
+  header_date_locale?: HeaderDateLocale;
+  header_parity?: HeaderParity;
+  header_date_size?: HeaderDateSize;
+  header_date_font?: HeaderDateFont;
+  header_date_position?: HeaderDatePosition;
+}
+export interface BasicPatternRequest {
+  kind?: Kind;
+  spacing?: Spacing;
+  line_width?: LineWidth;
+  line_color?: LineColor;
+  draw_hlines?: DrawHlines;
+  draw_vlines?: DrawVlines;
+  draw_dots?: DrawDots;
+  hline_edge_color?: HlineEdgeColor;
+  hline_edge_width?: HlineEdgeWidth;
+  vline_edge_color?: VlineEdgeColor;
+  vline_edge_width?: VlineEdgeWidth;
+  dot_center_color?: DotCenterColor;
+  hline_header?: HlineHeader;
+  hline_footer?: HlineFooter;
+  hline_inner?: HlineInner;
+  hline_outer?: HlineOuter;
+  vline_header?: VlineHeader;
+  vline_footer?: VlineFooter;
+  vline_inner?: VlineInner;
+  vline_outer?: VlineOuter;
+  dot_header?: DotHeader;
+  dot_footer?: DotFooter;
+  dot_inner?: DotInner;
+  dot_outer?: DotOuter;
+  dot_spacing?: DotSpacing;
+  dot_radius?: DotRadius;
+  margin_x?: MarginX;
+  margin_color?: MarginColor;
+  vline_spacing?: VlineSpacing;
+}
+export interface MidoriPatternRequest {
+  kind?: Kind1;
+  spacing?: Spacing1;
+  gap?: Gap;
+  edge_extension?: EdgeExtension;
+  dot_frequency?: DotFrequency;
+  dot_radius?: DotRadius1;
+  line_width?: LineWidth1;
+  line_color?: LineColor1;
+  dot_color?: DotColor;
+  header?: Header1;
+  footer?: Footer1;
+  inner?: Inner;
+  outer?: Outer;
+}
+export interface TimelinePatternRequest {
+  kind?: Kind2;
+  start?: Start;
+  end?: End;
+  pages?: Pages;
+  swap?: Swap;
+  line_color?: LineColor2;
+  line_width?: LineWidth2;
+  label_size?: LabelSize;
+}
+export interface AddPagesRequest {
+  leading?: Leading;
+  trailing?: Trailing;
+}
+export interface BindRequest {
+  mode?: Mode;
+  sheets_per_group?: SheetsPerGroup;
+}
