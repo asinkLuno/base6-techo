@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useState } from "react";
 import { save } from "@tauri-apps/plugin-dialog";
+import { pyInvoke } from "tauri-plugin-pytauri-api";
 import {
   addEdge,
   Background,
@@ -20,7 +21,7 @@ import "@xyflow/react/dist/style.css";
 import "./App.css";
 
 type NodeKind = "render" | "merge" | "pages" | "bind";
-type RunState = "idle" | "running" | "success";
+type RunState = "idle" | "running" | "success" | "error";
 
 type PipelineData = {
   kind: NodeKind;
@@ -131,7 +132,7 @@ function App() {
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
   const [selectedId, setSelectedId] = useState("render");
   const [runState, setRunState] = useState<RunState>("idle");
-  const [, setOutputPath] = useState("");
+  const [outputPath, setOutputPath] = useState("");
   const selectedNode = nodes.find((node) => node.id === selectedId);
 
   const onConnect = useCallback(
@@ -166,20 +167,27 @@ function App() {
     setSelectedId("");
   };
 
-  const runPipeline = () => {
+  const runPipeline = async () => {
+    if (runState === "running") return;
+    const output = await save({
+      title: "保存生成的 PDF",
+      defaultPath: "output.pdf",
+      filters: [{ name: "PDF 文件", extensions: ["pdf"] }],
+    });
+    if (!output) return;
+
     setRunState("running");
     setNodes((current) => current.map((node) => ({ ...node, data: { ...node.data, status: "running" } })));
-    window.setTimeout(async () => {
+    try {
+      const savedPath = await pyInvoke<string>("run_pipeline", output);
+      setOutputPath(savedPath);
       setRunState("success");
       setNodes((current) => current.map((node) => ({ ...node, data: { ...node.data, status: "success" } })));
-
-      const output = await save({
-        title: "保存生成的 PDF",
-        defaultPath: "output.pdf",
-        filters: [{ name: "PDF 文件", extensions: ["pdf"] }],
-      });
-      if (output) setOutputPath(output);
-    }, 1000);
+    } catch (error) {
+      console.error("Pipeline failed", error);
+      setRunState("error");
+      setNodes((current) => current.map((node) => ({ ...node, data: { ...node.data, status: "idle" } })));
+    }
   };
 
   const summary = useMemo(() => `${nodes.length} nodes · ${edges.length} connections`, [nodes.length, edges.length]);
@@ -189,7 +197,7 @@ function App() {
       <header className="topbar">
         <div className="brand"><div className="brand-mark">b6</div><div><strong>base6 techo</strong><span>Pipeline studio</span></div></div>
         <div className="project-name"><span className="live-dot" />Untitled pipeline <span className="unsaved">•</span></div>
-        <div className="top-actions"><button className="button ghost">导入</button><button className="button ghost">导出</button><button className="button primary" onClick={runPipeline}>{runState === "running" ? "运行中…" : "运行 pipeline"}<span className="shortcut">⌘ ↵</span></button><div className="avatar">G</div></div>
+        <div className="top-actions"><button className="button primary" onClick={runPipeline}>{runState === "running" ? "运行中…" : "运行 pipeline"}<span className="shortcut">⌘ ↵</span></button></div>
       </header>
 
       <section className="workspace">
@@ -213,7 +221,7 @@ function App() {
               <Panel position="bottom-left"><div className="canvas-hint"><span className="mouse-icon">⌘</span> 拖拽节点 · <span>滚轮缩放</span></div></Panel>
             </ReactFlow>
           </div>
-          <div className={`run-bar ${runState}`}><span className="run-indicator" /><span>{runState === "running" ? "Pipeline 正在运行…" : runState === "success" ? "Pipeline 运行完成" : "Ready to run"}</span><span className="run-summary">{summary}</span>{runState === "success" && <span className="run-result">✓ output.pdf</span>}</div>
+          <div className={`run-bar ${runState}`}><span className="run-indicator" /><span>{runState === "running" ? "Pipeline 正在运行…" : runState === "success" ? "Pipeline 运行完成" : runState === "error" ? "Pipeline 运行失败" : "Ready to run"}</span><span className="run-summary">{summary}</span>{runState === "success" && <span className="run-result">✓ {outputPath.split(/[\\/]/).pop()}</span>}</div>
         </section>
 
         <aside className="sidebar right-sidebar">

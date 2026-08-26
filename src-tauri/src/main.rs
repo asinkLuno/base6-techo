@@ -48,10 +48,21 @@ fn main() -> Result<Infallible, Box<dyn Error>> {
     };
 
     // Run the Python app entrypoint without importing the special `__main__` module.
-    let py_script = PythonScript::Code(
-        "from multiprocessing import freeze_support; freeze_support(); from app import main; raise SystemExit(main())"
+    let py_script = if cfg!(dev) {
+        let source_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("src-python");
+        PythonScript::Code(
+            format!(
+                "import sys; sys.path.insert(0, {:?}); from multiprocessing import freeze_support; freeze_support(); from app import main; raise SystemExit(main())",
+                source_dir.to_string_lossy().to_string(),
+            )
             .into(),
-    );
+        )
+    } else {
+        PythonScript::Code(
+            "from multiprocessing import freeze_support; freeze_support(); from app import main; raise SystemExit(main())"
+                .into(),
+        )
+    };
 
     // 👉 `ext_mod` is your extension module, we export it from memory,
     // so you don't need to compile it into a binary file (.pyd/.so).
