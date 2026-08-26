@@ -9,7 +9,7 @@ Standard left-bound book: odd pages bind on the left, even pages mirror.
 from dataclasses import dataclass
 from typing import Literal
 
-from base6_techo.models import PageSettings
+from models import PageSettings
 
 Side = Literal["left", "right"]
 

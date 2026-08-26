@@ -14,11 +14,14 @@ dependencies = [
 ]
 
 [project.entry-points.pytauri]
-ext_mod = "base6_techo.ext_mod"
+ext_mod = "ext_mod"
 
 [build-system]
 requires = ["setuptools >= 80", "setuptools-scm >= 8"]
 build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+py-modules = ["api", "app", "imposition", "latex", "layout", "models", "pages", "pdfops", "__main__"]
 
 [tool.setuptools.packages]
 find = { where = ["src-python"] }

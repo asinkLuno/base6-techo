@@ -7,17 +7,16 @@ from dataclasses import dataclass
 from datetime import date
 
 from babel.dates import format_date
-
-from base6_techo.layout import geometry_for
-from base6_techo.template.basic import BasicPattern, Dot, Line
-from base6_techo.template.basic import draw as draw_basic
-from base6_techo.template.midori import MidoriPattern
-from base6_techo.template.midori import draw as draw_midori
-from base6_techo.template.timeline import TimelinePattern
-from base6_techo.template.timeline import draw as draw_timeline
+from layout import geometry_for
+from template.basic import BasicPattern, Dot, Line
+from template.basic import draw as draw_basic
+from template.midori import MidoriPattern
+from template.midori import draw as draw_midori
+from template.timeline import TimelinePattern
+from template.timeline import draw as draw_timeline
 
 Pattern = BasicPattern | MidoriPattern | TimelinePattern
-from base6_techo.models import ContentPage, DocumentPage, PageSettings
+from models import ContentPage, DocumentPage, PageSettings
 
 PAGE_NUMBER_SIZE = 8  # pt
 PAGE_NUMBER_COLOR = "#666666"

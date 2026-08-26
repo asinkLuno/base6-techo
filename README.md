@@ -2,7 +2,7 @@
 
 PyTauri + PyO3 桌面应用框架，前端使用 Yarn、TypeScript、React 和 Vite。
 
-原有 Python 后端位于 `src-tauri/src-python/base6_techo/`，目前尚未接入前端 IPC。
+原有 Python 后端位于 `src-tauri/src-python/`，目前尚未接入前端 IPC。
 
 ## 开发
 

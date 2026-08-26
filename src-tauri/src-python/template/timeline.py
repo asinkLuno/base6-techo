@@ -7,11 +7,12 @@ import re
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from base6_techo.layout import PageGeometry
-from base6_techo.template.basic import Dot, Line
+from layout import PageGeometry
+
+from template.basic import Dot, Line
 
 if TYPE_CHECKING:
-    from base6_techo.pages import Text
+    from pages import Text
 
 _HEX_COLOR = re.compile(r"^#[0-9A-Fa-f]{6}$")
 MAX_HOUR = 99
@@ -61,7 +62,7 @@ def draw(
     geo: PageGeometry, pattern: TimelinePattern
 ) -> tuple[list[Line], list[Dot], list[Text]]:
     """Draw timeline ticks, half-hour guide dots, and hour labels."""
-    from base6_techo.pages import Text
+    from pages import Text
 
     start, end = page_range(
         pattern.start,

@@ -1,7 +1,7 @@
-from base6_techo.layout import geometry_for
-from base6_techo.models import ContentPage, PageSettings
-from base6_techo.pages import render_page
-from base6_techo.template.midori import MidoriPattern, draw
+from layout import geometry_for
+from models import ContentPage, PageSettings
+from pages import render_page
+from template.midori import MidoriPattern, draw
 
 A5 = PageSettings(
     width=148, height=210, header=10, footer=10, binding=15, non_binding=8

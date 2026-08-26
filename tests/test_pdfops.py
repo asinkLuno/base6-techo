@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from base6_techo.pdfops import blank_pdf, booklet_pairs, impose_pdf, merge_pdfs
+from pdfops import blank_pdf, booklet_pairs, impose_pdf, merge_pdfs
 from pypdf import PdfReader, PdfWriter
 
 

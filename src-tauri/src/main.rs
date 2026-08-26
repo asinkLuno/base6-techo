@@ -37,9 +37,9 @@ fn main() -> Result<Infallible, Box<dyn Error>> {
         PythonInterpreterEnv::Standalone(resource_dir.into())
     };
 
-    // 👉 Equivalent to `python -m base6_techo`,
-    // i.e, run the `src-tauri/python/base6_techo/__main__.py`
-    let py_script = PythonScript::Module("base6_techo".into());
+    // 👉 Equivalent to `python -m __main__`,
+    // i.e, run the `src-tauri/src-python/__main__.py`
+    let py_script = PythonScript::Module("__main__".into());
 
     // 👉 `ext_mod` is your extension module, we export it from memory,
     // so you don't need to compile it into a binary file (.pyd/.so).

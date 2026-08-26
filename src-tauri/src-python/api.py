@@ -19,14 +19,14 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Literal, Protocol
 
-from base6_techo.imposition import normal_output
-from base6_techo.latex import render_latex
-from base6_techo.models import DocumentSettings, PageSettings, validate_project
-from base6_techo.pages import Pattern
-from base6_techo.pdfops import blank_pdf, impose_pdf, merge_pdfs
-from base6_techo.template.basic import BasicPattern
-from base6_techo.template.midori import MidoriPattern
-from base6_techo.template.timeline import TimelinePattern
+from imposition import normal_output
+from latex import render_latex
+from models import DocumentSettings, PageSettings, validate_project
+from pages import Pattern
+from pdfops import blank_pdf, impose_pdf, merge_pdfs
+from template.basic import BasicPattern
+from template.midori import MidoriPattern
+from template.timeline import TimelinePattern
 
 BindingMode = Literal["booklet", "thread"]
 

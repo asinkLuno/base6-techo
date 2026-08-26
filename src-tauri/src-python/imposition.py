@@ -6,8 +6,8 @@ the `blank` and `impose` commands (src/pdfops.py).
 
 from dataclasses import dataclass
 
-from base6_techo.models import ContentPage, DocumentSettings, PageSettings
-from base6_techo.pages import PageDraw, Pattern, render_page
+from models import ContentPage, DocumentSettings, PageSettings
+from pages import PageDraw, Pattern, render_page
 
 
 @dataclass(frozen=True)
