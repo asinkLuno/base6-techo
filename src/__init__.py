@@ -7,7 +7,9 @@ from src.api import (
     MidoriPattern,
     PageSettings,
     Pipeline,
+    PipelineContext,
     PipelineResult,
+    PipelineStep,
     RenderStage,
     TimelinePattern,
 )
@@ -19,7 +21,9 @@ __all__ = [
     "MidoriPattern",
     "PageSettings",
     "Pipeline",
+    "PipelineContext",
     "PipelineResult",
+    "PipelineStep",
     "RenderStage",
     "TimelinePattern",
 ]

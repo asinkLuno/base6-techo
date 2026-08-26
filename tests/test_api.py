@@ -2,7 +2,7 @@ from pathlib import Path
 
 from pypdf import PdfReader, PdfWriter
 
-from src.api import Pipeline
+from src.api import Pipeline, PipelineContext
 from src.models import DocumentSettings, PageSettings
 from src.template.basic import BasicPattern
 
@@ -64,3 +64,25 @@ def test_pipeline_supports_multiple_generated_sections(tmp_path: Path):
     assert result.sheets == 1
     assert len(PdfReader(output).pages) == 2
     assert PdfReader(output).pages[0].mediabox.width == 839.06
+
+
+def test_pipeline_runs_custom_step_before_binding(tmp_path: Path):
+    observed = []
+
+    def observe(context: PipelineContext) -> None:
+        observed.append((context.merged_pages, context.sheets))
+
+    result = (
+        Pipeline(
+            BasicPattern(draw_hlines=True),
+            A5,
+            DocumentSettings(page_count=1, show_page_number=False),
+        )
+        .add_pages(trailing=3)
+        .append(observe)
+        .bind("booklet")
+        .run(tmp_path / "custom.pdf")
+    )
+
+    assert observed == [(4, None)]
+    assert result.sheets == 1
