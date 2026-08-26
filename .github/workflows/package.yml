@@ -9,8 +9,6 @@ permissions:
   contents: read
 
 env:
-  PYTHON_BUILD: 3.13.15+20260825
-  PYTHON_BUILD_TAG: "20260825"
   TECTONIC_VERSION: 0.17.0
 
 jobs:
@@ -22,24 +20,20 @@ jobs:
           - os: ubuntu-24.04
             platform: linux-x86_64
             target: x86_64-unknown-linux-gnu
-            python: src-tauri/pyembed/python/bin/python3
             bundles: deb,rpm
           - os: windows-2025
             platform: windows-x86_64
             target: x86_64-pc-windows-msvc
-            python: src-tauri/pyembed/python/python.exe
             bundles: msi,nsis
           - os: macos-15
             platform: macos-arm64
             target: aarch64-apple-darwin
-            python: src-tauri/pyembed/python/bin/python3
             bundles: app,dmg
 
     runs-on: ${{ matrix.os }}
 
     steps:
       - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v6
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -52,12 +46,10 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
 
-      - name: Download embedded Python and Tectonic
+      - name: Download Tectonic
         shell: bash
         run: |
-          mkdir -p src-tauri/pyembed src-tauri/binaries
-          curl -fL "https://github.com/astral-sh/python-build-standalone/releases/download/${PYTHON_BUILD_TAG}/cpython-${PYTHON_BUILD}-${{ matrix.target }}-install_only_stripped.tar.gz" -o python.tar.gz
-          tar -xzf python.tar.gz -C src-tauri/pyembed
+          mkdir -p src-tauri/binaries
           case "${{ runner.os }}" in
             Windows) archive="tectonic.zip" ;;
             *) archive="tectonic.tar.gz" ;;
@@ -71,27 +63,11 @@ jobs:
             mv tectonic "src-tauri/binaries/tectonic-${{ matrix.target }}"
           fi
 
-      - name: Install application into embedded Python
-        shell: bash
-        run: |
-          PYTAURI_STANDALONE=1 uv pip install --exact --python "${{ matrix.python }}" --reinstall-package base6-techo ./src-tauri
-
-      - name: Configure embedded Python linker
-        shell: bash
-        run: |
-          echo "PYO3_PYTHON=$(realpath '${{ matrix.python }}')" >> "$GITHUB_ENV"
-          if [ "${{ runner.os }}" = Linux ]; then
-            echo 'RUSTFLAGS=-C link-arg=-Wl,-rpath,$ORIGIN/../lib/base6-techo/lib -L '${{ github.workspace }}'/src-tauri/pyembed/python/lib' >> "$GITHUB_ENV"
-          elif [ "${{ runner.os }}" = macOS ]; then
-            install_name_tool -id '@rpath/libpython3.13.dylib' src-tauri/pyembed/python/lib/libpython3.13.dylib
-            echo 'RUSTFLAGS=-C link-arg=-Wl,-rpath,@executable_path/../Resources/lib -L '${{ github.workspace }}'/src-tauri/pyembed/python/lib' >> "$GITHUB_ENV"
-          fi
-
       - run: yarn install --immutable
-      - run: yarn tauri build --config src-tauri/tauri.bundle.json --bundles "${{ matrix.bundles }}" -- --profile bundle-release
+      - run: yarn tauri build --config src-tauri/tauri.bundle.json --bundles "${{ matrix.bundles }}"
 
       - uses: actions/upload-artifact@v4
         with:
           name: base6-techo-${{ matrix.platform }}
-          path: target/bundle-release/bundle/**
+          path: target/release/bundle/**
           if-no-files-found: error

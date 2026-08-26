@@ -4,9 +4,6 @@
     "targets": "all",
     "externalBin": [
       "binaries/tectonic"
-    ],
-    "resources": {
-      "pyembed/python": "./"
-    }
+    ]
   }
 }

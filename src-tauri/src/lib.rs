@@ -1,22 +1,16 @@
-use pyo3::prelude::*;
+mod backend;
 
-pub fn tauri_generate_context() -> tauri::Context {
-    tauri::generate_context!()
-}
-
-#[pymodule(gil_used = false)]
-#[pyo3(name = "ext_mod")]
-pub mod ext_mod {
-    use super::*;
-
-    #[pymodule_init]
-    fn init(module: &Bound<'_, PyModule>) -> PyResult<()> {
-        pytauri::pymodule_export(
-            module,
-            // i.e., `context_factory` function of python binding
-            |_args, _kwargs| Ok(tauri_generate_context()),
-            // i.e., `builder_factory` function of python binding
-            |_args, _kwargs| Ok(tauri::Builder::default().plugin(tauri_plugin_dialog::init())),
-        )
-    }
+#[cfg_attr(mobile, tauri::mobile_entry_point)]
+pub fn run() {
+    tauri::Builder::default()
+        .plugin(tauri_plugin_dialog::init())
+        .invoke_handler(tauri::generate_handler![
+            backend::list_system_fonts,
+            backend::write_text_file,
+            backend::read_text_file,
+            backend::run_pipeline,
+            backend::preview_section,
+        ])
+        .run(tauri::generate_context!())
+        .expect("error while running Tauri application");
 }
