@@ -15,11 +15,11 @@ import os
 import shutil
 import subprocess
 import tempfile
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
 
-from imposition import OutputPage, impose_output, normal_output
+from imposition import impose_output, normal_output
 from latex import render_sections_latex
 from models import DocumentSettings, PageSettings, validate_project
 from pages import Pattern
@@ -48,70 +48,16 @@ class RenderStage:
     document: DocumentSettings
 
 
-@dataclass
-class PipelineContext:
-    """Mutable state passed through each pipeline step."""
-
-    workdir: Path
-    engine: str | None = None
-    current_pdf: Path | None = None
-    logical_pages: int = 0
-    sheets: int | None = None
-    generated_pages: list[tuple[OutputPage, Pattern]] = field(default_factory=list)
-
-
-@dataclass(frozen=True)
-class _RenderSections:
-    sections: tuple[RenderStage, ...]
-
-    def __call__(self, context: PipelineContext) -> None:
-        physical_page = 1
-        for section in self.sections:
-            pages = normal_output(
-                section.page,
-                section.pattern,
-                section.document,
-                physical_page,
-            )
-            context.generated_pages.extend((page, section.pattern) for page in pages)
-            physical_page += section.document.page_count
-        context.logical_pages = sum(
-            section.document.page_count for section in self.sections
+def _render_sections(sections: list[RenderStage]):
+    generated_pages = []
+    physical_page = 1
+    for section in sections:
+        pages = normal_output(
+            section.page, section.pattern, section.document, physical_page
         )
-
-
-@dataclass(frozen=True)
-class _Bind:
-    mode: BindingMode | None
-    sheets_per_group: int
-
-    def __call__(self, context: PipelineContext) -> None:
-        if self.mode is None:
-            return
-        pages, context.sheets = impose_output(
-            [page for page, _ in context.generated_pages],
-            self.mode,
-            self.sheets_per_group,
-        )
-        pattern_by_draw = {
-            id(placement.draw): pattern
-            for page, pattern in context.generated_pages
-            for placement in page.placements
-        }
-        fallback = context.generated_pages[0][1]
-        context.generated_pages = [
-            (
-                page,
-                next((pattern_by_draw[id(p.draw)] for p in page.placements), fallback),
-            )
-            for page in pages
-        ]
-
-
-def _current_pdf(context: PipelineContext) -> Path:
-    if context.current_pdf is None:
-        raise RuntimeError("pipeline has not produced a PDF")
-    return context.current_pdf
+        generated_pages.extend((page, section.pattern) for page in pages)
+        physical_page += section.document.page_count
+    return generated_pages
 
 
 class Pipeline:
@@ -141,7 +87,6 @@ class Pipeline:
         document: DocumentSettings,
     ) -> None:
         validate_project(page, document)
-        self.pattern = pattern
         self.page = page
         self.document = document
         self._sections: list[RenderStage] = [RenderStage(pattern, page, document)]
@@ -187,17 +132,40 @@ class Pipeline:
         output = Path(output)
         output.parent.mkdir(parents=True, exist_ok=True)
         with tempfile.TemporaryDirectory(prefix="base6-techo-") as directory:
-            context = PipelineContext(Path(directory), engine)
-            _RenderSections(tuple(self._sections))(context)
-            _Bind(self._binding, self._sheets_per_group)(context)
-            tex = context.workdir / "document.tex"
-            tex.write_text(render_sections_latex(context.generated_pages))
-            context.current_pdf = _compile(tex, context.engine)
-            shutil.copyfile(_current_pdf(context), output)
+            generated_pages = _render_sections(self._sections)
+            sheets = None
+            if self._binding is not None:
+                pages, sheets = impose_output(
+                    [page for page, _ in generated_pages],
+                    self._binding,
+                    self._sheets_per_group,
+                )
+                pattern_by_draw = {
+                    id(placement.draw): pattern
+                    for page, pattern in generated_pages
+                    for placement in page.placements
+                }
+                fallback = generated_pages[0][1]
+                generated_pages = [
+                    (
+                        page,
+                        next(
+                            (
+                                pattern_by_draw[id(placement.draw)]
+                                for placement in page.placements
+                            ),
+                            fallback,
+                        ),
+                    )
+                    for page in pages
+                ]
+            tex = Path(directory) / "document.tex"
+            tex.write_text(render_sections_latex(generated_pages))
+            shutil.copyfile(_compile(tex, engine), output)
             return PipelineResult(
                 output,
-                context.logical_pages,
-                context.sheets,
+                sum(section.document.page_count for section in self._sections),
+                sheets,
             )
 
 
@@ -234,7 +202,6 @@ __all__ = [
     "MidoriPattern",
     "PageSettings",
     "Pipeline",
-    "PipelineContext",
     "PipelineResult",
     "RenderStage",
     "TimelinePattern",

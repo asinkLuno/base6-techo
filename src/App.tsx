@@ -12,9 +12,7 @@ import { Checkbox } from "./components/ui/checkbox";
 import { Input } from "./components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "./components/ui/popover";
 import { Select as SelectRoot, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./components/ui/select";
-import { Calendar } from "./components/ui/calendar";
 import { ColorPicker } from "./components/ui/color-picker";
-import { zhCN } from "react-day-picker/locale";
 import { cn } from "./lib/utils";
 
 type Value = string | number | boolean | null;
@@ -66,9 +64,6 @@ function FieldLabel({ children }: { children: ReactNode }) {
   return <span className="text-sm text-muted-foreground">{children}</span>;
 }
 
-function toISO(d: Date) { return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; }
-function fromISO(s: string): Date | undefined { return s ? new Date(s + "T00:00:00") : undefined; }
-
 function toDecimal(raw: string): number | null {
   const orig = raw.trim();
   if (!orig) return null;
@@ -87,7 +82,6 @@ function toDecimal(raw: string): number | null {
 function Field({ label, value, type = "number", min, max, step, placeholder, onChange }: { label: string; value: Value; type?: string; min?: number; max?: number; step?: number; placeholder?: string; onChange: (value: Value) => void }) {
   if (type === "checkbox") return <label className="flex cursor-pointer items-center gap-2 text-sm leading-none"><Checkbox checked={Boolean(value)} onCheckedChange={(checked) => onChange(Boolean(checked))} />{label}</label>;
   if (type === "color") return <div className="grid gap-1.5"><FieldLabel>{label}</FieldLabel><ColorPicker value={String(value)} onChange={(v) => onChange(v)} /></div>;
-  if (type === "date") { const selected = fromISO(String(value ?? "")); return <div className="grid gap-1.5"><FieldLabel>{label}</FieldLabel><Popover><PopoverTrigger asChild><Button variant="outline" className="h-9 w-full justify-start font-normal">{selected ? `${selected.getFullYear()}-${String(selected.getMonth() + 1).padStart(2, "0")}-${String(selected.getDate()).padStart(2, "0")}` : "选择日期"}</Button></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" locale={zhCN} selected={selected} onSelect={(d) => d && onChange(toISO(d))} /></PopoverContent></Popover></div>; }
   return <label className="grid gap-1.5"><FieldLabel>{label}</FieldLabel><Input type={type} value={String(value ?? "")} min={min} max={max} step={step} placeholder={placeholder} onChange={(event) => onChange(type === "number" ? Number(event.target.value) : event.target.value)} /></label>;
 }
 function Select({ label, value, options, onChange }: { label: string; value: Value; options: [string | number, string][]; onChange: (value: string) => void }) {
