@@ -16,7 +16,7 @@ from template.timeline import TimelinePattern
 from template.timeline import draw as draw_timeline
 
 Pattern = BasicPattern | MidoriPattern | TimelinePattern
-from models import ContentPage, DocumentPage, PageSettings
+from models import ContentPage, PageSettings
 
 PAGE_NUMBER_SIZE = 8  # pt
 PAGE_NUMBER_COLOR = "#666666"
@@ -44,7 +44,7 @@ class PageDraw:
 def render_page(
     page: PageSettings,
     pattern: Pattern,
-    doc_page: DocumentPage,
+    doc_page: ContentPage,
     show_page_number: bool,
     binding_text: str | None = None,
     binding_text_2: str | None = None,
@@ -65,7 +65,7 @@ def render_page(
     show_header: bool = True,
 ) -> PageDraw:
     """Render one complete logical page. Page numbers and binding text belong to
-    the logical page (drawn here, before imposition); padding pages stay blank."""
+    the logical page (drawn here, before imposition)."""
     if isinstance(doc_page, ContentPage):
         geo = geometry_for(page, doc_page.page_number)
         idx = doc_page.page_number - 1 if header_index is None else header_index
@@ -154,5 +154,4 @@ def render_page(
                     font=binding_text_font,
                 )
             )
-        return PageDraw(lines, texts, dots)
-    return PageDraw([], [], [])
+    return PageDraw(lines, texts, dots)

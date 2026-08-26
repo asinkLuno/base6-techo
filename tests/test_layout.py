@@ -9,7 +9,6 @@ from models import (
     DocumentRequest,
     DocumentSettings,
     MidoriPatternRequest,
-    PaddingPage,
     PageRequest,
     PageSettings,
     RenderSectionRequest,
@@ -54,7 +53,7 @@ def test_dot_grid_without_lines():
 
 def test_dot_grid_disabled_without_dot_spacing():
     lines, dots = draw(geometry_for(A5, 1), BasicPattern(spacing=8, draw_hlines=False))
-    assert lines == [] and dots == []  # blank page is allowed but useless
+    assert lines == [] and dots == []
 
 
 def test_draw_switches_suppress_independently():
@@ -189,7 +188,6 @@ def test_page_number_and_binding_fonts():
     even = render_page(A5, RULED, ContentPage(2), False, "base-6")
     assert odd.texts == [Text(7.5, 105, "base-6", rotation=90)]
     assert even.texts == [Text(140.5, 105, "base-6", rotation=90)]
-    assert render_page(A5, RULED, PaddingPage(), False, "base-6").texts == []
 
 
 def test_binding_text_supports_two_lines_and_sizes():

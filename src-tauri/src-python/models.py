@@ -104,14 +104,6 @@ class ContentPage:
     page_number: int
 
 
-@dataclass(frozen=True)
-class PaddingPage:
-    """Auto-added blank page to reach a multiple of 4; never shows a page number."""
-
-
-DocumentPage = ContentPage | PaddingPage
-
-
 class PageRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -259,13 +251,6 @@ class RenderSectionRequest(BaseModel):
     pattern: PatternRequest
 
 
-class AddPagesRequest(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    leading: int = Field(default=0, ge=0)
-    trailing: int = Field(default=2, ge=0)
-
-
 class BindRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -278,5 +263,4 @@ class RunPipelineRequest(BaseModel):
 
     output: str
     sections: list[RenderSectionRequest] = Field(min_length=1)
-    add_pages: AddPagesRequest = Field(default_factory=AddPagesRequest)
     bind: BindRequest = Field(default_factory=BindRequest)

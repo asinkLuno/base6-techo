@@ -47,7 +47,6 @@ def _generate_pdf(request: RunPipelineRequest) -> Path:
             section.document.to_settings(),
             section.page.to_settings(),
         )
-    pipeline.add_pages(**request.add_pages.model_dump())
     bind: BindRequest = request.bind
     pipeline.bind(bind.mode, sheets_per_group=bind.sheets_per_group)
     pipeline.run(output)

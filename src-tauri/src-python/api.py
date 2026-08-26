@@ -3,8 +3,7 @@
 The pipeline is deliberately small and ordered:
 
 1. render the selected pattern with page metadata;
-2. optionally add blank pages;
-3. optionally impose the result for printing/binding.
+2. optionally impose the result for printing/binding.
 
 No command-line parsing is involved. Paths are accepted at the file boundary;
 the drawing and PDF stages remain ordinary Python calls.
@@ -18,7 +17,7 @@ import subprocess
 import tempfile
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Literal, Protocol
+from typing import Literal
 
 from imposition import OutputPage, impose_output, normal_output
 from latex import render_sections_latex
@@ -37,7 +36,6 @@ class PipelineResult:
 
     pdf: Path
     logical_pages: int
-    document_pages: int
     sheets: int | None
 
 
@@ -58,15 +56,8 @@ class PipelineContext:
     engine: str | None = None
     current_pdf: Path | None = None
     logical_pages: int = 0
-    document_pages: int = 0
     sheets: int | None = None
     generated_pages: list[tuple[OutputPage, Pattern]] = field(default_factory=list)
-
-
-class PipelineStep(Protocol):
-    """A synchronous filter that reads or updates the pipeline context."""
-
-    def __call__(self, context: PipelineContext) -> None: ...
 
 
 @dataclass(frozen=True)
@@ -91,27 +82,6 @@ class _RenderSections:
         context.logical_pages = sum(
             section.document.page_count for section in self.sections
         )
-        context.document_pages = context.logical_pages
-
-
-@dataclass(frozen=True)
-class _AddPages:
-    leading: int
-    trailing: int
-
-    def __call__(self, context: PipelineContext) -> None:
-        if not (self.leading or self.trailing):
-            return
-        if not context.generated_pages:
-            return
-        page, pattern = context.generated_pages[0]
-        blank = OutputPage(page.width, page.height, [])
-        context.generated_pages = (
-            [(blank, pattern)] * self.leading
-            + context.generated_pages
-            + [(blank, pattern)] * self.trailing
-        )
-        context.document_pages = len(context.generated_pages)
 
 
 @dataclass(frozen=True)
@@ -159,13 +129,12 @@ class Pipeline:
                 page=PageSettings(148, 210),
                 document=DocumentSettings(page_count=32, binding_text="base-6"),
             )
-            .add_pages(trailing=2)
             .bind("booklet")
             .run("notebook.pdf")
         )
 
-    ``pattern``, ``page`` and ``document`` are the first stage. ``add_pages``
-    adds logical blank pages, and ``bind`` is always last.
+    ``pattern``, ``page`` and ``document`` are the first stage, and ``bind``
+    is always last.
     The methods return ``self`` so a request can be assembled declaratively.
     """
 
@@ -180,11 +149,8 @@ class Pipeline:
         self.page = page
         self.document = document
         self._sections: list[RenderStage] = [RenderStage(pattern, page, document)]
-        self._leading = 0
-        self._trailing = 0
         self._binding: BindingMode | None = None
         self._sheets_per_group = 4
-        self._custom_steps: list[PipelineStep] = []
 
     def add_section(
         self,
@@ -192,7 +158,7 @@ class Pipeline:
         document: DocumentSettings,
         page: PageSettings | None = None,
     ) -> Pipeline:
-        """Generate another section before padding/binding.
+        """Generate another section before binding.
 
         The existing page settings are reused unless ``page`` is supplied.
         Sections should use the same physical paper size when they will be
@@ -203,14 +169,6 @@ class Pipeline:
         if (page.width, page.height) != (self.page.width, self.page.height):
             raise ValueError("all sections must use the same physical page size")
         self._sections.append(RenderStage(pattern, page, document))
-        return self
-
-    def add_pages(self, *, leading: int = 0, trailing: int = 0) -> Pipeline:
-        """Add blank pages before and/or after the generated document."""
-        if leading < 0 or trailing < 0:
-            raise ValueError("leading and trailing must be >= 0")
-        self._leading += leading
-        self._trailing += trailing
         return self
 
     def bind(
@@ -228,25 +186,14 @@ class Pipeline:
         self._sheets_per_group = sheets_per_group
         return self
 
-    def append(self, step: PipelineStep) -> Pipeline:
-        """Run a custom step after padding and before binding."""
-        self._custom_steps.append(step)
-        return self
-
     def run(self, output: str | Path, *, engine: str | None = None) -> PipelineResult:
         """Render and execute all configured stages, writing ``output``."""
         output = Path(output)
         output.parent.mkdir(parents=True, exist_ok=True)
         with tempfile.TemporaryDirectory(prefix="base6-techo-") as directory:
             context = PipelineContext(Path(directory), engine)
-            steps: list[PipelineStep] = [
-                _RenderSections(tuple(self._sections)),
-                _AddPages(self._leading, self._trailing),
-                *self._custom_steps,
-                _Bind(self._binding, self._sheets_per_group),
-            ]
-            for step in steps:
-                step(context)
+            _RenderSections(tuple(self._sections))(context)
+            _Bind(self._binding, self._sheets_per_group)(context)
             tex = context.workdir / "document.tex"
             tex.write_text(render_sections_latex(context.generated_pages))
             context.current_pdf = _compile(tex, context.engine)
@@ -254,7 +201,6 @@ class Pipeline:
             return PipelineResult(
                 output,
                 context.logical_pages,
-                context.document_pages,
                 context.sheets,
             )
 
@@ -294,7 +240,6 @@ __all__ = [
     "Pipeline",
     "PipelineContext",
     "PipelineResult",
-    "PipelineStep",
     "RenderStage",
     "TimelinePattern",
 ]
