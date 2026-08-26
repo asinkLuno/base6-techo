@@ -28,3 +28,4 @@ tauri = { version = "2", features = [] }
 pyo3 = { version = "0.25" }
 pytauri = { version = "0.8", features = [] }
 tauri-plugin-pytauri = { version = "0.8" }
+tauri-plugin-dialog = "2"
