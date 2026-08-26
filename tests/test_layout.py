@@ -168,11 +168,13 @@ def test_header_text_draws_horizontally_in_header():
         A5,
         RULED,
         ContentPage(1),
-        header_text="top",
-        header_text_2="bottom",
-        header_text_size=10,
-        header_text_2_size=6,
-        header_text_spacing=6,
+        DocumentSettings(
+            header_text="top",
+            header_text_2="bottom",
+            header_text_size=10,
+            header_text_2_size=6,
+            header_text_spacing=6,
+        ),
     )
     assert d.texts == [
         Text(74, 2, "top", size_pt=10),
@@ -181,7 +183,7 @@ def test_header_text_draws_horizontally_in_header():
 
 
 def test_footer_text_belongs_to_logical_page():
-    d = render_page(A5, RULED, ContentPage(17), footer_text="edge")
+    d = render_page(A5, RULED, ContentPage(17), DocumentSettings(footer_text="edge"))
     (t,) = d.texts
     assert t.content == "edge"
     assert t.x == 74 and t.y == 205  # centered in footer: w/2, h - footer/2
@@ -193,33 +195,35 @@ def test_footer_text_two_lines_and_binding_font():
         A5,
         RULED,
         ContentPage(1),
-        footer_text="top",
-        footer_text_2="bottom",
-        footer_text_size=10,
-        footer_text_2_size=6,
-        footer_text_spacing=12,
-        binding_text_font=r"\ttfamily",
+        DocumentSettings(
+            footer_text="top",
+            footer_text_2="bottom",
+            footer_text_size=10,
+            footer_text_2_size=6,
+            footer_text_spacing=12,
+            binding_text_font=r"\ttfamily",
+        ),
     )
     assert d.texts == [
         Text(74, 199, "top", size_pt=10, font=r"\ttfamily"),
         Text(74, 211, "bottom", size_pt=6, font=r"\ttfamily"),
     ]
 
-    odd = render_page(A5, RULED, ContentPage(1), binding_text="base-6")
-    even = render_page(A5, RULED, ContentPage(2), binding_text="base-6")
+    odd = render_page(A5, RULED, ContentPage(1), DocumentSettings(binding_text="base-6"))
+    even = render_page(A5, RULED, ContentPage(2), DocumentSettings(binding_text="base-6"))
     assert odd.texts == [Text(7.5, 105, "base-6", rotation=90)]
     assert even.texts == [Text(140.5, 105, "base-6", rotation=90)]
 
 
 def test_non_binding_text_draws_on_outer_side():
-    odd = render_page(A5, RULED, ContentPage(1), non_binding_text="edge")
-    even = render_page(A5, RULED, ContentPage(2), non_binding_text="edge")
+    odd = render_page(A5, RULED, ContentPage(1), DocumentSettings(non_binding_text="edge"))
+    even = render_page(A5, RULED, ContentPage(2), DocumentSettings(non_binding_text="edge"))
     assert odd.texts == [Text(4, 105, "edge", rotation=90)]  # non_binding/2, left page
     assert even.texts == [Text(144, 105, "edge", rotation=90)]  # w - non_binding/2
 
 
 def test_binding_text_supports_two_lines_and_sizes():
-    d = render_page(A5, RULED, ContentPage(1), binding_text="top", binding_text_2="bottom", binding_text_size=10, binding_text_2_size=6, binding_text_spacing=12)
+    d = render_page(A5, RULED, ContentPage(1), DocumentSettings(binding_text="top", binding_text_2="bottom", binding_text_size=10, binding_text_2_size=6, binding_text_spacing=12))
     assert d.texts == [
         Text(1.5, 105, "top", size_pt=10, rotation=90),
         Text(13.5, 105, "bottom", size_pt=6, rotation=90),

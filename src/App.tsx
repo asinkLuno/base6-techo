@@ -8,13 +8,7 @@ import { pyInvoke } from "tauri-plugin-pytauri-api";
 import type { RenderSectionRequest, RunPipelineRequest } from "./pipeline-request.generated";
 import { Button } from "./components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "./components/ui/card";
-import { Checkbox } from "./components/ui/checkbox";
 import { Input } from "./components/ui/input";
-import { Popover, PopoverContent, PopoverTrigger } from "./components/ui/popover";
-import { Select as SelectRoot, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./components/ui/select";
-import { Calendar } from "./components/ui/calendar";
-import { ColorPicker } from "./components/ui/color-picker";
-import { zhCN } from "react-day-picker/locale";
 import { cn } from "./lib/utils";
 
 type Value = string | number | boolean | null;
@@ -48,21 +42,14 @@ function newSection(): Section {
   };
 }
 
-function FieldLabel({ children }: { children: ReactNode }) {
-  return <span className="text-sm text-muted-foreground">{children}</span>;
-}
-
-function toISO(d: Date) { return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; }
-function fromISO(s: string): Date | undefined { return s ? new Date(s + "T00:00:00") : undefined; }
-
 function Field({ label, value, type = "number", min, max, step, placeholder, onChange }: { label: string; value: Value; type?: string; min?: number; max?: number; step?: number; placeholder?: string; onChange: (value: Value) => void }) {
-  if (type === "checkbox") return <label className="flex cursor-pointer items-center gap-2 text-sm leading-none"><Checkbox checked={Boolean(value)} onCheckedChange={(checked) => onChange(Boolean(checked))} />{label}</label>;
-  if (type === "color") return <div className="grid gap-1.5"><FieldLabel>{label}</FieldLabel><ColorPicker value={String(value)} onChange={(v) => onChange(v)} /></div>;
-  if (type === "date") { const selected = fromISO(String(value ?? "")); return <div className="grid gap-1.5"><FieldLabel>{label}</FieldLabel><Popover><PopoverTrigger asChild><Button variant="outline" className="h-9 w-full justify-start font-normal">{selected ? `${selected.getFullYear()}-${String(selected.getMonth() + 1).padStart(2, "0")}-${String(selected.getDate()).padStart(2, "0")}` : "选择日期"}</Button></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" locale={zhCN} selected={selected} onSelect={(d) => d && onChange(toISO(d))} /></PopoverContent></Popover></div>; }
-  return <label className="grid gap-1.5"><FieldLabel>{label}</FieldLabel><Input type={type} value={String(value ?? "")} min={min} max={max} step={step} placeholder={placeholder} onChange={(event) => onChange(type === "number" ? Number(event.target.value) : event.target.value)} /></label>;
+  if (type === "checkbox") return <label className="flex cursor-pointer items-center gap-2 text-sm"><input className="size-4 accent-primary" type="checkbox" checked={Boolean(value)} onChange={(event) => onChange(event.target.checked)} />{label}</label>;
+  if (type === "color") return <label className="grid gap-1.5 text-sm"><span className="text-muted-foreground">{label}</span><span className="flex h-9 items-center gap-2 rounded-md border bg-background px-2"><input type="color" value={String(value)} onChange={(event) => onChange(event.target.value)} className="h-6 w-8" /><span className="text-xs">{String(value)}</span></span></label>;
+  if (type === "date") return <label className="grid gap-1.5 text-sm"><span className="text-muted-foreground">{label}</span><Input type="date" value={String(value ?? "")} onChange={(event) => onChange(event.target.value)} /></label>;
+  return <label className="grid gap-1.5 text-sm"><span className="text-muted-foreground">{label}</span><Input type={type} value={String(value ?? "")} min={min} max={max} step={step} placeholder={placeholder} onChange={(event) => onChange(type === "number" ? Number(event.target.value) : event.target.value)} /></label>;
 }
 function Select({ label, value, options, onChange }: { label: string; value: Value; options: [string | number, string][]; onChange: (value: string) => void }) {
-  return <div className="grid gap-1.5"><FieldLabel>{label}</FieldLabel><SelectRoot value={String(value ?? "")} onValueChange={onChange}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{options.map(([key, text]) => <SelectItem key={key} value={String(key)}>{text}</SelectItem>)}</SelectContent></SelectRoot></div>;
+  return <label className="grid gap-1.5 text-sm"><span className="text-muted-foreground">{label}</span><select className="h-9 rounded-md border border-input bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-ring" value={String(value)} onChange={(event) => onChange(event.target.value)}>{options.map(([key, text]) => <option key={key} value={key}>{text}</option>)}</select></label>;
 }
 function Group({ title, enabled, onEnabled, children }: { title: string; enabled: boolean; onEnabled: (enabled: boolean) => void; children: ReactNode }) {
   return <section className="grid gap-4 rounded-lg border bg-background p-4 sm:col-span-2"><Field label={title} value={enabled} type="checkbox" onChange={(value) => onEnabled(Boolean(value))} />{enabled && <div className="grid gap-4 border-t pt-4 sm:grid-cols-2">{children}</div>}</section>;

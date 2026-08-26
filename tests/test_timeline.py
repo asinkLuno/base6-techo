@@ -19,8 +19,8 @@ def test_timeline_range_matches_techo():
 
 def test_timeline_draws_binding_axis_and_labels():
     pattern = TimelinePattern(pages=2)
-    odd = render_page(A5, pattern, ContentPage(1), False)
-    even = render_page(A5, pattern, ContentPage(2), False)
+    odd = render_page(A5, pattern, ContentPage(1))
+    even = render_page(A5, pattern, ContentPage(2))
     assert odd.lines[0].x1 == 15
     assert even.lines[0].x1 == 133
     assert odd.texts[0].content == "13"
