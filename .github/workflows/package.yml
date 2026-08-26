@@ -23,14 +23,17 @@ jobs:
             platform: linux-x86_64
             target: x86_64-unknown-linux-gnu
             python: src-tauri/pyembed/python/bin/python3
+            bundles: deb,rpm
           - os: windows-2025
             platform: windows-x86_64
             target: x86_64-pc-windows-msvc
             python: src-tauri/pyembed/python/python.exe
+            bundles: msi,nsis
           - os: macos-15
             platform: macos-arm64
             target: aarch64-apple-darwin
             python: src-tauri/pyembed/python/bin/python3
+            bundles: app,dmg
 
     runs-on: ${{ matrix.os }}
 
@@ -85,7 +88,7 @@ jobs:
           fi
 
       - run: yarn install --immutable
-      - run: yarn tauri build --config src-tauri/tauri.bundle.json -- --profile bundle-release
+      - run: yarn tauri build --config src-tauri/tauri.bundle.json --bundles "${{ matrix.bundles }}" -- --profile bundle-release
 
       - uses: actions/upload-artifact@v4
         with:
