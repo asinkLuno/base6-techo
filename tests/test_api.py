@@ -3,7 +3,7 @@ from pathlib import Path
 
 import api
 import pytest
-from api import Pipeline, PipelineContext, RenderStage, _RenderSections
+from api import Pipeline, RenderStage, _render_sections
 from models import DocumentSettings, PageSettings
 from pypdf import PdfReader
 from template.basic import BasicPattern
@@ -11,11 +11,10 @@ from template.basic import BasicPattern
 A5 = PageSettings(148, 210)
 
 
-def test_footer_text_repeats_on_every_page_of_its_section(tmp_path: Path):
+def test_footer_text_repeats_on_every_page_of_its_section():
     pattern = BasicPattern(draw_hlines=True)
-    context = PipelineContext(tmp_path)
-    _RenderSections(
-        (
+    generated_pages = _render_sections(
+        [
             RenderStage(pattern, A5, DocumentSettings(page_count=2, footer_text="A")),
             RenderStage(
                 BasicPattern(),
@@ -23,12 +22,12 @@ def test_footer_text_repeats_on_every_page_of_its_section(tmp_path: Path):
                 DocumentSettings(page_count=3, show_header=False),
             ),
             RenderStage(pattern, A5, DocumentSettings(page_count=2, footer_text="B")),
-        )
-    )(context)
+        ]
+    )
 
     footers = [
         text.content
-        for page, _ in context.generated_pages
+        for page, _ in generated_pages
         for placement in page.placements
         for text in placement.draw.texts
         if text.y == A5.height - A5.footer / 2
@@ -38,27 +37,26 @@ def test_footer_text_repeats_on_every_page_of_its_section(tmp_path: Path):
         placement.draw.lines == []
         and placement.draw.dots == []
         and placement.draw.texts == []
-        for page, _ in context.generated_pages[2:5]
+        for page, _ in generated_pages[2:5]
         for placement in page.placements
     )
 
 
-def test_headers_restart_per_section(tmp_path: Path):
+def test_headers_restart_per_section():
     pattern = BasicPattern()
-    context = PipelineContext(tmp_path)
     document = DocumentSettings(
         page_count=1,
         header_dates=(date(2025, 1, 1),),
         header_date_format="yyyy-MM-dd",
         header_parity="odd",
     )
-    _RenderSections(
-        (RenderStage(pattern, A5, document), RenderStage(pattern, A5, document))
-    )(context)
+    generated_pages = _render_sections(
+        [RenderStage(pattern, A5, document), RenderStage(pattern, A5, document)]
+    )
 
     texts = [
         [text.content for text in page.placements[0].draw.texts]
-        for page, _ in context.generated_pages
+        for page, _ in generated_pages
     ]
     assert texts == [["2025-01-01"], ["2025-01-01"]]
 
