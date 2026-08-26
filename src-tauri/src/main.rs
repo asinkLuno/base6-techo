@@ -47,9 +47,11 @@ fn main() -> Result<Infallible, Box<dyn Error>> {
         PythonInterpreterEnv::Standalone(resource_dir.into())
     };
 
-    // 👉 Equivalent to `python -m __main__`,
-    // i.e, run the `src-tauri/src-python/__main__.py`
-    let py_script = PythonScript::Module("__main__".into());
+    // Run the Python app entrypoint without importing the special `__main__` module.
+    let py_script = PythonScript::Code(
+        "from multiprocessing import freeze_support; freeze_support(); from app import main; raise SystemExit(main())"
+            .into(),
+    );
 
     // 👉 `ext_mod` is your extension module, we export it from memory,
     // so you don't need to compile it into a binary file (.pyd/.so).
