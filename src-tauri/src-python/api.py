@@ -65,19 +65,15 @@ class _RenderSections:
     sections: tuple[RenderStage, ...]
 
     def __call__(self, context: PipelineContext) -> None:
-        page_number = 1
         physical_page = 1
         for section in self.sections:
             pages = normal_output(
                 section.page,
                 section.pattern,
                 section.document,
-                page_number,
                 physical_page,
             )
             context.generated_pages.extend((page, section.pattern) for page in pages)
-            if section.document.show_page_number:
-                page_number += section.document.page_count
             physical_page += section.document.page_count
         context.logical_pages = sum(
             section.document.page_count for section in self.sections
