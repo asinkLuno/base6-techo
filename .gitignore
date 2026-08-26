@@ -8,6 +8,9 @@ wheels/
 
 # Virtual environments
 .venv
+node_modules/
+.yarn/
+target/
 
 # LaTeX build output
 out.*

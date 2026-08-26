@@ -8,16 +8,16 @@ from datetime import date
 
 from babel.dates import format_date
 
-from src.layout import geometry_for
-from src.template.basic import BasicPattern, Dot, Line
-from src.template.basic import draw as draw_basic
-from src.template.midori import MidoriPattern
-from src.template.midori import draw as draw_midori
-from src.template.timeline import TimelinePattern
-from src.template.timeline import draw as draw_timeline
+from base6_techo.layout import geometry_for
+from base6_techo.template.basic import BasicPattern, Dot, Line
+from base6_techo.template.basic import draw as draw_basic
+from base6_techo.template.midori import MidoriPattern
+from base6_techo.template.midori import draw as draw_midori
+from base6_techo.template.timeline import TimelinePattern
+from base6_techo.template.timeline import draw as draw_timeline
 
 Pattern = BasicPattern | MidoriPattern | TimelinePattern
-from src.models import ContentPage, DocumentPage, PageSettings
+from base6_techo.models import ContentPage, DocumentPage, PageSettings
 
 PAGE_NUMBER_SIZE = 8  # pt
 PAGE_NUMBER_COLOR = "#666666"

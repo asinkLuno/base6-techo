@@ -1,0 +1,24 @@
+[project]
+name = "base6-techo"
+version = "0.1.0"
+description = "Printable notebook desktop application"
+readme = "README.md"
+authors = [
+    { name = "guozr", email = "guozr1997@hotmail.com" }
+]
+requires-python = ">=3.13"
+dependencies = [
+    "pytauri == 0.8.*",
+    "Babel>=2.17.0",
+    "pypdf>=6.16.2",
+]
+
+[project.entry-points.pytauri]
+ext_mod = "base6_techo.ext_mod"
+
+[build-system]
+requires = ["setuptools >= 80", "setuptools-scm >= 8"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages]
+find = { where = ["src-python"] }

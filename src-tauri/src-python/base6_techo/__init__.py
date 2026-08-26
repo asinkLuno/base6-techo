@@ -1,6 +1,6 @@
 """Public API for generating printable notebook PDFs."""
 
-from src.api import (
+from base6_techo.api import (
     BasicPattern,
     BindingMode,
     DocumentSettings,

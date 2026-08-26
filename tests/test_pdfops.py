@@ -1,8 +1,7 @@
 from pathlib import Path
 
+from base6_techo.pdfops import blank_pdf, booklet_pairs, impose_pdf, merge_pdfs
 from pypdf import PdfReader, PdfWriter
-
-from src.pdfops import blank_pdf, booklet_pairs, impose_pdf, merge_pdfs
 
 
 def _pdf(tmp_path: Path, name: str, pages: int, w: float = 100, h: float = 200) -> Path:

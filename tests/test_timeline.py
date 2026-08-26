@@ -1,6 +1,6 @@
-from src.models import ContentPage, PageSettings
-from src.pages import render_page
-from src.template.timeline import TimelinePattern, page_range
+from base6_techo.models import ContentPage, PageSettings
+from base6_techo.pages import render_page
+from base6_techo.template.timeline import TimelinePattern, page_range
 
 A5 = PageSettings(148, 210, header=10, footer=10, binding=15, non_binding=8)
 
