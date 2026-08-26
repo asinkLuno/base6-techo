@@ -1,10 +1,9 @@
 from pathlib import Path
 
+from base6_techo.api import Pipeline, PipelineContext
+from base6_techo.models import DocumentSettings, PageSettings
+from base6_techo.template.basic import BasicPattern
 from pypdf import PdfReader, PdfWriter
-
-from src.api import Pipeline, PipelineContext
-from src.models import DocumentSettings, PageSettings
-from src.template.basic import BasicPattern
 
 A5 = PageSettings(148, 210)
 

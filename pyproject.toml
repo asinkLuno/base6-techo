@@ -1,33 +1,35 @@
 [project]
-name = "base6-techo"
+name = "workspace"
 version = "0.1.0"
-description = "Add your description here"
-readme = "README.md"
-authors = [
-    { name = "guozr", email = "guozr1997@hotmail.com" }
-]
 requires-python = ">=3.13"
-dependencies = [
-    "Babel>=2.17.0",
-    "pypdf>=6.16.2",
-]
+dependencies = []
 
 [dependency-groups]
 dev = [
+    "base6-techo",
     "pytest>=8",
     "ruff>=0.16.4",
     "ty>=0.0.1",
-    "uv>=0.12.5",
 ]
 
-[[tool.uv.index]]
-url = "https://mirrors.aliyun.com/pypi/simple"
-default = true
+[tool.uv.workspace]
+members = ["src-tauri"]
 
-[build-system]
-requires = ["uv_build>=0.12.1,<0.13.0"]
-build-backend = "uv_build"
+[tool.uv.sources]
+base6-techo = { workspace = true }
 
-[tool.uv.build-backend]
-module-name = "src"
-module-root = "."
+
+[tool.pyright]
+# See: <https://pytauri.github.io/pytauri/0.5/usage/tutorial/build-standalone/#get-portable-python>
+# ref: <https://github.com/microsoft/pyright/blob/1.1.391/docs/configuration.md#environment-options>
+exclude = [
+    "**/node_modules",
+    "**/__pycache__",
+    "**/dist",
+    "**/.*",
+    "**/pyembed",
+    # 👇 necessary, because when `tauri-cli bundles python,
+    # it will copy `pyembed` to the target directory (i.e., rust output dir).
+    "**/target",
+    # 👆
+]
