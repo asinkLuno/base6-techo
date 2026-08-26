@@ -60,10 +60,11 @@ jobs:
             *) archive="tectonic.tar.gz" ;;
           esac
           curl -fL "https://github.com/tectonic-typesetting/tectonic/releases/download/tectonic%40${TECTONIC_VERSION}/tectonic-${TECTONIC_VERSION}-${{ matrix.target }}.${archive#tectonic.}" -o "$archive"
-          tar -xf "$archive"
           if [ "${{ runner.os }}" = Windows ]; then
+            unzip -q "$archive"
             mv tectonic.exe "src-tauri/binaries/tectonic-${{ matrix.target }}.exe"
           else
+            tar -xf "$archive"
             mv tectonic "src-tauri/binaries/tectonic-${{ matrix.target }}"
           fi
 
