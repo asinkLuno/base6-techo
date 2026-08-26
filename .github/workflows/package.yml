@@ -42,6 +42,7 @@ jobs:
           node-version: 22
           cache: yarn
       - uses: dtolnay/rust-toolchain@stable
+      - run: corepack enable
 
       - name: Install Linux build dependencies
         if: runner.os == 'Linux'
@@ -83,7 +84,7 @@ jobs:
             echo 'RUSTFLAGS=-C link-arg=-Wl,-rpath,@executable_path/../Resources/lib -L '${{ github.workspace }}'/src-tauri/pyembed/python/lib' >> "$GITHUB_ENV"
           fi
 
-      - run: yarn install --frozen-lockfile
+      - run: yarn install --immutable
       - run: yarn tauri build --config src-tauri/tauri.bundle.json -- --profile bundle-release
 
       - uses: actions/upload-artifact@v4
