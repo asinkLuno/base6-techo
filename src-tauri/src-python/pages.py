@@ -60,13 +60,22 @@ def render_page(
     header_date_size: float = 8,
     header_date_font: str | None = None,
     header_date_position: str = "center",
+    printed_page_number: int | None = None,
+    header_index: int | None = None,
+    show_header: bool = True,
 ) -> PageDraw:
     """Render one complete logical page. Page numbers and binding text belong to
     the logical page (drawn here, before imposition); padding pages stay blank."""
     if isinstance(doc_page, ContentPage):
         geo = geometry_for(page, doc_page.page_number)
+        idx = doc_page.page_number - 1 if header_index is None else header_index
+        page_date = (
+            header_dates[idx]
+            if header_dates is not None and 0 <= idx < len(header_dates)
+            else None
+        )
         if isinstance(pattern, TimelinePattern):
-            lines, dots, texts = draw_timeline(geo, pattern)
+            lines, dots, texts = draw_timeline(geo, pattern, page_date)
         else:
             if isinstance(pattern, MidoriPattern):
                 lines, dots = draw_midori(geo, pattern)
@@ -77,7 +86,7 @@ def render_page(
                     Text(
                         page.width / 2,
                         page.height - page.footer / 2,
-                        str(doc_page.page_number),
+                        str(printed_page_number or doc_page.page_number),
                         font=page_number_font,
                     )
                 ]
@@ -85,8 +94,7 @@ def render_page(
                 else []
             )
         # Header date (dates are already expanded to one entry per page)
-        if header_dates is not None and header_date_format is not None:
-            idx = doc_page.page_number - 1
+        if show_header and header_dates is not None and header_date_format is not None:
             show_header = (
                 header_parity == "both"
                 or (header_parity == "odd" and doc_page.page_number % 2 == 1)

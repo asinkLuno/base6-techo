@@ -245,10 +245,27 @@ def test_no_dots_by_default():
     assert render_page(A5, RULED, ContentPage(1), True).dots == []
 
 
+def test_section_can_opt_out_of_header():
+    pages = normal_output(
+        A5,
+        RULED,
+        DocumentSettings(
+            page_count=1,
+            show_header=False,
+            show_page_number=False,
+            header_dates=(date(2025, 1, 1),),
+            header_date_format="yyyy-MM-dd",
+        ),
+    )
+    assert pages[0].placements[0].draw.texts == []
+
+
 def test_request_models_map_to_settings_and_patterns():
     section = RenderSectionRequest(
         page=PageRequest(width=148, height=210, footer=12),
-        document=DocumentRequest(page_count=3, header_date="2025-01-01", binding_text="base-6"),
+        document=DocumentRequest(
+            page_count=3, header_date="2025-01-01", binding_text="base-6"
+        ),
         pattern=BasicPatternRequest(kind="basic", spacing=8, draw_hlines=True),
     )
     assert section.page.to_settings() == PageSettings(148, 210, footer=12)

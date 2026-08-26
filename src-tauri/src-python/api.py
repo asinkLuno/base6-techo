@@ -3,7 +3,7 @@
 The pipeline is deliberately small and ordered:
 
 1. render the selected pattern with page metadata;
-2. optionally append other PDFs and add blank pages;
+2. optionally add blank pages;
 3. optionally impose the result for printing/binding.
 
 No command-line parsing is involved. Paths are accepted at the file boundary;
@@ -20,11 +20,10 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Literal, Protocol
 
-from imposition import normal_output
-from latex import render_latex
+from imposition import OutputPage, impose_output, normal_output
+from latex import render_sections_latex
 from models import DocumentSettings, PageSettings, validate_project
 from pages import Pattern
-from pdfops import blank_pdf, impose_pdf, merge_pdfs
 from template.basic import BasicPattern
 from template.midori import MidoriPattern
 from template.timeline import TimelinePattern
@@ -38,7 +37,7 @@ class PipelineResult:
 
     pdf: Path
     logical_pages: int
-    merged_pages: int
+    document_pages: int
     sheets: int | None
 
 
@@ -59,9 +58,9 @@ class PipelineContext:
     engine: str | None = None
     current_pdf: Path | None = None
     logical_pages: int = 0
-    merged_pages: int = 0
+    document_pages: int = 0
     sheets: int | None = None
-    generated_pdfs: list[Path] = field(default_factory=list)
+    generated_pages: list[tuple[OutputPage, Pattern]] = field(default_factory=list)
 
 
 class PipelineStep(Protocol):
@@ -75,31 +74,24 @@ class _RenderSections:
     sections: tuple[RenderStage, ...]
 
     def __call__(self, context: PipelineContext) -> None:
-        for index, section in enumerate(self.sections):
-            tex = context.workdir / f"section-{index}.tex"
-            tex.write_text(
-                render_latex(
-                    normal_output(section.page, section.pattern, section.document),
-                    section.pattern,
-                )
+        page_number = 1
+        physical_page = 1
+        for section in self.sections:
+            pages = normal_output(
+                section.page,
+                section.pattern,
+                section.document,
+                page_number,
+                physical_page,
             )
-            context.generated_pdfs.append(_compile(tex, context.engine))
+            context.generated_pages.extend((page, section.pattern) for page in pages)
+            if section.document.show_page_number:
+                page_number += section.document.page_count
+            physical_page += section.document.page_count
         context.logical_pages = sum(
             section.document.page_count for section in self.sections
         )
-
-
-@dataclass(frozen=True)
-class _MergePdfs:
-    inputs: tuple[Path, ...]
-
-    def __call__(self, context: PipelineContext) -> None:
-        inputs = [*context.generated_pdfs, *self.inputs]
-        context.current_pdf = inputs[0]
-        context.merged_pages = context.logical_pages
-        if len(inputs) > 1:
-            context.current_pdf = context.workdir / "merged.pdf"
-            context.merged_pages = merge_pdfs(inputs, context.current_pdf)
+        context.document_pages = context.logical_pages
 
 
 @dataclass(frozen=True)
@@ -110,11 +102,16 @@ class _AddPages:
     def __call__(self, context: PipelineContext) -> None:
         if not (self.leading or self.trailing):
             return
-        source = _current_pdf(context)
-        context.current_pdf = context.workdir / "padded.pdf"
-        context.merged_pages = blank_pdf(
-            source, context.current_pdf, self.leading, self.trailing
+        if not context.generated_pages:
+            return
+        page, pattern = context.generated_pages[0]
+        blank = OutputPage(page.width, page.height, [])
+        context.generated_pages = (
+            [(blank, pattern)] * self.leading
+            + context.generated_pages
+            + [(blank, pattern)] * self.trailing
         )
+        context.document_pages = len(context.generated_pages)
 
 
 @dataclass(frozen=True)
@@ -125,11 +122,24 @@ class _Bind:
     def __call__(self, context: PipelineContext) -> None:
         if self.mode is None:
             return
-        source = _current_pdf(context)
-        context.current_pdf = context.workdir / "imposed.pdf"
-        context.sheets = impose_pdf(
-            source, context.current_pdf, self.mode, self.sheets_per_group
+        pages, context.sheets = impose_output(
+            [page for page, _ in context.generated_pages],
+            self.mode,
+            self.sheets_per_group,
         )
+        pattern_by_draw = {
+            id(placement.draw): pattern
+            for page, pattern in context.generated_pages
+            for placement in page.placements
+        }
+        fallback = context.generated_pages[0][1]
+        context.generated_pages = [
+            (
+                page,
+                next((pattern_by_draw[id(p.draw)] for p in page.placements), fallback),
+            )
+            for page in pages
+        ]
 
 
 def _current_pdf(context: PipelineContext) -> Path:
@@ -149,14 +159,13 @@ class Pipeline:
                 page=PageSettings(148, 210),
                 document=DocumentSettings(page_count=32, binding_text="base-6"),
             )
-            .merge("appendix.pdf")
             .add_pages(trailing=2)
             .bind("booklet")
             .run("notebook.pdf")
         )
 
-    ``pattern``, ``page`` and ``document`` are the first stage. ``merge`` and
-    ``add_pages`` operate on the generated PDF, and ``bind`` is always last.
+    ``pattern``, ``page`` and ``document`` are the first stage. ``add_pages``
+    adds logical blank pages, and ``bind`` is always last.
     The methods return ``self`` so a request can be assembled declaratively.
     """
 
@@ -171,7 +180,6 @@ class Pipeline:
         self.page = page
         self.document = document
         self._sections: list[RenderStage] = [RenderStage(pattern, page, document)]
-        self._inputs: list[Path] = []
         self._leading = 0
         self._trailing = 0
         self._binding: BindingMode | None = None
@@ -184,7 +192,7 @@ class Pipeline:
         document: DocumentSettings,
         page: PageSettings | None = None,
     ) -> Pipeline:
-        """Generate another section before merge/padding/binding.
+        """Generate another section before padding/binding.
 
         The existing page settings are reused unless ``page`` is supplied.
         Sections should use the same physical paper size when they will be
@@ -197,17 +205,8 @@ class Pipeline:
         self._sections.append(RenderStage(pattern, page, document))
         return self
 
-    def merge(self, *pdfs: str | Path) -> Pipeline:
-        """Append existing PDFs after the generated notebook."""
-        paths = [Path(pdf) for pdf in pdfs]
-        missing = [str(path) for path in paths if not path.is_file()]
-        if missing:
-            raise FileNotFoundError(", ".join(missing))
-        self._inputs.extend(paths)
-        return self
-
     def add_pages(self, *, leading: int = 0, trailing: int = 0) -> Pipeline:
-        """Add blank pages before and/or after the merged document."""
+        """Add blank pages before and/or after the generated document."""
         if leading < 0 or trailing < 0:
             raise ValueError("leading and trailing must be >= 0")
         self._leading += leading
@@ -242,18 +241,20 @@ class Pipeline:
             context = PipelineContext(Path(directory), engine)
             steps: list[PipelineStep] = [
                 _RenderSections(tuple(self._sections)),
-                _MergePdfs(tuple(self._inputs)),
                 _AddPages(self._leading, self._trailing),
                 *self._custom_steps,
                 _Bind(self._binding, self._sheets_per_group),
             ]
             for step in steps:
                 step(context)
+            tex = context.workdir / "document.tex"
+            tex.write_text(render_sections_latex(context.generated_pages))
+            context.current_pdf = _compile(tex, context.engine)
             shutil.copyfile(_current_pdf(context), output)
             return PipelineResult(
                 output,
                 context.logical_pages,
-                context.merged_pages,
+                context.document_pages,
                 context.sheets,
             )
 

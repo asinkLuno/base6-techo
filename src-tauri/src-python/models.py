@@ -46,6 +46,7 @@ class DocumentSettings:
     """Whole-notebook settings. page_count = finished usable pages, never sheet count."""
 
     page_count: int = 32
+    show_header: bool = True
     show_page_number: bool = True
     binding_text: str | None = None
     binding_text_2: str | None = None
@@ -129,6 +130,7 @@ class DocumentRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     page_count: int = Field(default=32, ge=1, le=MAX_PAGE_COUNT)
+    show_header: bool = True
     show_page_number: bool = True
     binding_text: str | None = None
     binding_text_2: str | None = None
@@ -153,6 +155,7 @@ class DocumentRequest(BaseModel):
         )
         return DocumentSettings(
             page_count=self.page_count,
+            show_header=self.show_header,
             show_page_number=self.show_page_number,
             binding_text=self.binding_text,
             binding_text_2=self.binding_text_2,
@@ -234,6 +237,12 @@ class TimelinePatternRequest(BaseModel):
     line_color: str = "#7A7A7A"
     line_width: float = 0.4 / (25.4 / 72.27)
     label_size: float = 10.2
+    city_name: str | None = None
+    latitude: float | None = Field(default=None, ge=-90, le=90)
+    longitude: float | None = Field(default=None, ge=-180, le=180)
+    timezone: str | None = None
+    daylight_color: str = "#E5B93F"
+    night_color: str = "#496A9F"
 
 
 PatternRequest = Annotated[

@@ -1,6 +1,10 @@
+from datetime import date
+
+import pytest
+from layout import geometry_for
 from models import ContentPage, PageSettings
 from pages import render_page
-from template.timeline import TimelinePattern, page_range
+from template.timeline import TimelinePattern, draw, page_range
 
 A5 = PageSettings(148, 210, header=10, footer=10, binding=15, non_binding=8)
 
@@ -21,4 +25,27 @@ def test_timeline_draws_binding_axis_and_labels():
     assert even.lines[0].x1 == 133
     assert odd.texts[0].content == "13"
     assert even.texts[0].content == "00"
+    assert odd.texts[0].anchor == even.texts[0].anchor == "north"
+    assert odd.texts[-1].anchor == even.texts[-1].anchor == "south"
     assert odd.dots
+
+
+def test_timeline_colors_daylight_from_header_date_and_location():
+    pattern = TimelinePattern(
+        latitude=31.23,
+        longitude=121.47,
+        timezone="Asia/Shanghai",
+        daylight_color="#FFFF00",
+        night_color="#0000FF",
+    )
+    lines, _, _ = draw(geometry_for(A5, 1), pattern, date(2025, 6, 21))
+    hour_ticks = lines[::2]
+
+    assert hour_ticks[0].color == "#0000FF"
+    assert hour_ticks[12].color == "#FFFF00"
+    assert hour_ticks[20].color == "#0000FF"
+
+
+def test_timeline_location_is_all_or_nothing():
+    with pytest.raises(ValueError, match="must be set together"):
+        TimelinePattern(latitude=31.23)

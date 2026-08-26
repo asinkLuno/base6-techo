@@ -274,6 +274,11 @@
           "title": "Page Count",
           "type": "integer"
         },
+        "show_header": {
+          "default": true,
+          "title": "Show Header",
+          "type": "boolean"
+        },
         "show_page_number": {
           "default": true,
           "title": "Show Page Number",
@@ -587,6 +592,68 @@
           "default": 10.2,
           "title": "Label Size",
           "type": "number"
+        },
+        "city_name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "City Name"
+        },
+        "latitude": {
+          "anyOf": [
+            {
+              "maximum": 90,
+              "minimum": -90,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Latitude"
+        },
+        "longitude": {
+          "anyOf": [
+            {
+              "maximum": 180,
+              "minimum": -180,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Longitude"
+        },
+        "timezone": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Timezone"
+        },
+        "daylight_color": {
+          "default": "#E5B93F",
+          "title": "Daylight Color",
+          "type": "string"
+        },
+        "night_color": {
+          "default": "#496A9F",
+          "title": "Night Color",
+          "type": "string"
         }
       },
       "title": "TimelinePatternRequest",
