@@ -3,7 +3,7 @@ name = "base6-techo"
 version = "0.1.0"
 description = "Printable notebook desktop application"
 authors = ["guozr"]
-edition = "2021"
+edition = "2024"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -18,14 +18,15 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 # the same as the package name
 name = "base6-techo"
 path = "src/main.rs"
-required-features = ["pytauri/standalone"]
 
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
 tauri = { version = "2", features = [] }
-pyo3 = { version = "0.25" }
-pytauri = { version = "0.8", features = [] }
-tauri-plugin-pytauri = { version = "0.8" }
 tauri-plugin-dialog = "2"
+base64 = "0.22"
+chrono = { version = "0.4", features = ["serde", "unstable-locales"] }
+chrono-tz = "0.10"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"

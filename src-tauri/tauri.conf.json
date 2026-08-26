@@ -8,7 +8,7 @@
     "devUrl": "http://localhost:1420",
     "beforeBuildCommand": "yarn build",
     "frontendDist": "../dist",
-    "features": ["pytauri/standalone"]
+    "features": []
   },
   "app": {
     "windows": [
