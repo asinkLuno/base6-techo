@@ -25,14 +25,14 @@ def test_midori_grid_stays_inside_selected_region():
     assert max(line.y2 for line in full_lines) <= 210
 
 
-def test_midori_keeps_page_footer_and_binding_watermark():
+def test_midori_keeps_page_footer_text_and_binding_watermark():
     page_draw = render_page(
         A5,
         MidoriPattern(),
         ContentPage(1),
-        show_page_number=True,
         binding_text="base-6",
+        footer_text="note",
     )
 
-    assert any(text.content == "1" and text.y == 205 for text in page_draw.texts)
+    assert any(text.content == "note" and text.y == 205 for text in page_draw.texts)
     assert any(text.content == "base-6" and text.x == 7.5 for text in page_draw.texts)

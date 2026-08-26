@@ -8,7 +8,13 @@ import { pyInvoke } from "tauri-plugin-pytauri-api";
 import type { RenderSectionRequest, RunPipelineRequest } from "./pipeline-request.generated";
 import { Button } from "./components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "./components/ui/card";
+import { Checkbox } from "./components/ui/checkbox";
 import { Input } from "./components/ui/input";
+import { Popover, PopoverContent, PopoverTrigger } from "./components/ui/popover";
+import { Select as SelectRoot, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./components/ui/select";
+import { Calendar } from "./components/ui/calendar";
+import { ColorPicker } from "./components/ui/color-picker";
+import { zhCN } from "react-day-picker/locale";
 import { cn } from "./lib/utils";
 
 type Value = string | number | boolean | null;
@@ -18,6 +24,8 @@ type Section = {
   id: string; expanded: boolean; pages: number;
   headerEnabled: boolean; footerEnabled: boolean; watermarkEnabled: boolean;
   page: Values; document: Values; pattern: Values & { kind: PatternKind };
+  headerStyle: "date" | "text" | "none";
+  nonBindingEnabled: boolean;
 };
 
 const patternNames: Record<PatternKind, string> = { basic: "基础版式", midori: "Midori", timeline: "时间轴" };
@@ -31,23 +39,44 @@ const defaults: Record<PatternKind, Values & { kind: PatternKind }> = {
 function newSection(): Section {
   return {
     id: crypto.randomUUID(), expanded: true, pages: 32,
-    headerEnabled: false, footerEnabled: false, watermarkEnabled: false,
+    headerEnabled: false, footerEnabled: false,
     page: { width: 148, height: 210, header: 10, footer: 10, binding: 15, non_binding: 8 },
-    document: { header_date: new Date().toISOString().slice(0, 10), header_date_format: "yyyy-MM-dd", header_date_locale: "zh_CN", header_parity: "both", header_date_size: 8, header_date_position: "center", binding_text: "", binding_text_2: "", binding_text_size: 8, binding_text_2_size: 8, binding_text_spacing: 5 },
+    document: { header_date: new Date().toISOString().slice(0, 10), header_date_end: null, header_date_format: "yyyy-MM-dd", header_date_locale: "zh_CN", header_parity: "both", header_date_size: 8, header_date_position: "center", binding_text: "", binding_text_2: "", binding_text_size: 8, binding_text_2_size: 8, binding_text_spacing: 5, header_text: "", header_text_2: "", header_text_size: 8, header_text_2_size: 8, header_text_spacing: 5, footer_text: "", footer_text_2: "", footer_text_size: 8, footer_text_2_size: 8, footer_text_spacing: 5, non_binding_text: "", non_binding_text_2: "", non_binding_text_size: 8, non_binding_text_2_size: 8, non_binding_text_spacing: 5 },
+    watermarkEnabled: false, nonBindingEnabled: false,
+    headerStyle: "date",
     pattern: { ...defaults.basic },
   };
 }
 
+function FieldLabel({ children }: { children: ReactNode }) {
+  return <span className="text-sm text-muted-foreground">{children}</span>;
+}
+
+function toISO(d: Date) { return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; }
+function fromISO(s: string): Date | undefined { return s ? new Date(s + "T00:00:00") : undefined; }
+
 function Field({ label, value, type = "number", min, max, step, placeholder, onChange }: { label: string; value: Value; type?: string; min?: number; max?: number; step?: number; placeholder?: string; onChange: (value: Value) => void }) {
-  if (type === "checkbox") return <label className="flex cursor-pointer items-center gap-2 text-sm"><input className="size-4 accent-primary" type="checkbox" checked={Boolean(value)} onChange={(event) => onChange(event.target.checked)} />{label}</label>;
-  if (type === "color") return <label className="grid gap-1.5 text-sm"><span className="text-muted-foreground">{label}</span><span className="flex h-9 items-center gap-2 rounded-md border bg-background px-2"><input type="color" value={String(value)} onChange={(event) => onChange(event.target.value)} className="h-6 w-8" /><span className="text-xs">{String(value)}</span></span></label>;
-  return <label className="grid gap-1.5 text-sm"><span className="text-muted-foreground">{label}</span><Input type={type} value={String(value ?? "")} min={min} max={max} step={step} placeholder={placeholder} onChange={(event) => onChange(type === "number" ? Number(event.target.value) : event.target.value)} /></label>;
+  if (type === "checkbox") return <label className="flex cursor-pointer items-center gap-2 text-sm leading-none"><Checkbox checked={Boolean(value)} onCheckedChange={(checked) => onChange(Boolean(checked))} />{label}</label>;
+  if (type === "color") return <div className="grid gap-1.5"><FieldLabel>{label}</FieldLabel><ColorPicker value={String(value)} onChange={(v) => onChange(v)} /></div>;
+  if (type === "date") { const selected = fromISO(String(value ?? "")); return <div className="grid gap-1.5"><FieldLabel>{label}</FieldLabel><Popover><PopoverTrigger asChild><Button variant="outline" className="h-9 w-full justify-start font-normal">{selected ? `${selected.getFullYear()}-${String(selected.getMonth() + 1).padStart(2, "0")}-${String(selected.getDate()).padStart(2, "0")}` : "选择日期"}</Button></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" locale={zhCN} selected={selected} onSelect={(d) => d && onChange(toISO(d))} /></PopoverContent></Popover></div>; }
+  return <label className="grid gap-1.5"><FieldLabel>{label}</FieldLabel><Input type={type} value={String(value ?? "")} min={min} max={max} step={step} placeholder={placeholder} onChange={(event) => onChange(type === "number" ? Number(event.target.value) : event.target.value)} /></label>;
 }
 function Select({ label, value, options, onChange }: { label: string; value: Value; options: [string | number, string][]; onChange: (value: string) => void }) {
-  return <label className="grid gap-1.5 text-sm"><span className="text-muted-foreground">{label}</span><select className="h-9 rounded-md border border-input bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-ring" value={String(value)} onChange={(event) => onChange(event.target.value)}>{options.map(([key, text]) => <option key={key} value={key}>{text}</option>)}</select></label>;
+  return <div className="grid gap-1.5"><FieldLabel>{label}</FieldLabel><SelectRoot value={String(value ?? "")} onValueChange={onChange}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{options.map(([key, text]) => <SelectItem key={key} value={String(key)}>{text}</SelectItem>)}</SelectContent></SelectRoot></div>;
 }
 function Group({ title, enabled, onEnabled, children }: { title: string; enabled: boolean; onEnabled: (enabled: boolean) => void; children: ReactNode }) {
   return <section className="grid gap-4 rounded-lg border bg-background p-4 sm:col-span-2"><Field label={title} value={enabled} type="checkbox" onChange={(value) => onEnabled(Boolean(value))} />{enabled && <div className="grid gap-4 border-t pt-4 sm:grid-cols-2">{children}</div>}</section>;
+}
+
+function TextFields({ values, prefix, set }: { values: Values; prefix: string; set: (key: string, value: Value) => void }) {
+  return <>
+    <Field label="第一行文字" value={values[prefix]} type="text" onChange={(v) => set(prefix, v)} />
+    {values[prefix] ? <>
+      <Field label="第一行字号（pt）" value={values[`${prefix}_size`]} min={1} step={0.5} onChange={(v) => set(`${prefix}_size`, v)} />
+      <Field label="第二行文字" value={values[`${prefix}_2`]} type="text" onChange={(v) => set(`${prefix}_2`, v)} />
+    </> : null}
+    {values[prefix] && values[`${prefix}_2`] ? <><Field label="第二行字号（pt）" value={values[`${prefix}_2_size`]} min={1} step={0.5} onChange={(v) => set(`${prefix}_2_size`, v)} /><Field label="两行间距（mm）" value={values[`${prefix}_spacing`]} min={0} step={0.5} onChange={(v) => set(`${prefix}_spacing`, v)} /></> : null}
+  </>;
 }
 
 function PatternFields({ section, set }: { section: Section; set: (key: string, value: Value) => void }) {
@@ -70,7 +99,7 @@ function PatternFields({ section, set }: { section: Section; set: (key: string, 
 }
 
 function sectionRequest(section: Section, pageCount = section.pages): RenderSectionRequest {
-  return { page: { ...section.page, header: section.headerEnabled ? section.page.header : 0, footer: section.footerEnabled ? section.page.footer : 0 }, document: { ...section.document, page_count: pageCount, show_header: section.headerEnabled, show_page_number: section.footerEnabled, header_date: section.headerEnabled ? section.document.header_date : null, binding_text: section.watermarkEnabled ? section.document.binding_text || null : null, binding_text_2: section.watermarkEnabled ? section.document.binding_text_2 || null : null }, pattern: cleanPattern(section.pattern) } as unknown as RenderSectionRequest;
+  return { page: { ...section.page, header: section.headerEnabled ? section.page.header : 0, footer: section.footerEnabled ? section.page.footer : 0 }, document: { ...section.document, page_count: pageCount, show_header: section.headerEnabled && section.headerStyle === "date", header_date: section.headerEnabled && section.headerStyle === "date" ? section.document.header_date : null, header_date_end: section.headerEnabled && section.headerStyle === "date" ? section.document.header_date_end || null : null, header_text: section.headerEnabled && section.headerStyle === "text" ? section.document.header_text || null : null, header_text_2: section.headerEnabled && section.headerStyle === "text" ? section.document.header_text_2 || null : null, footer_text: section.footerEnabled ? section.document.footer_text || null : null, footer_text_2: section.footerEnabled ? section.document.footer_text_2 || null : null, binding_text: section.watermarkEnabled ? section.document.binding_text || null : null, binding_text_2: section.watermarkEnabled ? section.document.binding_text_2 || null : null, non_binding_text: section.nonBindingEnabled ? section.document.non_binding_text || null : null, non_binding_text_2: section.nonBindingEnabled ? section.document.non_binding_text_2 || null : null }, pattern: cleanPattern(section.pattern) } as unknown as RenderSectionRequest;
 }
 
 function SortableSection({ section, index, update, remove }: { section: Section; index: number; update: (patch: Partial<Section>) => void; remove: () => void }) {
@@ -96,9 +125,10 @@ function SortableSection({ section, index, update, remove }: { section: Section;
     {preview && !previewing && <iframe title={`第 ${index + 1} 个卡片前 2 页预览`} src={`data:application/pdf;base64,${preview}`} className="h-96 w-full border-t bg-muted/30" />}
     {section.expanded && <CardContent className="grid gap-4 border-t bg-muted/30 pt-5 sm:grid-cols-2">
       <Field label="页数" value={section.pages} min={1} max={500} onChange={(pages) => update({ pages: Number(pages) })} />
-      <Group title="页头" enabled={section.headerEnabled} onEnabled={(headerEnabled) => update({ headerEnabled })}><Field label="页头高度（mm）" value={section.page.header} min={0} step={0.5} onChange={(v) => page("header", v)} /><Field label="日期" value={section.document.header_date} type="date" onChange={(v) => doc("header_date", v)} /><Field label="日期格式（ICU）" value={section.document.header_date_format} type="text" onChange={(v) => doc("header_date_format", v)} /><Field label="语言地区" value={section.document.header_date_locale} type="text" onChange={(v) => doc("header_date_locale", v)} /><Select label="显示页" value={section.document.header_parity} options={[["both", "全部"], ["odd", "奇数页"], ["even", "偶数页"]]} onChange={(v) => doc("header_parity", v)} /><Select label="位置" value={section.document.header_date_position} options={[["center", "居中"], ["binding", "装订侧"], ["outer", "外侧"]]} onChange={(v) => doc("header_date_position", v)} /><Field label="字号（pt）" value={section.document.header_date_size} min={1} step={0.5} onChange={(v) => doc("header_date_size", v)} /></Group>
-      <Group title="页脚（页码）" enabled={section.footerEnabled} onEnabled={(footerEnabled) => update({ footerEnabled })}><Field label="页脚高度（mm）" value={section.page.footer} min={5} step={0.5} onChange={(v) => page("footer", v)} /></Group>
-      <Group title="侧边水印" enabled={section.watermarkEnabled} onEnabled={(watermarkEnabled) => update({ watermarkEnabled })}><Field label="装订侧宽度（mm）" value={section.page.binding} min={0} step={0.5} onChange={(v) => page("binding", v)} /><Field label="第一行文字" value={section.document.binding_text} type="text" onChange={(v) => doc("binding_text", v)} /><Field label="第一行字号（pt）" value={section.document.binding_text_size} min={1} step={0.5} onChange={(v) => doc("binding_text_size", v)} /><Field label="第二行文字" value={section.document.binding_text_2} type="text" onChange={(v) => doc("binding_text_2", v)} />{section.document.binding_text_2 && <><Field label="第二行字号（pt）" value={section.document.binding_text_2_size} min={1} step={0.5} onChange={(v) => doc("binding_text_2_size", v)} /><Field label="两行间距（mm）" value={section.document.binding_text_spacing} min={0} step={0.5} onChange={(v) => doc("binding_text_spacing", v)} /></>}</Group>
+      <Group title="页头" enabled={section.headerEnabled} onEnabled={(headerEnabled) => update({ headerEnabled })}><Field label="页头高度（mm）" value={section.page.header} min={0} step={0.5} onChange={(v) => page("header", v)} /><Select label="页头样式" value={section.headerStyle} options={[["date", "日期"], ["text", "水印文字"], ["none", "无样式（空白）"]]} onChange={(v) => update({ headerStyle: v as Section["headerStyle"] })} />{section.headerStyle === "date" && <><Field label="开始日期" value={section.document.header_date} type="date" onChange={(v) => doc("header_date", v)} /><Field label="结束日期（可选）" value={section.document.header_date_end ?? ""} type="date" onChange={(v) => doc("header_date_end", v || null)} /><Field label="日期格式（ICU）" value={section.document.header_date_format} type="text" onChange={(v) => doc("header_date_format", v)} /><Field label="语言地区" value={section.document.header_date_locale} type="text" onChange={(v) => doc("header_date_locale", v)} /><Select label="显示页" value={section.document.header_parity} options={[["both", "全部"], ["odd", "奇数页"], ["even", "偶数页"]]} onChange={(v) => doc("header_parity", v)} /><Select label="位置" value={section.document.header_date_position} options={[["center", "居中"], ["binding", "装订侧"], ["outer", "外侧"]]} onChange={(v) => doc("header_date_position", v)} /><Field label="字号（pt）" value={section.document.header_date_size} min={1} step={0.5} onChange={(v) => doc("header_date_size", v)} /></>}{section.headerStyle === "text" && <TextFields values={section.document} prefix="header_text" set={doc} />}</Group>
+      <Group title="页脚" enabled={section.footerEnabled} onEnabled={(footerEnabled) => update({ footerEnabled })}><Field label="页脚高度（mm）" value={section.page.footer} min={5} step={0.5} onChange={(v) => page("footer", v)} /><TextFields values={section.document} prefix="footer_text" set={doc} /></Group>
+      <Group title="装订侧水印" enabled={section.watermarkEnabled} onEnabled={(watermarkEnabled) => update({ watermarkEnabled })}><Field label="装订侧宽度（mm）" value={section.page.binding} min={0} step={0.5} onChange={(v) => page("binding", v)} /><TextFields values={section.document} prefix="binding_text" set={doc} /></Group>
+      <Group title="非装订侧水印" enabled={section.nonBindingEnabled} onEnabled={(nonBindingEnabled) => update({ nonBindingEnabled })}><Field label="非装订侧宽度（mm）" value={section.page.non_binding} min={0} step={0.5} onChange={(v) => page("non_binding", v)} /><TextFields values={section.document} prefix="non_binding_text" set={doc} /></Group>
       <section className="grid gap-4 rounded-lg border bg-background p-4 sm:col-span-2"><Select label="版式" value={section.pattern.kind} options={Object.entries(patternNames)} onChange={(kind) => update({ pattern: { ...defaults[kind as PatternKind] } })} /><div className="grid gap-4 border-t pt-4 sm:grid-cols-2"><PatternFields section={section} set={pattern} /></div></section>
     </CardContent>}
   </Card></div>;

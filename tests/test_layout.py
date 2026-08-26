@@ -163,45 +163,63 @@ def test_margin_line_vertical_full_content_height():
     assert margin.color == "#CC0000"
 
 
-def test_page_number_belongs_to_logical_page():
-    d = render_page(A5, RULED, ContentPage(17), show_page_number=True)
-    (t,) = d.texts
-    assert t.content == "17"
-    assert t.x == 74 and t.y == 205  # centered in footer: w/2, h - footer/2
-    assert render_page(A5, RULED, ContentPage(17), show_page_number=False).texts == []
-
-
-def test_page_number_and_binding_fonts():
-    d = render_page(
-        A5,
-        RULED,
-        ContentPage(17),
-        True,
-        "watermark",
-        page_number_font=r"\rmfamily",
-        binding_text_font=r"\ttfamily",
-    )
-    assert d.texts[0].font == r"\rmfamily"
-    assert d.texts[1].font == r"\ttfamily"
-
-    odd = render_page(A5, RULED, ContentPage(1), False, "base-6")
-    even = render_page(A5, RULED, ContentPage(2), False, "base-6")
-    assert odd.texts == [Text(7.5, 105, "base-6", rotation=90)]
-    assert even.texts == [Text(140.5, 105, "base-6", rotation=90)]
-
-
-def test_binding_text_supports_two_lines_and_sizes():
+def test_header_text_draws_horizontally_in_header():
     d = render_page(
         A5,
         RULED,
         ContentPage(1),
-        False,
-        "top",
-        "bottom",
-        10,
-        6,
-        12,
+        header_text="top",
+        header_text_2="bottom",
+        header_text_size=10,
+        header_text_2_size=6,
+        header_text_spacing=6,
     )
+    assert d.texts == [
+        Text(74, 2, "top", size_pt=10),
+        Text(74, 8, "bottom", size_pt=6),
+    ]
+
+
+def test_footer_text_belongs_to_logical_page():
+    d = render_page(A5, RULED, ContentPage(17), footer_text="edge")
+    (t,) = d.texts
+    assert t.content == "edge"
+    assert t.x == 74 and t.y == 205  # centered in footer: w/2, h - footer/2
+    assert render_page(A5, RULED, ContentPage(17)).texts == []
+
+
+def test_footer_text_two_lines_and_binding_font():
+    d = render_page(
+        A5,
+        RULED,
+        ContentPage(1),
+        footer_text="top",
+        footer_text_2="bottom",
+        footer_text_size=10,
+        footer_text_2_size=6,
+        footer_text_spacing=12,
+        binding_text_font=r"\ttfamily",
+    )
+    assert d.texts == [
+        Text(74, 199, "top", size_pt=10, font=r"\ttfamily"),
+        Text(74, 211, "bottom", size_pt=6, font=r"\ttfamily"),
+    ]
+
+    odd = render_page(A5, RULED, ContentPage(1), binding_text="base-6")
+    even = render_page(A5, RULED, ContentPage(2), binding_text="base-6")
+    assert odd.texts == [Text(7.5, 105, "base-6", rotation=90)]
+    assert even.texts == [Text(140.5, 105, "base-6", rotation=90)]
+
+
+def test_non_binding_text_draws_on_outer_side():
+    odd = render_page(A5, RULED, ContentPage(1), non_binding_text="edge")
+    even = render_page(A5, RULED, ContentPage(2), non_binding_text="edge")
+    assert odd.texts == [Text(4, 105, "edge", rotation=90)]  # non_binding/2, left page
+    assert even.texts == [Text(144, 105, "edge", rotation=90)]  # w - non_binding/2
+
+
+def test_binding_text_supports_two_lines_and_sizes():
+    d = render_page(A5, RULED, ContentPage(1), binding_text="top", binding_text_2="bottom", binding_text_size=10, binding_text_2_size=6, binding_text_spacing=12)
     assert d.texts == [
         Text(1.5, 105, "top", size_pt=10, rotation=90),
         Text(13.5, 105, "bottom", size_pt=6, rotation=90),
@@ -221,7 +239,7 @@ def test_normal_output_one_page_per_logical():
     assert all(
         o.width == 148 and o.height == 210 and len(o.placements) == 1 for o in out
     )
-    assert out[16].placements[0].draw.texts[0].content == "17"
+    assert out[16].placements[0].draw.texts == []
 
 
 def test_dots_on_lines_centered_symmetric():
@@ -229,7 +247,6 @@ def test_dots_on_lines_centered_symmetric():
         A5,
         BasicPattern(spacing=8, draw_hlines=True, draw_dots=True, dot_spacing=5),
         ContentPage(1),
-        True,
     )
     xs = sorted({dot.x for dot in d.dots})
     center = 15 + 125 / 2  # 77.5
@@ -240,7 +257,7 @@ def test_dots_on_lines_centered_symmetric():
 
 
 def test_no_dots_by_default():
-    assert render_page(A5, RULED, ContentPage(1), True).dots == []
+    assert render_page(A5, RULED, ContentPage(1)).dots == []
 
 
 def test_section_can_opt_out_of_header():
@@ -250,12 +267,38 @@ def test_section_can_opt_out_of_header():
         DocumentSettings(
             page_count=1,
             show_header=False,
-            show_page_number=False,
             header_dates=(date(2025, 1, 1),),
             header_date_format="yyyy-MM-dd",
         ),
     )
     assert pages[0].placements[0].draw.texts == []
+
+
+def test_header_date_range_takes_min_of_days_and_pages():
+    def dates(page_count: int, start: str, end: str):
+        return [
+            d.isoformat()
+            for d in RenderSectionRequest(
+                document=DocumentRequest(
+                    page_count=page_count,
+                    header_date=start,
+                    header_date_end=end,
+                ),
+                pattern=BasicPatternRequest(),
+            ).document.to_settings().header_dates
+        ]
+
+    assert dates(3, "2025-03-01", "2025-03-03") == [
+        "2025-03-01",
+        "2025-03-02",
+        "2025-03-03",
+    ]
+    # 天数 > 页数（预览 2 页）：截断取前 2 天
+    assert dates(2, "2025-03-01", "2025-03-03") == ["2025-03-01", "2025-03-02"]
+    # 天数 < 页数：只有前 2 页有日期
+    assert dates(5, "2025-03-01", "2025-03-02") == ["2025-03-01", "2025-03-02"]
+    # 结束早于开始：退化为仅开始日期
+    assert dates(3, "2025-03-03", "2025-03-01") == ["2025-03-03"]
 
 
 def test_request_models_map_to_settings_and_patterns():
@@ -300,7 +343,7 @@ def test_request_models_reject_unknown_and_wrong_fields():
     with pytest.raises(ValueError):
         validate_project(
             PageSettings(width=148, height=210, footer=3),
-            DocumentSettings(show_page_number=True),
+            DocumentSettings(footer_text="x"),
         )  # footer < 5mm
     with pytest.raises(ValueError):
         PageSettings(width=20, height=210, binding=15, non_binding=8)

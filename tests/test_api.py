@@ -11,31 +11,29 @@ from template.basic import BasicPattern
 A5 = PageSettings(148, 210)
 
 
-def test_numbered_sections_continue_without_counting_unnumbered(tmp_path: Path):
+def test_footer_text_repeats_on_every_page_of_its_section(tmp_path: Path):
     pattern = BasicPattern(draw_hlines=True)
     context = PipelineContext(tmp_path)
     _RenderSections(
         (
-            RenderStage(pattern, A5, DocumentSettings(page_count=2)),
+            RenderStage(pattern, A5, DocumentSettings(page_count=2, footer_text="A")),
             RenderStage(
                 BasicPattern(),
                 A5,
-                DocumentSettings(
-                    page_count=3, show_header=False, show_page_number=False
-                ),
+                DocumentSettings(page_count=3, show_header=False),
             ),
-            RenderStage(pattern, A5, DocumentSettings(page_count=2)),
+            RenderStage(pattern, A5, DocumentSettings(page_count=2, footer_text="B")),
         )
     )(context)
 
-    numbers = [
+    footers = [
         text.content
         for page, _ in context.generated_pages
         for placement in page.placements
         for text in placement.draw.texts
         if text.y == A5.height - A5.footer / 2
     ]
-    assert numbers == ["1", "2", "3", "4"]
+    assert footers == ["A", "A", "B", "B"]
     assert all(
         placement.draw.lines == []
         and placement.draw.dots == []
@@ -45,7 +43,7 @@ def test_numbered_sections_continue_without_counting_unnumbered(tmp_path: Path):
     )
 
 
-def test_headers_restart_per_section_while_page_numbers_continue(tmp_path: Path):
+def test_headers_restart_per_section(tmp_path: Path):
     pattern = BasicPattern()
     context = PipelineContext(tmp_path)
     document = DocumentSettings(
@@ -62,7 +60,7 @@ def test_headers_restart_per_section_while_page_numbers_continue(tmp_path: Path)
         [text.content for text in page.placements[0].draw.texts]
         for page, _ in context.generated_pages
     ]
-    assert texts == [["1", "2025-01-01"], ["2", "2025-01-01"]]
+    assert texts == [["2025-01-01"], ["2025-01-01"]]
 
 
 def test_compile_uses_bundled_tectonic(tmp_path: Path, monkeypatch):
@@ -87,15 +85,15 @@ def test_pipeline_supports_multiple_generated_sections(tmp_path: Path):
         Pipeline(
             BasicPattern(draw_hlines=True),
             A5,
-            DocumentSettings(page_count=1, show_page_number=False),
+            DocumentSettings(page_count=1),
         )
         .add_section(
             BasicPattern(spacing=5, draw_dots=True, dot_spacing=5),
-            DocumentSettings(page_count=2, show_page_number=False),
+            DocumentSettings(page_count=2),
         )
         .add_section(
             BasicPattern(),
-            DocumentSettings(page_count=1, show_header=False, show_page_number=False),
+            DocumentSettings(page_count=1, show_header=False),
         )
         .bind("booklet")
         .run(output)
@@ -109,11 +107,11 @@ def test_pipeline_supports_multiple_generated_sections(tmp_path: Path):
         Pipeline(
             BasicPattern(draw_hlines=True),
             A5,
-            DocumentSettings(page_count=1, show_page_number=False),
+            DocumentSettings(page_count=1),
         )
         .add_section(
             BasicPattern(),
-            DocumentSettings(page_count=3, show_header=False, show_page_number=False),
+            DocumentSettings(page_count=3, show_header=False),
         )
         .bind("booklet")
         .run(output)

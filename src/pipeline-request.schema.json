@@ -260,11 +260,6 @@
           "title": "Show Header",
           "type": "boolean"
         },
-        "show_page_number": {
-          "default": true,
-          "title": "Show Page Number",
-          "type": "boolean"
-        },
         "binding_text": {
           "anyOf": [
             {
@@ -304,11 +299,6 @@
           "title": "Binding Text Spacing",
           "type": "number"
         },
-        "page_number_font": {
-          "default": "\\sffamily",
-          "title": "Page Number Font",
-          "type": "string"
-        },
         "binding_text_font": {
           "default": "\\sffamily",
           "title": "Binding Text Font",
@@ -326,6 +316,19 @@
           ],
           "default": null,
           "title": "Header Date"
+        },
+        "header_date_end": {
+          "anyOf": [
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Header Date End"
         },
         "header_date_format": {
           "default": "yyyy-MM-dd",
@@ -373,6 +376,123 @@
           ],
           "title": "Header Date Position",
           "type": "string"
+        },
+        "header_text": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Header Text"
+        },
+        "header_text_2": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Header Text 2"
+        },
+        "header_text_size": {
+          "default": 8,
+          "title": "Header Text Size",
+          "type": "number"
+        },
+        "header_text_2_size": {
+          "default": 8,
+          "title": "Header Text 2 Size",
+          "type": "number"
+        },
+        "header_text_spacing": {
+          "default": 5,
+          "title": "Header Text Spacing",
+          "type": "number"
+        },
+        "non_binding_text": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Non Binding Text"
+        },
+        "non_binding_text_2": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Non Binding Text 2"
+        },
+        "non_binding_text_size": {
+          "default": 8,
+          "title": "Non Binding Text Size",
+          "type": "number"
+        },
+        "non_binding_text_2_size": {
+          "default": 8,
+          "title": "Non Binding Text 2 Size",
+          "type": "number"
+        },
+        "non_binding_text_spacing": {
+          "default": 5,
+          "title": "Non Binding Text Spacing",
+          "type": "number"
+        },
+        "footer_text": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Footer Text"
+        },
+        "footer_text_2": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Footer Text 2"
+        },
+        "footer_text_size": {
+          "default": 8,
+          "title": "Footer Text Size",
+          "type": "number"
+        },
+        "footer_text_2_size": {
+          "default": 8,
+          "title": "Footer Text 2 Size",
+          "type": "number"
+        },
+        "footer_text_spacing": {
+          "default": 5,
+          "title": "Footer Text Spacing",
+          "type": "number"
         }
       },
       "title": "DocumentRequest",
