@@ -177,8 +177,8 @@ def test_header_text_draws_horizontally_in_header():
         ),
     )
     assert d.texts == [
-        Text(74, 2, "top", size_pt=10),
-        Text(74, 8, "bottom", size_pt=6),
+        Text(74, 2, "top", size_pt=10, color="#7a7a7a"),
+        Text(74, 8, "bottom", size_pt=6, color="#7a7a7a"),
     ]
 
 
@@ -205,47 +205,78 @@ def test_footer_text_two_lines_and_binding_font():
         ),
     )
     assert d.texts == [
-        Text(74, 199, "top", size_pt=10, font=r"\ttfamily"),
-        Text(74, 211, "bottom", size_pt=6, font=r"\ttfamily"),
+        Text(74, 199, "top", size_pt=10, font=r"\ttfamily", color="#7a7a7a"),
+        Text(74, 211, "bottom", size_pt=6, font=r"\ttfamily", color="#7a7a7a"),
     ]
 
-    odd = render_page(A5, RULED, ContentPage(1), DocumentSettings(binding_text="base-6"))
-    even = render_page(A5, RULED, ContentPage(2), DocumentSettings(binding_text="base-6"))
-    assert odd.texts == [Text(7.5, 105, "base-6", rotation=90)]
-    assert even.texts == [Text(140.5, 105, "base-6", rotation=90)]
+    odd = render_page(
+        A5, RULED, ContentPage(1), DocumentSettings(binding_text="base-6")
+    )
+    even = render_page(
+        A5, RULED, ContentPage(2), DocumentSettings(binding_text="base-6")
+    )
+    assert odd.texts == [Text(7.5, 105, "base-6", rotation=90, color="#7a7a7a")]
+    assert even.texts == [Text(140.5, 105, "base-6", rotation=90, color="#7a7a7a")]
 
 
 def test_non_binding_text_draws_on_outer_side():
-    odd = render_page(A5, RULED, ContentPage(1), DocumentSettings(non_binding_text="edge"))
-    even = render_page(A5, RULED, ContentPage(2), DocumentSettings(non_binding_text="edge"))
-    assert odd.texts == [Text(4, 105, "edge", rotation=90)]  # non_binding/2, left page
-    assert even.texts == [Text(144, 105, "edge", rotation=90)]  # w - non_binding/2
+    odd = render_page(
+        A5, RULED, ContentPage(1), DocumentSettings(non_binding_text="edge")
+    )
+    even = render_page(
+        A5, RULED, ContentPage(2), DocumentSettings(non_binding_text="edge")
+    )
+    assert odd.texts == [
+        Text(4, 105, "edge", rotation=90, color="#7a7a7a")
+    ]  # non_binding/2, left page
+    assert even.texts == [
+        Text(144, 105, "edge", rotation=90, color="#7a7a7a")
+    ]  # w - non_binding/2
 
 
 def test_binding_text_supports_two_lines_and_sizes():
-    d = render_page(A5, RULED, ContentPage(1), DocumentSettings(binding_text="top", binding_text_2="bottom", binding_text_size=10, binding_text_2_size=6, binding_text_spacing=12))
+    d = render_page(
+        A5,
+        RULED,
+        ContentPage(1),
+        DocumentSettings(
+            binding_text="top",
+            binding_text_2="bottom",
+            binding_text_size=10,
+            binding_text_2_size=6,
+            binding_text_spacing=12,
+        ),
+    )
     assert d.texts == [
-        Text(1.5, 105, "top", size_pt=10, rotation=90),
-        Text(13.5, 105, "bottom", size_pt=6, rotation=90),
+        Text(1.5, 105, "top", size_pt=10, rotation=90, color="#7a7a7a"),
+        Text(13.5, 105, "bottom", size_pt=6, rotation=90, color="#7a7a7a"),
     ]
 
 
 def test_watermark_text_edge_distance_from_paper_edge():
     odd = render_page(
-        A5, RULED, ContentPage(1),
+        A5,
+        RULED,
+        ContentPage(1),
         DocumentSettings(binding_text="base-6", binding_text_edge=3),
     )
     even = render_page(
-        A5, RULED, ContentPage(2),
+        A5,
+        RULED,
+        ContentPage(2),
         DocumentSettings(binding_text="base-6", binding_text_edge=3),
     )
-    assert odd.texts == [Text(3, 105, "base-6", rotation=90)]
-    assert even.texts == [Text(145, 105, "base-6", rotation=90)]  # 148 - 3
+    assert odd.texts == [Text(3, 105, "base-6", rotation=90, color="#7a7a7a")]
+    assert even.texts == [
+        Text(145, 105, "base-6", rotation=90, color="#7a7a7a")
+    ]  # 148 - 3
     outer = render_page(
-        A5, RULED, ContentPage(1),
+        A5,
+        RULED,
+        ContentPage(1),
         DocumentSettings(non_binding_text="edge", non_binding_text_edge=2),
     )
-    assert outer.texts == [Text(2, 105, "edge", rotation=90)]
+    assert outer.texts == [Text(2, 105, "edge", rotation=90, color="#7a7a7a")]
 
 
 def test_binding_text_spacing_validation():
@@ -308,7 +339,9 @@ def test_header_date_range_takes_min_of_days_and_pages():
                     header_parity=parity,
                 ),
                 pattern=BasicPatternRequest(),
-            ).document.to_settings().header_dates
+            )
+            .document.to_settings()
+            .header_dates
             if d is not None
         ]
 

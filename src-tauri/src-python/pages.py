@@ -48,6 +48,7 @@ def _add_text_block(
     center_x: float,
     center_y: float,
     *,
+    color: str = PAGE_NUMBER_COLOR,
     rotation: int = 0,
     direction: int = 1,
     stack_x: bool = False,
@@ -65,6 +66,7 @@ def _add_text_block(
                 center_y if stack_x else center_y + d,
                 content,
                 size_pt=size,
+                color=color,
                 rotation=rotation,
                 font=font,
             )
@@ -90,7 +92,9 @@ def render_page(
         else None
     )
     if isinstance(pattern, TimelinePattern):
-        lines, dots, texts = draw_timeline(geo, pattern, page_date, doc.binding_text_font)
+        lines, dots, texts = draw_timeline(
+            geo, pattern, page_date, doc.binding_text_font
+        )
     else:
         if isinstance(pattern, MidoriPattern):
             lines, dots = draw_midori(geo, pattern)
@@ -141,6 +145,7 @@ def render_page(
                     date_str,
                     size_pt=doc.header_date_size,
                     font=doc.header_date_font or doc.binding_text_font,
+                    color=doc.header_text_color,
                     anchor=anchor,
                 )
             )
@@ -165,6 +170,7 @@ def render_page(
             else page.binding / 2
         ),
         page.height / 2,
+        color=doc.binding_text_color,
         rotation=90,
         direction=1 if geo.binding_side == "left" else -1,
         stack_x=True,
@@ -190,6 +196,7 @@ def render_page(
             else page.non_binding / 2
         ),
         page.height / 2,
+        color=doc.non_binding_text_color,
         rotation=90,
         direction=-1 if geo.binding_side == "left" else 1,
         stack_x=True,
@@ -204,6 +211,7 @@ def render_page(
         doc.header_text_spacing,
         page.width / 2,
         page.header / 2,
+        color=doc.header_text_color,
     )
     _add_text_block(
         texts,
@@ -215,5 +223,6 @@ def render_page(
         doc.footer_text_spacing,
         page.width / 2,
         page.height - page.footer / 2,
+        color=doc.footer_text_color,
     )
     return PageDraw(lines, texts, dots)

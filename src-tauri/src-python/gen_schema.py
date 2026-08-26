@@ -10,11 +10,17 @@ from pathlib import Path
 
 from models import RunPipelineRequest
 
-_SCHEMA_PATH = Path(__file__).resolve().parent.parent.parent / "src" / "pipeline-request.schema.json"
+_SCHEMA_PATH = (
+    Path(__file__).resolve().parent.parent.parent
+    / "src"
+    / "pipeline-request.schema.json"
+)
 
 
 def schema_text() -> str:
-    return json.dumps(RunPipelineRequest.model_json_schema(mode="serialization"), indent=2)
+    return json.dumps(
+        RunPipelineRequest.model_json_schema(mode="serialization"), indent=2
+    )
 
 
 def main() -> None:

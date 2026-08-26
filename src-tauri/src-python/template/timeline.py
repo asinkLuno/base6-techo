@@ -48,8 +48,8 @@ class TimelinePattern:
     latitude: float | None = None
     longitude: float | None = None
     timezone: str | None = None
-    daylight_color: str = "#E5B93F"
-    night_color: str = "#496A9F"
+    daylight_color: str = "#ffd700"
+    night_color: str = "#0047ab"
 
     def __post_init__(self) -> None:
         if not 0 <= self.start < MAX_HOUR:
