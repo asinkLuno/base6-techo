@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useState } from "react";
+import { save } from "@tauri-apps/plugin-dialog";
 import {
   addEdge,
   Background,
@@ -130,6 +131,7 @@ function App() {
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
   const [selectedId, setSelectedId] = useState("render");
   const [runState, setRunState] = useState<RunState>("idle");
+  const [outputPath, setOutputPath] = useState("");
   const selectedNode = nodes.find((node) => node.id === selectedId);
 
   const onConnect = useCallback(
@@ -167,9 +169,16 @@ function App() {
   const runPipeline = () => {
     setRunState("running");
     setNodes((current) => current.map((node) => ({ ...node, data: { ...node.data, status: "running" } })));
-    window.setTimeout(() => {
+    window.setTimeout(async () => {
       setRunState("success");
       setNodes((current) => current.map((node) => ({ ...node, data: { ...node.data, status: "success" } })));
+
+      const output = await save({
+        title: "保存生成的 PDF",
+        defaultPath: "output.pdf",
+        filters: [{ name: "PDF 文件", extensions: ["pdf"] }],
+      });
+      if (output) setOutputPath(output);
     }, 1000);
   };
 
