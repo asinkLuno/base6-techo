@@ -9,7 +9,7 @@ import math
 import re
 from dataclasses import dataclass
 
-from base6_techo.layout import PageGeometry, Rect
+from layout import PageGeometry, Rect
 
 _HEX_COLOR = re.compile(r"^#[0-9A-Fa-f]{6}$")
 

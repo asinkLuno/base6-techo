@@ -1,15 +1,15 @@
 import pytest
-from base6_techo.imposition import normal_output
-from base6_techo.layout import Rect, geometry_for
-from base6_techo.models import (
+from imposition import normal_output
+from layout import Rect, geometry_for
+from models import (
     ContentPage,
     DocumentSettings,
     PaddingPage,
     PageSettings,
     validate_project,
 )
-from base6_techo.pages import Text, render_page
-from base6_techo.template.basic import BasicPattern, draw, ruled_ys
+from pages import Text, render_page
+from template.basic import BasicPattern, draw, ruled_ys
 
 A5 = PageSettings(
     width=148, height=210, header=10, footer=10, binding=15, non_binding=8
