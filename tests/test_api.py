@@ -1,11 +1,28 @@
 from pathlib import Path
 
+import api
 from api import Pipeline, PipelineContext
 from models import DocumentSettings, PageSettings
 from pypdf import PdfReader, PdfWriter
 from template.basic import BasicPattern
 
 A5 = PageSettings(148, 210)
+
+
+def test_compile_uses_bundled_tectonic(tmp_path: Path, monkeypatch):
+    tectonic = tmp_path / "tectonic"
+    tex = tmp_path / "page.tex"
+    tex.write_text("")
+    monkeypatch.setenv("BASE6_TECTONIC", str(tectonic))
+    monkeypatch.setattr(api.shutil, "which", lambda executable: executable)
+
+    def run(command, **_kwargs):
+        assert command == [str(tectonic), "page.tex"]
+        tex.with_suffix(".pdf").touch()
+        return type("Result", (), {"returncode": 0})()
+
+    monkeypatch.setattr(api.subprocess, "run", run)
+    assert api._compile(tex, None) == tex.with_suffix(".pdf")
 
 
 def test_pipeline_stages_and_result(tmp_path: Path, monkeypatch):

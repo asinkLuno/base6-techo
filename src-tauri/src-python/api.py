@@ -12,6 +12,7 @@ the drawing and PDF stages remain ordinary Python calls.
 
 from __future__ import annotations
 
+import os
 import shutil
 import subprocess
 import tempfile
@@ -259,13 +260,14 @@ class Pipeline:
 
 def _compile(tex: Path, engine: str | None) -> Path:
     """Compile a generated TeX file without exposing a CLI concern publicly."""
-    engines = [engine] if engine else ["tectonic", "xelatex", "pdflatex"]
+    bundled = os.environ.get("BASE6_TECTONIC")
+    engines = [engine] if engine else [bundled, "tectonic", "xelatex", "pdflatex"]
     executable = next((name for name in engines if name and shutil.which(name)), None)
     if executable is None:
         raise RuntimeError("no LaTeX engine found: tectonic/xelatex/pdflatex")
     command = (
         [executable, tex.name]
-        if executable == "tectonic"
+        if Path(executable).stem == "tectonic"
         else [executable, "-interaction=nonstopmode", "-halt-on-error", tex.name]
     )
     result = subprocess.run(
