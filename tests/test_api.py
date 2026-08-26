@@ -1,3 +1,4 @@
+from datetime import date
 from pathlib import Path
 
 import api
@@ -42,6 +43,26 @@ def test_numbered_sections_continue_without_counting_unnumbered(tmp_path: Path):
         for page, _ in context.generated_pages[2:5]
         for placement in page.placements
     )
+
+
+def test_headers_restart_per_section_while_page_numbers_continue(tmp_path: Path):
+    pattern = BasicPattern()
+    context = PipelineContext(tmp_path)
+    document = DocumentSettings(
+        page_count=1,
+        header_dates=(date(2025, 1, 1),),
+        header_date_format="yyyy-MM-dd",
+        header_parity="odd",
+    )
+    _RenderSections(
+        (RenderStage(pattern, A5, document), RenderStage(pattern, A5, document))
+    )(context)
+
+    texts = [
+        [text.content for text in page.placements[0].draw.texts]
+        for page, _ in context.generated_pages
+    ]
+    assert texts == [["1", "2025-01-01"], ["2", "2025-01-01"]]
 
 
 def test_compile_uses_bundled_tectonic(tmp_path: Path, monkeypatch):

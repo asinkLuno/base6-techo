@@ -83,15 +83,12 @@ export type Longitude = number | null;
 export type Timezone = string | null;
 export type DaylightColor = string;
 export type NightColor = string;
-export type Leading = number;
-export type Trailing = number;
 export type Mode = ("booklet" | "thread") | null;
 export type SheetsPerGroup = number;
 
 export interface RunPipelineRequest {
   output: Output;
   sections: Sections;
-  add_pages?: AddPagesRequest;
   bind?: BindRequest;
 }
 export interface RenderSectionRequest {
@@ -187,10 +184,6 @@ export interface TimelinePatternRequest {
   timezone?: Timezone;
   daylight_color?: DaylightColor;
   night_color?: NightColor;
-}
-export interface AddPagesRequest {
-  leading?: Leading;
-  trailing?: Trailing;
 }
 export interface BindRequest {
   mode?: Mode;

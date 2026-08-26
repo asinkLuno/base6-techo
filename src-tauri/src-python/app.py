@@ -1,4 +1,6 @@
+from base64 import b64encode
 from pathlib import Path
+from tempfile import TemporaryDirectory
 
 from anyio import to_thread
 from anyio.from_thread import start_blocking_portal
@@ -8,6 +10,7 @@ from models import (
     BindRequest,
     MidoriPatternRequest,
     PatternRequest,
+    RenderSectionRequest,
     RunPipelineRequest,
     TimelinePatternRequest,
 )
@@ -53,10 +56,27 @@ def _generate_pdf(request: RunPipelineRequest) -> Path:
     return output
 
 
+def _preview_pdf(request: RenderSectionRequest) -> str:
+    document = request.document.model_copy(update={"page_count": 2})
+    with TemporaryDirectory(prefix="base6-techo-preview-") as directory:
+        output = Path(directory) / "preview.pdf"
+        Pipeline(
+            _pattern_from_request(request.pattern),
+            request.page.to_settings(),
+            document.to_settings(),
+        ).run(output)
+        return b64encode(output.read_bytes()).decode()
+
+
 @commands.command()
 async def run_pipeline(body: RunPipelineRequest) -> str:
     output = await to_thread.run_sync(_generate_pdf, body)
     return str(output)
+
+
+@commands.command()
+async def preview_section(body: RenderSectionRequest) -> str:
+    return await to_thread.run_sync(_preview_pdf, body)
 
 
 def main() -> int:
