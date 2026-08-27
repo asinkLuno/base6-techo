@@ -583,7 +583,14 @@ const SortableSection = memo(function SortableSection({ section, index, update, 
       clearTimeout(timer);
     };
   }, [previewOpen, previewRequest]);
-  const doc = (key: string, value: Value) => update(section.id, { document: { ...section.document, [key]: value } });
+  const doc = (key: string, value: Value) =>
+    update(section.id, {
+      document: {
+        ...section.document,
+        [key]: value,
+        ...(!value && ["header_text", "footer_text", "binding_text", "non_binding_text"].includes(key) ? { [`${key}_2`]: "" } : {}),
+      },
+    });
   const page = (key: string, value: Value) => update(section.id, { page: { ...section.page, [key]: value } });
   const pattern = (key: string, value: Value) => update(section.id, { pattern: { ...section.pattern, [key]: value } });
   return (
@@ -618,7 +625,11 @@ const SortableSection = memo(function SortableSection({ section, index, update, 
         </div>
         {previewing && <p className="border-t bg-muted/30 p-3 text-center text-xs text-muted-foreground">正在渲染 2 页预览…</p>}
         {previewError && <p className="border-t bg-destructive/5 p-3 text-xs text-destructive">预览失败：{previewError}</p>}
-        {preview && !previewing && <iframe title={`第 ${index + 1} 个卡片前 2 页预览`} src={`data:application/pdf;base64,${preview}`} className="h-96 w-full border-t bg-muted/30" />}
+        {preview && !previewing && (
+          <div className="h-96 min-h-48 min-w-64 resize overflow-hidden border-t bg-muted/30">
+            <iframe title={`第 ${index + 1} 个卡片前 2 页预览`} src={`data:application/pdf;base64,${preview}`} className="block h-full w-full" />
+          </div>
+        )}
         {section.expanded && (
           <CardContent className="grid gap-4 border-t bg-muted/30 pt-5 sm:grid-cols-2">
             <Field label="页数" value={section.pages} min={1} max={500} onChange={(pages) => update(section.id, { pages: Number(pages) })} />
@@ -866,11 +877,6 @@ export default function App() {
   }
   return (
     <main className="mx-auto max-w-6xl p-5 sm:p-8">
-      <header className="mb-8">
-        <p className="mb-2 text-sm font-medium text-primary">BASE 6 TECHO</p>
-        <h1 className="text-3xl font-semibold tracking-tight">编排你的手帐</h1>
-        <p className="mt-2 text-muted-foreground">配置并排序 Sessions，最后选择装订方式。</p>
-      </header>
       <div className="grid items-start gap-6 lg:grid-cols-[1fr_320px]">
         <section className="grid gap-3">
           <div className="mb-1 flex items-center justify-between">
@@ -891,7 +897,7 @@ export default function App() {
         </section>
         <Card className="lg:sticky lg:top-8">
           <CardHeader>
-            <CardTitle>最后：选择装订</CardTitle>
+            <CardTitle>装订方式</CardTitle>
           </CardHeader>
           <CardContent className="grid gap-4">
             <div className="grid gap-3 border-b pb-4">

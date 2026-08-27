@@ -655,7 +655,7 @@ fn render_page(
                     (page.non_binding / 2.0, "west")
                 }
             }
-            DatePosition::Center => (page.width / 2.0, "center"),
+            DatePosition::Center => (geo.content.x + geo.content.width / 2.0, "center"),
         };
         texts.push(Text {
             x,
@@ -727,7 +727,7 @@ fn render_page(
             (&doc.header_text_2, doc.header_text_2_size),
         ],
         doc.header_text_spacing,
-        page.width / 2.0,
+        geo.content.x + geo.content.width / 2.0,
         page.header / 2.0,
         &doc.header_text_color,
         0,
@@ -1338,6 +1338,21 @@ mod tests {
             ]
             .map(|date| Some(NaiveDate::parse_from_str(date, "%F").unwrap()))
         );
+    }
+
+    #[test]
+    fn headers_center_between_binding_and_outer_margins() {
+        let page = PageSettings::default();
+        let document = DocumentSettings {
+            header_date: NaiveDate::from_ymd_opt(2025, 3, 1),
+            header_text: Some("header".into()),
+            ..Default::default()
+        };
+        let pattern = Pattern::Basic(Box::default());
+        for (number, expected_x) in [(1, 77.5), (2, 70.5)] {
+            let draw = render_page(&page, &pattern, number, &document, 0, &document.dates());
+            assert!(draw.texts.iter().all(|text| text.x == expected_x));
+        }
     }
 
     #[test]
