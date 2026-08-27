@@ -7,10 +7,12 @@ use std::{
 
 use base64::{Engine, engine::general_purpose::STANDARD};
 mod basic;
+mod bunkwan;
 mod midori;
 mod timeline;
 
 use basic::{BasicPattern, draw_basic};
+use bunkwan::{BunkwanPattern, draw_bunkwan};
 use chrono::{
     Duration, Locale, NaiveDate,
     format::{Item, StrftimeItems},
@@ -272,6 +274,7 @@ impl DocumentSettings {
 #[serde(tag = "kind", rename_all = "lowercase")]
 enum Pattern {
     Basic(Box<BasicPattern>),
+    Bunkwan(BunkwanPattern),
     Midori(MidoriPattern),
     Timeline(TimelinePattern),
 }
@@ -303,6 +306,7 @@ impl Pattern {
     fn line_color(&self) -> &str {
         match self {
             Self::Basic(p) => &p.line_color,
+            Self::Bunkwan(p) => &p.line_color,
             Self::Midori(p) => &p.line_color,
             Self::Timeline(p) => &p.line_color,
         }
@@ -310,6 +314,7 @@ impl Pattern {
     fn line_width(&self) -> f64 {
         match self {
             Self::Basic(p) => p.line_width,
+            Self::Bunkwan(p) => p.line_width,
             Self::Midori(p) => p.line_width,
             Self::Timeline(p) => p.line_width,
         }
@@ -317,6 +322,7 @@ impl Pattern {
     fn validate(&self) -> Result<(), String> {
         match self {
             Self::Basic(p) => p.validate(),
+            Self::Bunkwan(p) => p.validate(),
             Self::Midori(p) => p.validate(),
             Self::Timeline(p) => p.validate(),
         }
@@ -580,6 +586,10 @@ fn render_page(
             let (l, d) = draw_basic(geo, p);
             (l, d, vec![])
         }
+        Pattern::Bunkwan(p) => {
+            let (l, t) = draw_bunkwan(geo, p, date, &doc.binding_text_font);
+            (l, vec![], t)
+        }
         Pattern::Midori(p) => {
             let (l, d) = draw_midori(geo, p);
             (l, d, vec![])
@@ -590,6 +600,7 @@ fn render_page(
         || (doc.header_parity == Parity::Odd && !(index + 1).is_multiple_of(2))
         || (doc.header_parity == Parity::Even && (index + 1).is_multiple_of(2));
     if doc.show_header
+        && !matches!(pattern, Pattern::Bunkwan(_))
         && visible
         && let Some(date) = date
     {
@@ -1332,6 +1343,7 @@ mod tests {
             "output": output,
             "sections": [
                 { "document": { "page_count": 1, "binding_text": "[base-6]" }, "pattern": { "kind": "basic", "draw_hlines": true } },
+                { "document": { "page_count": 31, "header_date": "2026-08-01", "header_date_end": "2026-08-31" }, "pattern": { "kind": "bunkwan" } },
                 { "document": { "page_count": 1 }, "pattern": { "kind": "midori" } },
                 { "document": { "page_count": 1 }, "pattern": { "kind": "timeline", "pages": 1 } }
             ],

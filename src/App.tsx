@@ -17,7 +17,7 @@ import { cn } from "./lib/utils";
 
 type Value = string | number | boolean | null;
 type Values = Record<string, Value>;
-type PatternKind = "basic" | "midori" | "timeline";
+type PatternKind = "basic" | "bunkwan" | "midori" | "timeline";
 type Section = {
   id: string;
   expanded: boolean;
@@ -34,6 +34,7 @@ type Section = {
 
 const patternNames: Record<PatternKind, string> = {
   basic: "基础版式",
+  bunkwan: "博文馆当用日历",
   midori: "Midori",
   timeline: "时间轴",
 };
@@ -114,6 +115,13 @@ const defaults: Record<PatternKind, Values & { kind: PatternKind }> = {
     dot_bottom: 0,
     dot_left: 0,
     dot_right: 0,
+  },
+  bunkwan: {
+    kind: "bunkwan",
+    line_color: "#31584a",
+    faint_color: "#82968e",
+    line_width: 0.4,
+    date_size: 14,
   },
   midori: {
     kind: "midori",
@@ -361,6 +369,15 @@ function PatternFields({ section, set }: { section: Section; set: (key: string, 
         )}
       </>
     );
+  if (p.kind === "bunkwan")
+    return (
+      <>
+        <Field label="主线颜色" value={p.line_color} type="color" onChange={(v) => set("line_color", v)} />
+        <Field label="点线颜色" value={p.faint_color} type="color" onChange={(v) => set("faint_color", v)} />
+        <Field label="线宽（pt）" value={p.line_width} min={0.01} step={0.05} onChange={(v) => set("line_width", v)} />
+        <Field label="农历日期字号（pt）" value={p.date_size} min={1} step={0.5} onChange={(v) => set("date_size", v)} />
+      </>
+    );
   if (p.kind === "midori")
     return (
       <>
@@ -477,7 +494,7 @@ function sectionRequest(section: Section, pageCount = effectivePages(section)): 
     document: {
       ...section.document,
       page_count: pageCount,
-      show_header: section.headerEnabled && section.headerStyle === "date",
+      show_header: section.headerEnabled && section.headerStyle === "date" && section.pattern.kind !== "bunkwan",
       header_date: section.headerEnabled && section.headerStyle === "date" ? section.document.header_date : null,
       header_date_end: section.headerEnabled && section.headerStyle === "date" ? section.document.header_date_end || null : null,
       header_text: section.headerEnabled && section.headerStyle === "text" ? section.document.header_text || null : null,
@@ -639,7 +656,27 @@ const SortableSection = memo(function SortableSection({ section, index, update, 
               <Field label="水印颜色" value={section.document.non_binding_text_color} type="color" onChange={(v) => doc("non_binding_text_color", v)} />
             </Group>
             <section className="grid gap-4 rounded-lg border bg-background p-4 sm:col-span-2">
-              <Select label="版式" value={section.pattern.kind} options={Object.entries(patternNames)} onChange={(kind) => update(section.id, { pattern: { ...defaults[kind as PatternKind] } })} />
+              <Select
+                label="版式"
+                value={section.pattern.kind}
+                options={Object.entries(patternNames)}
+                onChange={(kind) =>
+                  update(section.id, {
+                    pattern: { ...defaults[kind as PatternKind] },
+                    ...(kind === "bunkwan"
+                      ? {
+                          headerEnabled: true,
+                          headerStyle: "date" as const,
+                          document: {
+                            ...section.document,
+                            header_date_end: section.document.header_date_end || section.document.header_date,
+                            binding_text_font: String(section.document.binding_text_font).startsWith("\\") ? "Noto Sans CJK SC" : section.document.binding_text_font,
+                          },
+                        }
+                      : {}),
+                  })
+                }
+              />
               <div className="grid gap-4 border-t pt-4 sm:grid-cols-2">
                 <PatternFields section={section} set={pattern} />
               </div>

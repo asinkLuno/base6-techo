@@ -46,7 +46,7 @@ export type FooterTextSize = number;
 export type FooterText2Size = number;
 export type FooterTextSpacing = number;
 export type FooterTextColor = string;
-export type Pattern = BasicPatternRequest | MidoriPatternRequest | TimelinePatternRequest;
+export type Pattern = BasicPatternRequest | BunkwanPatternRequest | MidoriPatternRequest | TimelinePatternRequest;
 export type Kind = "basic";
 export type Spacing = number;
 export type LineWidth = number;
@@ -104,6 +104,9 @@ export type DotTop = number;
 export type DotBottom = number;
 export type DotLeft = number;
 export type DotRight = number;
+export type Kind3 = "bunkwan";
+export type FaintColor = string;
+export type DateSize = number;
 export type Kind1 = "midori";
 export type Spacing1 = number;
 export type Gap = number;
@@ -124,7 +127,6 @@ export type Pages = 1 | 2;
 export type LineColor2 = string;
 export type LineWidth2 = number;
 export type LabelSize = number;
-export type CityName = string | null;
 export type Latitude = number | null;
 export type Longitude = number | null;
 export type Timezone = string | null;
@@ -264,6 +266,13 @@ export interface MidoriPatternRequest {
   inner?: Inner;
   outer?: Outer;
 }
+export interface BunkwanPatternRequest {
+  kind?: Kind3;
+  line_color?: LineColor;
+  faint_color?: FaintColor;
+  line_width?: LineWidth;
+  date_size?: DateSize;
+}
 export interface TimelinePatternRequest {
   kind?: Kind2;
   start?: Start;
@@ -272,8 +281,7 @@ export interface TimelinePatternRequest {
   line_color?: LineColor2;
   line_width?: LineWidth2;
   label_size?: LabelSize;
-  city_name?: CityName;
-  latitude?: Latitude;
+  latitude?: Latitude,
   longitude?: Longitude;
   timezone?: Timezone;
   daylight_color?: DaylightColor;
