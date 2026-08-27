@@ -12,6 +12,7 @@ use chrono::{
 };
 use chrono_tz::Tz;
 use serde::Deserialize;
+use tauri::Manager;
 
 const PAGE_NUMBER_COLOR: &str = "#666666";
 const MM_PER_PT: f64 = 25.4 / 72.27;
@@ -1438,15 +1439,24 @@ fn render_latex(pages: &[OutputPage]) -> String {
     )
 }
 
-fn compile(tex: &Path) -> Result<PathBuf, String> {
-    let bundled = std::env::current_exe()
-        .ok()
-        .and_then(|p| {
-            p.parent().map(|p| {
-                p.join(if cfg!(windows) {
-                    "tectonic.exe"
-                } else {
-                    "tectonic"
+fn compile(tex: &Path, resource_dir: Option<&Path>) -> Result<PathBuf, String> {
+    let bundled = resource_dir
+        .map(|dir| {
+            dir.join(if cfg!(windows) {
+                "tectonic.exe"
+            } else {
+                "tectonic"
+            })
+        })
+        .filter(|p| p.is_file())
+        .or_else(|| {
+            std::env::current_exe().ok().and_then(|p| {
+                p.parent().map(|p| {
+                    p.join(if cfg!(windows) {
+                        "tectonic.exe"
+                    } else {
+                        "tectonic"
+                    })
                 })
             })
         })
@@ -1500,7 +1510,11 @@ fn which(name: &str) -> Option<PathBuf> {
     })
 }
 
-fn generate(body: RunPipelineRequest, preview: bool) -> Result<(PathBuf, Vec<u8>), String> {
+fn generate(
+    body: RunPipelineRequest,
+    preview: bool,
+    resource_dir: Option<&Path>,
+) -> Result<(PathBuf, Vec<u8>), String> {
     if body.sections.is_empty() {
         return Err("sections must not be empty".into());
     }
@@ -1535,7 +1549,7 @@ fn generate(body: RunPipelineRequest, preview: bool) -> Result<(PathBuf, Vec<u8>
     fs::create_dir_all(&temp).map_err(|e| e.to_string())?;
     let tex = temp.join("document.tex");
     fs::write(&tex, render_latex(&generated)).map_err(|e| e.to_string())?;
-    let pdf = compile(&tex)?;
+    let pdf = compile(&tex, resource_dir)?;
     let bytes = fs::read(&pdf).map_err(|e| e.to_string())?;
     let output = PathBuf::from(body.output);
     if !preview {
@@ -1585,16 +1599,23 @@ pub(crate) fn read_text_file(path: String) -> Result<String, String> {
 }
 
 #[tauri::command]
-pub(crate) async fn run_pipeline(body: RunPipelineRequest) -> Result<String, String> {
+pub(crate) async fn run_pipeline(
+    app: tauri::AppHandle,
+    body: RunPipelineRequest,
+) -> Result<String, String> {
+    let resource_dir = app.path().resource_dir().ok();
     tauri::async_runtime::spawn_blocking(move || {
-        generate(body, false).map(|(path, _)| path.display().to_string())
+        generate(body, false, resource_dir.as_deref()).map(|(path, _)| path.display().to_string())
     })
     .await
     .map_err(|e| e.to_string())?
 }
 
 #[tauri::command]
-pub(crate) async fn preview_section(body: RenderSectionRequest) -> Result<String, String> {
+pub(crate) async fn preview_section(
+    app: tauri::AppHandle,
+    body: RenderSectionRequest,
+) -> Result<String, String> {
     let request = RunPipelineRequest {
         output: String::new(),
         sections: vec![body],
@@ -1603,8 +1624,9 @@ pub(crate) async fn preview_section(body: RenderSectionRequest) -> Result<String
             sheets_per_group: 4,
         },
     };
+    let resource_dir = app.path().resource_dir().ok();
     tauri::async_runtime::spawn_blocking(move || {
-        generate(request, true).map(|(_, bytes)| STANDARD.encode(bytes))
+        generate(request, true, resource_dir.as_deref()).map(|(_, bytes)| STANDARD.encode(bytes))
     })
     .await
     .map_err(|e| e.to_string())?
@@ -1741,7 +1763,7 @@ mod tests {
         }))
         .unwrap();
 
-        let (path, bytes) = generate(request, false).unwrap();
+        let (path, bytes) = generate(request, false, None).unwrap();
 
         assert_eq!(&bytes[..4], b"%PDF");
         assert_eq!(fs::read(&path).unwrap(), bytes);
