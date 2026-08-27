@@ -106,7 +106,6 @@ export type DotLeft = number;
 export type DotRight = number;
 export type Kind3 = "bunkwan";
 export type FaintColor = string;
-export type DateSize = number;
 export type Kind1 = "midori";
 export type Spacing1 = number;
 export type Gap = number;
@@ -271,7 +270,6 @@ export interface BunkwanPatternRequest {
   line_color?: LineColor;
   faint_color?: FaintColor;
   line_width?: LineWidth;
-  date_size?: DateSize;
 }
 export interface TimelinePatternRequest {
   kind?: Kind2;

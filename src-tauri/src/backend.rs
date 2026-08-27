@@ -12,7 +12,7 @@ mod midori;
 mod timeline;
 
 use basic::{BasicPattern, draw_basic};
-use bunkwan::{BunkwanPattern, draw_bunkwan};
+use bunkwan::{BunkwanPattern, draw_bunkwan, lunar_date};
 use chrono::{
     Duration, Locale, NaiveDate,
     format::{Item, StrftimeItems},
@@ -183,6 +183,15 @@ impl DocumentSettings {
             return Err("结束日期必须晚于或等于开始日期".into());
         }
         validate_date_format(&self.header_date_format, &self.header_date_locale)?;
+        if chrono_format(&self.header_date_format).contains('\u{e000}')
+            && self
+                .dates()
+                .into_iter()
+                .flatten()
+                .any(|date| lunar_date(date).is_none())
+        {
+            return Err("农历日期仅支持 1901-02-19 至 2101-01-28".into());
+        }
         let sizes = [
             self.binding_text_size,
             self.binding_text_2_size,
@@ -559,7 +568,8 @@ fn date_locale(locale: &str) -> Option<Locale> {
 }
 
 fn validate_date_format(format: &str, locale: &str) -> Result<(), String> {
-    if format.is_empty() || StrftimeItems::new(format).any(|item| item == Item::Error) {
+    let format = chrono_format(format);
+    if format.is_empty() || StrftimeItems::new(&format).any(|item| item == Item::Error) {
         return Err(format!("invalid date format: {format}"));
     }
     date_locale(locale).ok_or_else(|| format!("unsupported locale: {locale}"))?;
@@ -567,8 +577,38 @@ fn validate_date_format(format: &str, locale: &str) -> Result<(), String> {
 }
 
 fn format_date(date: NaiveDate, format: &str, locale: &str) -> String {
-    date.format_localized(format, date_locale(locale).expect("validated locale"))
-        .to_string()
+    let formatted = date
+        .format_localized(
+            &chrono_format(format),
+            date_locale(locale).expect("validated locale"),
+        )
+        .to_string();
+    if formatted.contains('\u{e000}') {
+        formatted.replace('\u{e000}', &lunar_date(date).expect("validated lunar date"))
+    } else {
+        formatted
+    }
+}
+
+fn chrono_format(format: &str) -> String {
+    let mut out = String::with_capacity(format.len());
+    let mut rest = format;
+    while let Some(percent) = rest.find('%') {
+        out.push_str(&rest[..percent]);
+        rest = &rest[percent..];
+        if rest.starts_with("%%") {
+            out.push_str("%%");
+            rest = &rest[2..];
+        } else if rest.starts_with("%cccc") {
+            out.push('\u{e000}');
+            rest = &rest[5..];
+        } else {
+            out.push('%');
+            rest = &rest[1..];
+        }
+    }
+    out.push_str(rest);
+    out
 }
 
 fn render_page(
@@ -586,10 +626,7 @@ fn render_page(
             let (l, d) = draw_basic(geo, p);
             (l, d, vec![])
         }
-        Pattern::Bunkwan(p) => {
-            let (l, t) = draw_bunkwan(geo, p, date, &doc.binding_text_font);
-            (l, vec![], t)
-        }
+        Pattern::Bunkwan(p) => (draw_bunkwan(geo, p), vec![], vec![]),
         Pattern::Midori(p) => {
             let (l, d) = draw_midori(geo, p);
             (l, d, vec![])
@@ -600,7 +637,6 @@ fn render_page(
         || (doc.header_parity == Parity::Odd && !(index + 1).is_multiple_of(2))
         || (doc.header_parity == Parity::Even && (index + 1).is_multiple_of(2));
     if doc.show_header
-        && !matches!(pattern, Pattern::Bunkwan(_))
         && visible
         && let Some(date) = date
     {
@@ -1305,10 +1341,28 @@ mod tests {
     }
 
     #[test]
+    fn bunkwan_uses_content_range_and_shared_header() {
+        let page = PageSettings::default();
+        let document = DocumentSettings {
+            header_date: NaiveDate::from_ymd_opt(2026, 8, 1),
+            ..Default::default()
+        };
+        let pattern = Pattern::Bunkwan(BunkwanPattern::default());
+        let draw = render_page(&page, &pattern, 1, &document, 0, &document.dates());
+        let content = geometry_for(&page, 1).content;
+        assert_eq!((draw.lines[0].x1, draw.lines[0].y1), (content.x, content.y));
+        assert!(draw.texts.iter().any(|text| text.content == "2026-08-01"));
+    }
+
+    #[test]
     fn chrono_formats_localized_dates_with_weekdays() {
         let date = NaiveDate::from_ymd_opt(2025, 9, 8).unwrap();
         assert_eq!(format_date(date, "[%a. %m/%d]", "zh-CN"), "[一. 09/08]");
         assert_eq!(format_date(date, "[%a. %m/%d]", "en-US"), "[Mon. 09/08]");
+        let date = NaiveDate::from_ymd_opt(2026, 8, 1).unwrap();
+        assert_eq!(format_date(date, "%Y年 %cccc", "zh-CN"), "2026年 六月十九");
+        assert_eq!(format_date(date, "%%cccc", "zh-CN"), "%cccc");
+        assert!(validate_date_format("%Y年 %cccc", "zh-CN").is_ok());
         assert!(validate_date_format("%Q", "zh-CN").is_err());
         assert!(validate_date_format("%Y-%m-%d", "fr-FR").is_err());
     }

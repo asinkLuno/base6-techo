@@ -10,7 +10,9 @@ import { Button } from "./components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "./components/ui/card";
 import { Checkbox } from "./components/ui/checkbox";
 import { Input } from "./components/ui/input";
+import { Calendar } from "./components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "./components/ui/popover";
+import { zhCN } from "react-day-picker/locale";
 import { Select as SelectRoot, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./components/ui/select";
 import { ColorPicker } from "./components/ui/color-picker";
 import { cn } from "./lib/utils";
@@ -121,7 +123,6 @@ const defaults: Record<PatternKind, Values & { kind: PatternKind }> = {
     line_color: "#31584a",
     faint_color: "#82968e",
     line_width: 0.4,
-    date_size: 14,
   },
   midori: {
     kind: "midori",
@@ -215,6 +216,14 @@ function FieldLabel({ children }: { children: ReactNode }) {
   return <span className="text-sm text-muted-foreground">{children}</span>;
 }
 
+function toISODate(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+function parseISODate(s: string): Date | undefined {
+  const [y, m, d] = s.split("-").map(Number);
+  return y && m && d ? new Date(y, m - 1, d) : undefined;
+}
+
 function toDecimal(raw: string): number | null {
   const orig = raw.trim();
   if (!orig) return null;
@@ -233,6 +242,34 @@ function toDecimal(raw: string): number | null {
 }
 
 function Field({ label, value, type = "number", min, max, step, placeholder, onChange }: { label: string; value: Value; type?: string; min?: number; max?: number; step?: number; placeholder?: string; onChange: (value: Value) => void }) {
+  const [dateOpen, setDateOpen] = useState(false);
+  if (type === "date") {
+    const date = parseISODate(String(value ?? ""));
+    return (
+      <div className="grid gap-1.5">
+        <FieldLabel>{label}</FieldLabel>
+        <Popover open={dateOpen} onOpenChange={setDateOpen}>
+          <PopoverTrigger asChild>
+            <Button variant="outline" className={cn("justify-start font-normal", !value && "text-muted-foreground")}>
+              {value ? String(value) : "选择日期"}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-auto p-0" align="start">
+            <Calendar
+              mode="single"
+              captionLayout="dropdown"
+              locale={zhCN}
+              selected={date}
+              onSelect={(d) => {
+                onChange(d ? toISODate(d) : "");
+                setDateOpen(false);
+              }}
+            />
+          </PopoverContent>
+        </Popover>
+      </div>
+    );
+  }
   if (type === "checkbox")
     return (
       <label className="flex cursor-pointer items-center gap-2 text-sm leading-none">
@@ -375,7 +412,6 @@ function PatternFields({ section, set }: { section: Section; set: (key: string, 
         <Field label="主线颜色" value={p.line_color} type="color" onChange={(v) => set("line_color", v)} />
         <Field label="点线颜色" value={p.faint_color} type="color" onChange={(v) => set("faint_color", v)} />
         <Field label="线宽（pt）" value={p.line_width} min={0.01} step={0.05} onChange={(v) => set("line_width", v)} />
-        <Field label="农历日期字号（pt）" value={p.date_size} min={1} step={0.5} onChange={(v) => set("date_size", v)} />
       </>
     );
   if (p.kind === "midori")
@@ -494,7 +530,7 @@ function sectionRequest(section: Section, pageCount = effectivePages(section)): 
     document: {
       ...section.document,
       page_count: pageCount,
-      show_header: section.headerEnabled && section.headerStyle === "date" && section.pattern.kind !== "bunkwan",
+      show_header: section.headerEnabled && section.headerStyle === "date",
       header_date: section.headerEnabled && section.headerStyle === "date" ? section.document.header_date : null,
       header_date_end: section.headerEnabled && section.headerStyle === "date" ? section.document.header_date_end || null : null,
       header_text: section.headerEnabled && section.headerStyle === "text" ? section.document.header_text || null : null,
@@ -602,7 +638,7 @@ const SortableSection = memo(function SortableSection({ section, index, update, 
                 <>
                   <Field label="开始日期" value={section.document.header_date} type="date" onChange={(v) => doc("header_date", v)} />
                   <Field label="结束日期" value={section.document.header_date_end ?? ""} type="date" onChange={(v) => doc("header_date_end", v || null)} />
-                  <Field label="日期格式" value={section.document.header_date_format} type="text" placeholder="例如：[%a. %m/%d]" onChange={(v) => doc("header_date_format", v)} />
+                  <Field label="日期格式" value={section.document.header_date_format} type="text" placeholder="例如：%Y年 %cccc（农历）" onChange={(v) => doc("header_date_format", v)} />
                   <Select
                     label="语言"
                     value={section.document.header_date_locale}
@@ -660,22 +696,7 @@ const SortableSection = memo(function SortableSection({ section, index, update, 
                 label="版式"
                 value={section.pattern.kind}
                 options={Object.entries(patternNames)}
-                onChange={(kind) =>
-                  update(section.id, {
-                    pattern: { ...defaults[kind as PatternKind] },
-                    ...(kind === "bunkwan"
-                      ? {
-                          headerEnabled: true,
-                          headerStyle: "date" as const,
-                          document: {
-                            ...section.document,
-                            header_date_end: section.document.header_date_end || section.document.header_date,
-                            binding_text_font: String(section.document.binding_text_font).startsWith("\\") ? "Noto Sans CJK SC" : section.document.binding_text_font,
-                          },
-                        }
-                      : {}),
-                  })
-                }
+                onChange={(kind) => update(section.id, { pattern: { ...defaults[kind as PatternKind] } })}
               />
               <div className="grid gap-4 border-t pt-4 sm:grid-cols-2">
                 <PatternFields section={section} set={pattern} />
@@ -704,6 +725,11 @@ function cleanPattern(pattern: Section["pattern"]) {
     delete cleaned.hline_edge_width;
     delete cleaned.vline_edge_color;
     delete cleaned.vline_edge_width;
+    return cleaned;
+  }
+  if (pattern.kind === "bunkwan") {
+    const cleaned = { ...pattern };
+    delete cleaned.date_size;
     return cleaned;
   }
   if (pattern.kind !== "timeline") return pattern;
