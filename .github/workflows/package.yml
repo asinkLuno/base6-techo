@@ -90,4 +90,4 @@ jobs:
           releaseBody: Download the installer for your platform below.
           releaseDraft: true
           uploadWorkflowArtifacts: true
-          workflowArtifactNamePattern: base6-techo-${{ matrix.platform }}
+          workflowArtifactNamePattern: base6-techo-${{ matrix.platform }}-[bundle]
