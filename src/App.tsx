@@ -4,7 +4,7 @@ import { CSS } from "@dnd-kit/utilities";
 import { open, save } from "@tauri-apps/plugin-dialog";
 import { invoke } from "@tauri-apps/api/core";
 import { ChevronDown, ChevronUp, Download, Eye, FileDown, GripVertical, Plus, Trash2, Upload } from "lucide-react";
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { memo, useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import type { RenderSectionRequest, RunPipelineRequest } from "./pipeline-request.generated";
 import { Button } from "./components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "./components/ui/card";
@@ -296,22 +296,25 @@ function TextFields({ values, prefix, set }: { values: Values; prefix: string; s
 
 function EdgeDistanceFields({ values, prefix, set }: { values: Values; prefix: string; set: (key: string, value: Value) => void }) {
   return (
-    <>
-      {(["top", "bottom", "left", "right"] as const).map((edge, index) => (
-        <Field key={edge} label={`距${["上", "下", "左", "右"][index]}边缘（mm）`} value={values[`${prefix}_${edge}`]} min={0} step={0.5} onChange={(value) => set(`${prefix}_${edge}`, value)} />
-      ))}
-    </>
+    <div className="grid gap-1.5">
+      <FieldLabel>距边缘（mm）</FieldLabel>
+      <div className="grid grid-cols-4 gap-2">
+        {(["top", "bottom", "left", "right"] as const).map((edge, i) => (
+          <Field key={edge} label={["上", "下", "左", "右"][i]} value={values[`${prefix}_${edge}`]} min={0} step={0.5} onChange={(value) => set(`${prefix}_${edge}`, value)} />
+        ))}
+      </div>
+    </div>
   );
 }
 
 function LineStyleFields({ title, values, prefix, set }: { title: string; values: Values; prefix: string; set: (key: string, value: Value) => void }) {
   return (
-    <>
-      <h4 className="text-xs font-medium text-muted-foreground sm:col-span-2">{title}</h4>
+    <div className="grid gap-3 rounded-lg border bg-muted/30 p-3 sm:col-span-2 sm:grid-cols-3">
+      <h4 className="flex items-center gap-2 text-sm font-semibold sm:col-span-3"><span aria-hidden className="h-4 w-0.5 rounded bg-primary" />{title}</h4>
       <Field label="线宽" value={values[`${prefix}_width`] ?? 0.2} min={0.01} step={0.05} onChange={(value) => set(`${prefix}_width`, value)} />
       <Field label="颜色" value={values[`${prefix}_color`] ?? "#b0b0b0"} type="color" onChange={(value) => set(`${prefix}_color`, value)} />
       <Select label="样式" value={values[`${prefix}_style`] ?? "solid"} options={LINE_STYLE_OPTIONS} onChange={(value) => set(`${prefix}_style`, value)} />
-    </>
+    </div>
   );
 }
 
@@ -490,13 +493,13 @@ function sectionRequest(section: Section, pageCount = effectivePages(section)): 
   } as unknown as RenderSectionRequest;
 }
 
-function SortableSection({ section, index, update, remove }: { section: Section; index: number; update: (patch: Partial<Section>) => void; remove: () => void }) {
+const SortableSection = memo(function SortableSection({ section, index, update, remove }: { section: Section; index: number; update: (id: string, patch: Partial<Section>) => void; remove: (id: string) => void }) {
   const sortable = useSortable({ id: section.id });
   const [preview, setPreview] = useState("");
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewing, setPreviewing] = useState(false);
   const [previewError, setPreviewError] = useState("");
-  const previewRequest = JSON.stringify(sectionRequest(section, 2));
+  const previewRequest = previewOpen ? JSON.stringify(sectionRequest(section, 2)) : "";
   useEffect(() => {
     if (!previewOpen) return;
     let stale = false;
@@ -527,9 +530,9 @@ function SortableSection({ section, index, update, remove }: { section: Section;
       clearTimeout(timer);
     };
   }, [previewOpen, previewRequest]);
-  const doc = (key: string, value: Value) => update({ document: { ...section.document, [key]: value } });
-  const page = (key: string, value: Value) => update({ page: { ...section.page, [key]: value } });
-  const pattern = (key: string, value: Value) => update({ pattern: { ...section.pattern, [key]: value } });
+  const doc = (key: string, value: Value) => update(section.id, { document: { ...section.document, [key]: value } });
+  const page = (key: string, value: Value) => update(section.id, { page: { ...section.page, [key]: value } });
+  const pattern = (key: string, value: Value) => update(section.id, { pattern: { ...section.pattern, [key]: value } });
   return (
     <div
       ref={sortable.setNodeRef}
@@ -544,7 +547,7 @@ function SortableSection({ section, index, update, remove }: { section: Section;
             <GripVertical className="size-5" />
           </button>
           <span className="flex size-7 items-center justify-center rounded-full bg-secondary text-xs font-semibold">{index + 1}</span>
-          <button className="min-w-0 flex-1 text-left" onClick={() => update({ expanded: !section.expanded })}>
+          <button className="min-w-0 flex-1 text-left" onClick={() => update(section.id, { expanded: !section.expanded })}>
             <span className="block truncate font-medium">#{index + 1}</span>
             <span className="text-xs text-muted-foreground">
               {patternNames[section.pattern.kind]} · {section.pages} 页
@@ -553,10 +556,10 @@ function SortableSection({ section, index, update, remove }: { section: Section;
           <Button variant="ghost" size="icon" aria-label={previewOpen ? "关闭预览" : "预览前 2 页"} onClick={() => setPreviewOpen((open) => !open)}>
             <Eye />
           </Button>
-          <Button variant="ghost" size="icon" aria-label="展开或收起" onClick={() => update({ expanded: !section.expanded })}>
+          <Button variant="ghost" size="icon" aria-label="展开或收起" onClick={() => update(section.id, { expanded: !section.expanded })}>
             {section.expanded ? <ChevronUp /> : <ChevronDown />}
           </Button>
-          <Button variant="ghost" size="icon" aria-label="删除卡片" onClick={remove}>
+          <Button variant="ghost" size="icon" aria-label="删除卡片" onClick={() => remove(section.id)}>
             <Trash2 className="text-destructive" />
           </Button>
         </div>
@@ -565,8 +568,8 @@ function SortableSection({ section, index, update, remove }: { section: Section;
         {preview && !previewing && <iframe title={`第 ${index + 1} 个卡片前 2 页预览`} src={`data:application/pdf;base64,${preview}`} className="h-96 w-full border-t bg-muted/30" />}
         {section.expanded && (
           <CardContent className="grid gap-4 border-t bg-muted/30 pt-5 sm:grid-cols-2">
-            <Field label="页数" value={section.pages} min={1} max={500} onChange={(pages) => update({ pages: Number(pages) })} />
-            <Group title="页头" enabled={section.headerEnabled} onEnabled={(headerEnabled) => update({ headerEnabled })}>
+            <Field label="页数" value={section.pages} min={1} max={500} onChange={(pages) => update(section.id, { pages: Number(pages) })} />
+            <Group title="页头" enabled={section.headerEnabled} onEnabled={(headerEnabled) => update(section.id, { headerEnabled })}>
               <Field label="页头高度（mm）" value={section.page.header} min={0} step={0.5} onChange={(v) => page("header", v)} />
               <Select
                 label="页头样式"
@@ -576,7 +579,7 @@ function SortableSection({ section, index, update, remove }: { section: Section;
                   ["text", "水印文字"],
                   ["none", "无样式（空白）"],
                 ]}
-                onChange={(v) => update({ headerStyle: v as Section["headerStyle"] })}
+                onChange={(v) => update(section.id, { headerStyle: v as Section["headerStyle"] })}
               />
               {section.headerStyle === "date" && (
                 <>
@@ -618,25 +621,25 @@ function SortableSection({ section, index, update, remove }: { section: Section;
               {section.headerStyle === "text" && <TextFields values={section.document} prefix="header_text" set={doc} />}
               <Field label="页头颜色" value={section.document.header_text_color} type="color" onChange={(v) => doc("header_text_color", v)} />
             </Group>
-            <Group title="页脚" enabled={section.footerEnabled} onEnabled={(footerEnabled) => update({ footerEnabled })}>
+            <Group title="页脚" enabled={section.footerEnabled} onEnabled={(footerEnabled) => update(section.id, { footerEnabled })}>
               <Field label="页脚高度（mm）" value={section.page.footer} min={5} step={0.5} onChange={(v) => page("footer", v)} />
               <TextFields values={section.document} prefix="footer_text" set={doc} />
               <Field label="页脚颜色" value={section.document.footer_text_color} type="color" onChange={(v) => doc("footer_text_color", v)} />
             </Group>
-            <Group title="装订侧水印" enabled={section.watermarkEnabled} onEnabled={(watermarkEnabled) => update({ watermarkEnabled })}>
+            <Group title="装订侧水印" enabled={section.watermarkEnabled} onEnabled={(watermarkEnabled) => update(section.id, { watermarkEnabled })}>
               <Field label="装订侧宽度（mm）" value={section.page.binding} min={0} step={0.5} onChange={(v) => page("binding", v)} />
               <Field label="离边缘距离（mm，留空居中）" value={section.document.binding_text_edge} type="number" min={0} step={0.5} onChange={(v) => doc("binding_text_edge", Number(v) || null)} />
               <TextFields values={section.document} prefix="binding_text" set={doc} />
               <Field label="水印颜色" value={section.document.binding_text_color} type="color" onChange={(v) => doc("binding_text_color", v)} />
             </Group>
-            <Group title="非装订侧水印" enabled={section.nonBindingEnabled} onEnabled={(nonBindingEnabled) => update({ nonBindingEnabled })}>
+            <Group title="非装订侧水印" enabled={section.nonBindingEnabled} onEnabled={(nonBindingEnabled) => update(section.id, { nonBindingEnabled })}>
               <Field label="非装订侧宽度（mm）" value={section.page.non_binding} min={0} step={0.5} onChange={(v) => page("non_binding", v)} />
               <Field label="离边缘距离（mm，留空居中）" value={section.document.non_binding_text_edge} type="number" min={0} step={0.5} onChange={(v) => doc("non_binding_text_edge", Number(v) || null)} />
               <TextFields values={section.document} prefix="non_binding_text" set={doc} />
               <Field label="水印颜色" value={section.document.non_binding_text_color} type="color" onChange={(v) => doc("non_binding_text_color", v)} />
             </Group>
             <section className="grid gap-4 rounded-lg border bg-background p-4 sm:col-span-2">
-              <Select label="版式" value={section.pattern.kind} options={Object.entries(patternNames)} onChange={(kind) => update({ pattern: { ...defaults[kind as PatternKind] } })} />
+              <Select label="版式" value={section.pattern.kind} options={Object.entries(patternNames)} onChange={(kind) => update(section.id, { pattern: { ...defaults[kind as PatternKind] } })} />
               <div className="grid gap-4 border-t pt-4 sm:grid-cols-2">
                 <PatternFields section={section} set={pattern} />
               </div>
@@ -646,7 +649,7 @@ function SortableSection({ section, index, update, remove }: { section: Section;
       </Card>
     </div>
   );
-}
+});
 
 function loadJSON<T>(key: string, fallback: T): T {
   try {
@@ -676,7 +679,7 @@ function cleanPattern(pattern: Section["pattern"]) {
 }
 
 export default function App() {
-  const saved = useRef(
+  const [saved] = useState(() =>
     loadJSON<{
       sections?: Section[];
       binding?: "booklet" | "thread" | null;
@@ -684,7 +687,7 @@ export default function App() {
       size?: { width: number; height: number };
       pageSize?: string;
     } | null>("base6.state", null),
-  ).current;
+  );
   const [sections, setSections] = useState<Section[]>(saved?.sections ?? [newSection()]);
   const [binding, setBinding] = useState<"booklet" | "thread" | null>(saved?.binding ?? "booklet");
   const [size, setSize] = useState(saved?.size ?? { width: 148, height: 210 });
@@ -711,7 +714,8 @@ export default function App() {
     localStorage.setItem("base6.state", JSON.stringify({ sections, binding, sheetsPerGroup, size, pageSize }));
   }, [sections, binding, sheetsPerGroup, size, pageSize]);
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
-  const update = (id: string, patch: Partial<Section>) => setSections((items) => items.map((item) => (item.id === id ? { ...item, ...patch } : item)));
+  const update = useCallback((id: string, patch: Partial<Section>) => setSections((items) => items.map((item) => (item.id === id ? { ...item, ...patch } : item))), []);
+  const removeSection = useCallback((id: string) => setSections((items) => items.filter(({ id: itemId }) => itemId !== id)), []);
   function dragEnd({ active, over }: DragEndEvent) {
     if (!over || active.id === over.id) return;
     setSections((items) =>
@@ -816,7 +820,7 @@ export default function App() {
           <DndContext sensors={sensors} onDragEnd={dragEnd}>
             <SortableContext items={sections.map(({ id }) => id)} strategy={verticalListSortingStrategy}>
               {sections.map((section, index) => (
-                <SortableSection key={section.id} section={section} index={index} update={(patch) => update(section.id, patch)} remove={() => setSections((items) => items.filter(({ id }) => id !== section.id))} />
+                <SortableSection key={section.id} section={section} index={index} update={update} remove={removeSection} />
               ))}
             </SortableContext>
           </DndContext>
