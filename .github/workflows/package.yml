@@ -6,7 +6,7 @@ on:
     tags: ["v*"]
 
 permissions:
-  contents: read
+  contents: write
 
 env:
   TECTONIC_VERSION: 0.17.0
@@ -21,14 +21,22 @@ jobs:
             platform: linux-x86_64
             target: x86_64-unknown-linux-gnu
             bundles: deb,rpm
+            args: --config src-tauri/tauri.bundle.json --bundles deb,rpm --target x86_64-unknown-linux-gnu
           - os: windows-2025
             platform: windows-x86_64
             target: x86_64-pc-windows-msvc
             bundles: msi,nsis
+            args: --config src-tauri/tauri.bundle.json --bundles msi,nsis --target x86_64-pc-windows-msvc
           - os: macos-15
             platform: macos-arm64
             target: aarch64-apple-darwin
             bundles: app,dmg
+            args: --config src-tauri/tauri.bundle.json --bundles app,dmg --target aarch64-apple-darwin
+          - os: macos-15
+            platform: macos-x86_64
+            target: x86_64-apple-darwin
+            bundles: app,dmg
+            args: --config src-tauri/tauri.bundle.json --bundles app,dmg --target x86_64-apple-darwin
 
     runs-on: ${{ matrix.os }}
 
@@ -38,36 +46,48 @@ jobs:
         with:
           node-version: 22
       - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
       - run: corepack enable
 
       - name: Install Linux build dependencies
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf xdg-utils
 
-      - name: Download Tectonic
+      - name: Download LaTeX sidecar
         shell: bash
         run: |
           mkdir -p src-tauri/binaries
-          case "${{ runner.os }}" in
-            Windows) archive="tectonic.zip" ;;
-            *) archive="tectonic.tar.gz" ;;
-          esac
-          curl -fL "https://github.com/tectonic-typesetting/tectonic/releases/download/tectonic%40${TECTONIC_VERSION}/tectonic-${TECTONIC_VERSION}-${{ matrix.target }}.${archive#tectonic.}" -o "$archive"
           if [ "${{ runner.os }}" = Windows ]; then
-            unzip -q "$archive"
+            archive=zip
+          else
+            archive=tar.gz
+          fi
+          url="https://github.com/tectonic-typesetting/tectonic/releases/download/tectonic%40${TECTONIC_VERSION}/tectonic-${TECTONIC_VERSION}-${{ matrix.target }}.${archive}"
+          curl --fail --location --retry 3 "$url" -o tectonic.$archive
+          if [ "$archive" = zip ]; then
+            unzip -q tectonic.zip tectonic.exe
             mv tectonic.exe "src-tauri/binaries/tectonic-${{ matrix.target }}.exe"
           else
-            tar -xf "$archive"
+            tar -xzf tectonic.tar.gz tectonic
             mv tectonic "src-tauri/binaries/tectonic-${{ matrix.target }}"
+            chmod +x "src-tauri/binaries/tectonic-${{ matrix.target }}"
           fi
 
       - run: yarn install --immutable
-      - run: yarn tauri build --config src-tauri/tauri.bundle.json --bundles "${{ matrix.bundles }}"
 
-      - uses: actions/upload-artifact@v4
+      - name: Build and publish packages
+        uses: tauri-apps/tauri-action@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          name: base6-techo-${{ matrix.platform }}
-          path: target/release/bundle/**
-          if-no-files-found: error
+          tauriScript: yarn tauri
+          args: ${{ matrix.args }}
+          tagName: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || '' }}
+          releaseName: base6-techo ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || '' }}
+          releaseBody: Download the installer for your platform below.
+          releaseDraft: true
+          uploadWorkflowArtifacts: true
+          workflowArtifactNamePattern: base6-techo-${{ matrix.platform }}
