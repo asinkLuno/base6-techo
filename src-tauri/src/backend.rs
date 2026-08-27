@@ -6,13 +6,19 @@ use std::{
 };
 
 use base64::{Engine, engine::general_purpose::STANDARD};
+mod basic;
+mod midori;
+mod timeline;
+
+use basic::{BasicPattern, draw_basic};
 use chrono::{
-    Duration, Locale, NaiveDate, TimeZone, Timelike, Utc,
+    Duration, Locale, NaiveDate,
     format::{Item, StrftimeItems},
 };
-use chrono_tz::Tz;
+use midori::{MidoriPattern, draw_midori};
 use serde::Deserialize;
 use tauri::Manager;
+use timeline::{TimelinePattern, draw_timeline};
 
 const PAGE_NUMBER_COLOR: &str = "#666666";
 const MM_PER_PT: f64 = 25.4 / 72.27;
@@ -265,9 +271,32 @@ impl DocumentSettings {
 #[derive(Clone, Deserialize)]
 #[serde(tag = "kind", rename_all = "lowercase")]
 enum Pattern {
-    Basic(BasicPattern),
+    Basic(Box<BasicPattern>),
     Midori(MidoriPattern),
     Timeline(TimelinePattern),
+}
+
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, Ord, PartialEq, PartialOrd)]
+#[serde(rename_all = "kebab-case")]
+enum LineStyle {
+    #[default]
+    Solid,
+    Dashed,
+    Dotted,
+    DashDot,
+    DoubleSolid,
+}
+
+impl LineStyle {
+    fn tikz(self) -> &'static str {
+        match self {
+            Self::Solid => "solid",
+            Self::Dashed => "dashed",
+            Self::Dotted => "dotted",
+            Self::DashDot => "dash dot",
+            Self::DoubleSolid => "double",
+        }
+    }
 }
 
 impl Pattern {
@@ -291,236 +320,6 @@ impl Pattern {
             Self::Midori(p) => p.validate(),
             Self::Timeline(p) => p.validate(),
         }
-    }
-}
-
-#[derive(Clone, Deserialize)]
-#[serde(default, deny_unknown_fields)]
-struct BasicPattern {
-    spacing: f64,
-    line_width: f64,
-    line_color: String,
-    draw_hlines: bool,
-    draw_vlines: bool,
-    draw_dots: bool,
-    hline_edge_color: Option<String>,
-    hline_edge_width: Option<f64>,
-    vline_edge_color: Option<String>,
-    vline_edge_width: Option<f64>,
-    dot_center_color: Option<String>,
-    hline_header: bool,
-    hline_footer: bool,
-    hline_inner: bool,
-    hline_outer: bool,
-    vline_header: bool,
-    vline_footer: bool,
-    vline_inner: bool,
-    vline_outer: bool,
-    dot_header: bool,
-    dot_footer: bool,
-    dot_inner: bool,
-    dot_outer: bool,
-    dot_spacing: Option<f64>,
-    dot_radius: f64,
-    margin_x: Option<f64>,
-    margin_color: Option<String>,
-    vline_spacing: Option<f64>,
-}
-
-impl Default for BasicPattern {
-    fn default() -> Self {
-        Self {
-            spacing: 8.0,
-            line_width: 0.2,
-            line_color: "#B0B0B0".into(),
-            draw_hlines: false,
-            draw_vlines: false,
-            draw_dots: false,
-            hline_edge_color: None,
-            hline_edge_width: None,
-            vline_edge_color: None,
-            vline_edge_width: None,
-            dot_center_color: None,
-            hline_header: false,
-            hline_footer: false,
-            hline_inner: false,
-            hline_outer: false,
-            vline_header: false,
-            vline_footer: false,
-            vline_inner: false,
-            vline_outer: false,
-            dot_header: false,
-            dot_footer: false,
-            dot_inner: false,
-            dot_outer: false,
-            dot_spacing: None,
-            dot_radius: 0.3,
-            margin_x: None,
-            margin_color: None,
-            vline_spacing: None,
-        }
-    }
-}
-
-impl BasicPattern {
-    fn validate(&self) -> Result<(), String> {
-        if self.spacing <= 0.0 || self.line_width <= 0.0 || self.dot_radius <= 0.0 {
-            return Err("spacing, line_width and dot_radius must be > 0".into());
-        }
-        for value in [
-            self.dot_spacing,
-            self.margin_x,
-            self.vline_spacing,
-            self.hline_edge_width,
-            self.vline_edge_width,
-        ]
-        .into_iter()
-        .flatten()
-        {
-            if value <= 0.0 {
-                return Err("optional pattern lengths must be > 0".into());
-            }
-        }
-        for color in [
-            &Some(self.line_color.clone()),
-            &self.margin_color,
-            &self.hline_edge_color,
-            &self.vline_edge_color,
-            &self.dot_center_color,
-        ]
-        .into_iter()
-        .filter_map(|v| v.as_deref())
-        {
-            validate_color(color)?;
-        }
-        Ok(())
-    }
-}
-
-#[derive(Clone, Deserialize)]
-#[serde(default, deny_unknown_fields)]
-struct MidoriPattern {
-    spacing: f64,
-    gap: f64,
-    edge_extension: f64,
-    dot_frequency: usize,
-    dot_radius: f64,
-    line_width: f64,
-    line_color: String,
-    dot_color: String,
-    header: bool,
-    footer: bool,
-    inner: bool,
-    outer: bool,
-}
-impl Default for MidoriPattern {
-    fn default() -> Self {
-        Self {
-            spacing: 5.0,
-            gap: 1.0,
-            edge_extension: 1.2,
-            dot_frequency: 10,
-            dot_radius: 0.4,
-            line_width: 0.7,
-            line_color: "#a9d1ae".into(),
-            dot_color: "#a9d1ae".into(),
-            header: false,
-            footer: false,
-            inner: false,
-            outer: false,
-        }
-    }
-}
-impl MidoriPattern {
-    fn validate(&self) -> Result<(), String> {
-        if [
-            self.spacing,
-            self.gap,
-            self.edge_extension,
-            self.dot_radius,
-            self.line_width,
-        ]
-        .into_iter()
-        .any(|v| v <= 0.0)
-            || self.dot_frequency == 0
-        {
-            return Err("midori dimensions and dot_frequency must be > 0".into());
-        }
-        validate_color(&self.line_color)?;
-        validate_color(&self.dot_color)
-    }
-}
-
-#[derive(Clone, Deserialize)]
-#[serde(default, deny_unknown_fields)]
-struct TimelinePattern {
-    start: i32,
-    end: i32,
-    pages: i32,
-    line_color: String,
-    line_width: f64,
-    label_size: f64,
-    city_name: Option<String>,
-    latitude: Option<f64>,
-    longitude: Option<f64>,
-    timezone: Option<String>,
-    daylight_color: String,
-    night_color: String,
-}
-impl Default for TimelinePattern {
-    fn default() -> Self {
-        Self {
-            start: 0,
-            end: 26,
-            pages: 1,
-            line_color: "#7A7A7A".into(),
-            line_width: 0.4 / MM_PER_PT,
-            label_size: 10.2,
-            city_name: None,
-            latitude: None,
-            longitude: None,
-            timezone: None,
-            daylight_color: "#ffd700".into(),
-            night_color: "#0047ab".into(),
-        }
-    }
-}
-impl TimelinePattern {
-    fn validate(&self) -> Result<(), String> {
-        if !(0..30).contains(&self.start) || self.end <= self.start || self.end > 30 {
-            return Err("timeline hours must satisfy 0 <= start < end <= 30".into());
-        }
-        if !matches!(self.pages, 1 | 2) {
-            return Err("pages must be 1 or 2".into());
-        }
-        if self.line_width <= 0.0 || self.label_size <= 0.0 {
-            return Err("line_width and label_size must be > 0".into());
-        }
-        if [
-            self.latitude.is_some(),
-            self.longitude.is_some(),
-            self.timezone.is_some(),
-        ]
-        .into_iter()
-        .any(|v| v)
-            && !(self.latitude.is_some() && self.longitude.is_some() && self.timezone.is_some())
-        {
-            return Err("latitude, longitude and timezone must be set together".into());
-        }
-        if self.latitude.is_some_and(|v| !(-90.0..=90.0).contains(&v))
-            || self
-                .longitude
-                .is_some_and(|v| !(-180.0..=180.0).contains(&v))
-        {
-            return Err("invalid latitude or longitude".into());
-        }
-        if let Some(tz) = &self.timezone {
-            tz.parse::<Tz>()
-                .map_err(|_| format!("unknown timezone: {tz}"))?;
-        }
-        validate_color(&self.line_color)?;
-        validate_color(&self.daylight_color)?;
-        validate_color(&self.night_color)
     }
 }
 
@@ -591,6 +390,7 @@ struct Line {
     y2: f64,
     color: Option<String>,
     width: Option<f64>,
+    style: LineStyle,
 }
 #[derive(Clone)]
 struct Dot {
@@ -700,322 +500,15 @@ fn region(geo: Geometry, header: bool, footer: bool, inner: bool, outer: bool) -
     }
 }
 
-fn draw_basic(geo: Geometry, p: &BasicPattern) -> (Vec<Line>, Vec<Dot>) {
-    let hr = region(
-        geo,
-        p.hline_header,
-        p.hline_footer,
-        p.hline_inner,
-        p.hline_outer,
-    );
-    let vr = region(
-        geo,
-        p.vline_header,
-        p.vline_footer,
-        p.vline_inner,
-        p.vline_outer,
-    );
-    let dr = region(geo, p.dot_header, p.dot_footer, p.dot_inner, p.dot_outer);
-    let ys = if p.draw_hlines {
-        centered(hr.y, hr.height, p.spacing)
-    } else {
-        vec![]
-    };
-    let mut lines = Vec::new();
-    for (i, y) in ys.iter().enumerate() {
-        let edge = i == 0 || i + 1 == ys.len();
-        lines.push(Line {
-            x1: hr.x,
-            y1: *y,
-            x2: hr.x + hr.width,
-            y2: *y,
-            color: edge.then(|| p.hline_edge_color.clone()).flatten(),
-            width: edge.then_some(p.hline_edge_width).flatten(),
-        });
+fn inset(rect: Rect, top: f64, bottom: f64, left: f64, right: f64) -> Rect {
+    let left = left.min(rect.width);
+    let top = top.min(rect.height);
+    Rect {
+        x: rect.x + left,
+        y: rect.y + top,
+        width: (rect.width - left - right).max(0.0),
+        height: (rect.height - top - bottom).max(0.0),
     }
-    if p.draw_vlines {
-        let top = vr.y;
-        let bottom = vr.y + vr.height;
-        if let (Some(margin), Some(color)) = (p.margin_x, &p.margin_color) {
-            let x = geo.content.x + margin;
-            lines.push(Line {
-                x1: x,
-                y1: top,
-                x2: x,
-                y2: bottom,
-                color: Some(p.vline_edge_color.clone().unwrap_or_else(|| color.clone())),
-                width: p.vline_edge_width,
-            });
-        }
-        if let (Some(spacing), Some(color)) = (p.vline_spacing, &p.margin_color) {
-            let xs = if let Some(margin) = p.margin_x {
-                let count = ((vr.x + vr.width - geo.content.x - margin) / spacing).floor() as usize;
-                (1..=count)
-                    .map(|i| geo.content.x + margin + i as f64 * spacing)
-                    .collect()
-            } else {
-                centered(vr.x, vr.width, spacing)
-            };
-            for (i, x) in xs.into_iter().enumerate() {
-                lines.push(Line {
-                    x1: x,
-                    y1: top,
-                    x2: x,
-                    y2: bottom,
-                    color: Some(if i == 0 && p.margin_x.is_none() {
-                        p.vline_edge_color.clone().unwrap_or_else(|| color.clone())
-                    } else {
-                        color.clone()
-                    }),
-                    width: if i == 0 { p.vline_edge_width } else { None },
-                });
-            }
-        }
-    }
-    let mut dots = Vec::new();
-    if p.draw_dots
-        && let Some(spacing) = p.dot_spacing
-    {
-        let cx = dr.x + dr.width / 2.0;
-        let cy = dr.y + dr.height / 2.0;
-        for y in centered(dr.y, dr.height, p.spacing) {
-            for x in centered(dr.x, dr.width, spacing) {
-                dots.push(Dot {
-                    x,
-                    y,
-                    radius: p.dot_radius,
-                    color: ((x - cx).abs() < 1e-9 && (y - cy).abs() < 1e-9)
-                        .then(|| p.dot_center_color.clone())
-                        .flatten(),
-                    square: false,
-                });
-            }
-        }
-    }
-    (lines, dots)
-}
-
-fn dot_indices(cells: usize, frequency: usize) -> BTreeSet<usize> {
-    let middle = cells / 2;
-    let mut out = BTreeSet::new();
-    for step in 0..cells {
-        let d = step * frequency;
-        if middle >= d && middle - d > 0 {
-            out.insert(middle - d);
-        }
-        if middle + d < cells {
-            out.insert(middle + d);
-        }
-    }
-    out
-}
-
-fn draw_midori(geo: Geometry, p: &MidoriPattern) -> (Vec<Line>, Vec<Dot>) {
-    let r = region(geo, p.header, p.footer, p.inner, p.outer);
-    let inset = p.gap + p.edge_extension;
-    let nx = ((r.width - 2.0 * inset) / p.spacing).floor().max(0.0) as usize;
-    let ny = ((r.height - 2.0 * inset) / p.spacing).floor().max(0.0) as usize;
-    if nx == 0 || ny == 0 {
-        return (vec![], vec![]);
-    }
-    let w = nx as f64 * p.spacing;
-    let h = ny as f64 * p.spacing;
-    let sx = r.x + (r.width - w) / 2.0;
-    let sy = r.y + (r.height - h) / 2.0;
-    let xd = dot_indices(nx, p.dot_frequency);
-    let yd = dot_indices(ny, p.dot_frequency);
-    let mut lines = Vec::new();
-    let line = |x1, y1, x2, y2| Line {
-        x1,
-        y1,
-        x2,
-        y2,
-        color: None,
-        width: None,
-    };
-    for row in 0..=ny {
-        let y = sy + row as f64 * p.spacing;
-        lines.push(line(sx, y, sx + w, y));
-        if row % 2 == 0 && !yd.contains(&row) && row > 0 && row < ny {
-            lines.push(line(sx - p.gap - p.edge_extension, y, sx - p.gap, y));
-            lines.push(line(
-                sx + w + p.gap,
-                y,
-                sx + w + p.gap + p.edge_extension,
-                y,
-            ));
-        }
-    }
-    for col in 0..=nx {
-        let x = sx + col as f64 * p.spacing;
-        if col % 2 == 0 && !xd.contains(&col) && col > 0 && col < nx {
-            lines.push(line(x, sy - p.gap - p.edge_extension, x, sy - p.gap));
-            lines.push(line(
-                x,
-                sy + h + p.gap,
-                x,
-                sy + h + p.gap + p.edge_extension,
-            ));
-        }
-        for row in 0..ny {
-            lines.push(line(
-                x,
-                sy + row as f64 * p.spacing + p.gap,
-                x,
-                sy + (row + 1) as f64 * p.spacing,
-            ));
-        }
-    }
-    let mut dots = Vec::new();
-    let dot = |x, y| Dot {
-        x,
-        y,
-        radius: p.dot_radius,
-        color: Some(p.dot_color.clone()),
-        square: false,
-    };
-    for col in xd {
-        let x = sx + col as f64 * p.spacing;
-        dots.push(dot(x, sy - 1.5));
-        dots.push(dot(x, sy + h + 1.5));
-    }
-    for row in yd {
-        let y = sy + row as f64 * p.spacing;
-        dots.push(dot(sx - 1.5, y));
-        dots.push(dot(sx + w + 1.5, y));
-    }
-    (lines, dots)
-}
-
-fn timeline_color(p: &TimelinePattern, date: Option<NaiveDate>, minute: i32) -> Option<String> {
-    let (Some(date), Some(lat), Some(lon), Some(tz)) =
-        (date, p.latitude, p.longitude, p.timezone.as_deref())
-    else {
-        return None;
-    };
-    let tz: Tz = tz.parse().ok()?;
-    let local = tz
-        .from_local_datetime(&(date.and_hms_opt(0, 0, 0)? + Duration::minutes(i64::from(minute))))
-        .single()?;
-    Some(
-        if solar_elevation(lat, lon, local.with_timezone(&Utc)) > -0.833 {
-            p.daylight_color.clone()
-        } else {
-            p.night_color.clone()
-        },
-    )
-}
-
-fn solar_elevation(latitude: f64, longitude: f64, moment: chrono::DateTime<Utc>) -> f64 {
-    let jd = moment.timestamp() as f64 / 86400.0 + 2440587.5;
-    let t = (jd - 2451545.0) / 36525.0;
-    let l0 = (280.46646 + t * (36000.76983 + t * 0.0003032)).rem_euclid(360.0);
-    let m = 357.52911 + t * (35999.05029 - 0.0001537 * t);
-    let c = m.to_radians().sin() * (1.914602 - t * (0.004817 + 0.000014 * t))
-        + (2.0 * m).to_radians().sin() * (0.019993 - 0.000101 * t)
-        + (3.0 * m).to_radians().sin() * 0.000289;
-    let omega = 125.04 - 1934.136 * t;
-    let lambda = l0 + c - 0.00569 - 0.00478 * omega.to_radians().sin();
-    let epsilon = 23.0
-        + (26.0 + (21.448 - t * (46.815 + t * (0.00059 - t * 0.001813))) / 60.0) / 60.0
-        + 0.00256 * omega.to_radians().cos();
-    let decl = (epsilon.to_radians().sin() * lambda.to_radians().sin()).asin();
-    let y = (epsilon.to_radians() / 2.0).tan().powi(2);
-    let eq = 4.0
-        * (y * (2.0 * l0).to_radians().sin() - 2.0 * 0.016708634 * m.to_radians().sin()
-            + 4.0 * 0.016708634 * y * m.to_radians().sin() * (2.0 * l0).to_radians().cos()
-            - 0.5 * y * y * (4.0 * l0).to_radians().sin()
-            - 1.25 * 0.016708634_f64.powi(2) * (2.0 * m).to_radians().sin())
-        .to_degrees();
-    let minutes =
-        f64::from(moment.hour() * 60 + moment.minute()) + f64::from(moment.second()) / 60.0;
-    let hour_angle = (minutes + eq + 4.0 * longitude).rem_euclid(1440.0) / 4.0 - 180.0;
-    let lat = latitude.to_radians();
-    (lat.sin() * decl.sin() + lat.cos() * decl.cos() * hour_angle.to_radians().cos())
-        .asin()
-        .to_degrees()
-}
-
-fn draw_timeline(
-    geo: Geometry,
-    p: &TimelinePattern,
-    date: Option<NaiveDate>,
-    font: &str,
-) -> (Vec<Line>, Vec<Dot>, Vec<Text>) {
-    let mid = (p.start + p.end) / 2;
-    let (start, end) = if p.pages == 1 {
-        (p.start, p.end)
-    } else if geo.binding_side == Side::Left {
-        (p.start, mid)
-    } else {
-        (mid, p.end)
-    };
-    let span = f64::from(end - start);
-    let hh = geo.content.height / span;
-    let axis = if geo.binding_side == Side::Left {
-        geo.content.x
-    } else {
-        geo.content.x + geo.content.width
-    };
-    let direction = if geo.binding_side == Side::Left {
-        1.0
-    } else {
-        -1.0
-    };
-    let extension = geo.page.width
-        * if geo.binding_side == Side::Left {
-            2.0 / 3.0
-        } else {
-            1.0 / 3.0
-        };
-    let mut lines = Vec::new();
-    let mut dots = Vec::new();
-    let mut texts = Vec::new();
-    for hour in start..=end {
-        let color = timeline_color(p, date, hour * 60);
-        let y = geo.content.y + f64::from(hour - start) / span * geo.content.height;
-        let tick = axis + direction * 7.0;
-        lines.push(Line {
-            x1: axis,
-            y1: y,
-            x2: tick,
-            y2: y,
-            color: color.clone(),
-            width: Some(p.line_width),
-        });
-        let count = ((extension - tick).abs() / (hh / 2.0)).ceil() as usize;
-        for i in 1..count {
-            dots.push(Dot {
-                x: tick + direction * i as f64 * hh / 2.0,
-                y,
-                radius: p.line_width * MM_PER_PT / 2.0,
-                color: color.clone(),
-                square: true,
-            });
-        }
-        texts.push(Text {
-            x: axis - direction * 3.0,
-            y,
-            content: format!("{hour:02}"),
-            size: p.label_size,
-            color: color.unwrap_or_else(|| p.line_color.clone()),
-            rotation: 0,
-            font: font.into(),
-            anchor: "center",
-        });
-        if hour < end {
-            let half = y + hh / 2.0;
-            lines.push(Line {
-                x1: axis,
-                y1: half,
-                x2: axis + direction * 3.0,
-                y2: half,
-                color: timeline_color(p, date, hour * 60 + 30),
-                width: Some(p.line_width),
-            });
-        }
-    }
-    (lines, dots, texts)
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -1347,7 +840,7 @@ fn render_latex(pages: &[OutputPage]) -> String {
             r"\useasboundingbox (0,0) rectangle ({},{});",
             page.width, page.height
         )];
-        let mut line_groups: BTreeMap<(String, String), Vec<String>> = BTreeMap::new();
+        let mut line_groups: BTreeMap<(String, String, LineStyle), Vec<String>> = BTreeMap::new();
         let mut dot_groups: BTreeMap<String, Vec<String>> = BTreeMap::new();
         for placement in &page.placements {
             for line in &placement.draw.lines {
@@ -1355,7 +848,7 @@ fn render_latex(pages: &[OutputPage]) -> String {
                 let color = color_name(raw);
                 colors.insert(color.clone(), raw.into());
                 line_groups
-                    .entry((color, line.width.unwrap_or(0.2).to_string()))
+                    .entry((color, line.width.unwrap_or(0.2).to_string(), line.style))
                     .or_default()
                     .push(format!(
                         r"  \draw ({},{}) -- ({},{});",
@@ -1387,9 +880,10 @@ fn render_latex(pages: &[OutputPage]) -> String {
                 });
             }
         }
-        for ((color, width), commands) in line_groups {
+        for ((color, width, style), commands) in line_groups {
             parts.push(format!(
-                "\\begin{{scope}}[{color}, line width={width}pt]\n{}\n\\end{{scope}}",
+                "\\begin{{scope}}[{color}, line width={width}pt, {}]\n{}\n\\end{{scope}}",
+                style.tikz(),
                 commands.join("\n")
             ));
         }
@@ -1634,7 +1128,9 @@ pub(crate) async fn preview_section(
 
 #[cfg(test)]
 mod tests {
+    use super::timeline::timeline_color;
     use super::*;
+    use chrono::Utc;
 
     #[test]
     fn booklet_uses_one_signature() {
@@ -1676,22 +1172,102 @@ mod tests {
     }
 
     #[test]
-    fn layout_and_french_grid_match_existing_geometry() {
+    fn layout_and_line_styles_match_existing_geometry() {
         let page = PageSettings::default();
         assert_eq!(geometry_for(&page, 1).content.x, 15.0);
         assert_eq!(geometry_for(&page, 2).content.x, 8.0);
         let pattern = BasicPattern {
-            margin_x: Some(15.0),
-            margin_color: Some("#88AEC7".into()),
+            draw_hlines: true,
+            line_width: 0.3,
+            line_color: "#333333".into(),
+            line_style: LineStyle::DoubleSolid,
+            hline_top_width: 0.5,
+            hline_top_color: "#111111".into(),
+            hline_top_style: LineStyle::Dashed,
+            hline_bottom_width: 0.6,
+            hline_bottom_color: "#121212".into(),
+            hline_bottom_style: LineStyle::Dotted,
+            hline_center_width: 0.7,
+            hline_center_color: "#222222".into(),
+            hline_center_style: LineStyle::DashDot,
             vline_spacing: Some(8.0),
+            vline_width: 0.4,
+            vline_color: "#123456".into(),
+            vline_style: LineStyle::DoubleSolid,
+            vline_left_width: 0.6,
+            vline_left_color: "#345678".into(),
+            vline_left_style: LineStyle::Dashed,
+            vline_right_width: 0.7,
+            vline_right_color: "#456789".into(),
+            vline_right_style: LineStyle::Dotted,
+            vline_center_width: 0.8,
+            vline_center_color: "#567890".into(),
+            vline_center_style: LineStyle::DashDot,
             draw_vlines: true,
             ..Default::default()
         };
         let (lines, _) = draw_basic(geometry_for(&page, 1), &pattern);
+        let hlines = lines
+            .iter()
+            .filter(|line| line.y1 == line.y2)
+            .collect::<Vec<_>>();
+        let vlines = lines
+            .iter()
+            .filter(|line| line.x1 == line.x2)
+            .collect::<Vec<_>>();
         assert_eq!(
-            lines.iter().take(4).map(|line| line.x1).collect::<Vec<_>>(),
-            [30.0, 38.0, 46.0, 54.0]
+            vlines
+                .iter()
+                .take(4)
+                .map(|line| line.x1)
+                .collect::<Vec<_>>(),
+            [21.5, 29.5, 37.5, 45.5]
         );
+        let assert_line = |line: &Line, color, width, style| {
+            assert_eq!(line.color.as_deref(), Some(color));
+            assert_eq!(line.width, Some(width));
+            assert_eq!(line.style, style);
+        };
+        assert_line(hlines[0], "#111111", 0.5, LineStyle::Dashed);
+        assert_line(hlines[1], "#333333", 0.3, LineStyle::DoubleSolid);
+        assert_line(hlines[hlines.len() / 2], "#222222", 0.7, LineStyle::DashDot);
+        assert_line(hlines.last().unwrap(), "#121212", 0.6, LineStyle::Dotted);
+        assert_line(vlines[0], "#345678", 0.6, LineStyle::Dashed);
+        assert_line(vlines[1], "#123456", 0.4, LineStyle::DoubleSolid);
+        assert_line(vlines[vlines.len() / 2], "#567890", 0.8, LineStyle::DashDot);
+        assert_line(vlines.last().unwrap(), "#456789", 0.7, LineStyle::Dotted);
+    }
+
+    #[test]
+    fn basic_patterns_apply_independent_edge_distances() {
+        let page = PageSettings::default();
+        let pattern = BasicPattern {
+            draw_hlines: true,
+            draw_vlines: true,
+            draw_dots: true,
+            vline_spacing: Some(8.0),
+            dot_spacing: Some(8.0),
+            hline_top: 2.0,
+            hline_bottom: 3.0,
+            hline_left: 4.0,
+            hline_right: 5.0,
+            vline_top: 6.0,
+            vline_bottom: 7.0,
+            vline_left: 8.0,
+            vline_right: 9.0,
+            dot_top: 10.0,
+            dot_bottom: 11.0,
+            dot_left: 12.0,
+            dot_right: 13.0,
+            ..Default::default()
+        };
+        let (lines, dots) = draw_basic(geometry_for(&page, 1), &pattern);
+        let hline = lines.iter().find(|line| line.y1 == line.y2).unwrap();
+        let vline = lines.iter().find(|line| line.x1 == line.x2).unwrap();
+        assert_eq!((hline.x1, hline.x2), (19.0, 135.0));
+        assert_eq!((vline.y1, vline.y2), (16.0, 193.0));
+        assert!(dots.iter().all(|dot| (27.0..=127.0).contains(&dot.x)));
+        assert!(dots.iter().all(|dot| (20.0..=189.0).contains(&dot.y)));
     }
 
     #[test]

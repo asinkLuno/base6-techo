@@ -51,6 +51,7 @@ const FONT_OPTIONS: [string, string][] = [
   [String.raw`\rmfamily`, "衬线（serif）"],
   [String.raw`\ttfamily`, "等宽（mono）"],
 ];
+const LINE_STYLE_OPTIONS: [string, string][] = [["solid", "实线"], ["dashed", "虚线"], ["dotted", "点线"], ["dash-dot", "点虚线"], ["double-solid", "双实线"]];
 
 const TZ_OPTIONS: [string, string][] = [...Array.from({ length: 12 }, (_, i) => [`Etc/GMT-${12 - i}`, `东${12 - i}区（UTC+${12 - i}）`] as [string, string]), ["Etc/GMT", "零时区（UTC）"], ...Array.from({ length: 12 }, (_, i) => [`Etc/GMT+${i + 1}`, `西${i + 1}区（UTC-${i + 1}）`] as [string, string])];
 
@@ -60,13 +61,28 @@ const defaults: Record<PatternKind, Values & { kind: PatternKind }> = {
     spacing: 8,
     line_width: 0.2,
     line_color: "#b0b0b0",
+    line_style: "solid",
     draw_hlines: true,
     draw_vlines: false,
     draw_dots: false,
-    hline_edge_color: "#b0b0b0",
-    hline_edge_width: 0.2,
-    vline_edge_color: "#b0b0b0",
-    vline_edge_width: 0.2,
+    hline_top_color: "#b0b0b0",
+    hline_top_width: 0.2,
+    hline_top_style: "solid",
+    hline_bottom_color: "#b0b0b0",
+    hline_bottom_width: 0.2,
+    hline_bottom_style: "solid",
+    hline_center_color: "#b0b0b0",
+    hline_center_width: 0.2,
+    hline_center_style: "solid",
+    vline_left_color: "#b0b0b0",
+    vline_left_width: 0.2,
+    vline_left_style: "solid",
+    vline_right_color: "#b0b0b0",
+    vline_right_width: 0.2,
+    vline_right_style: "solid",
+    vline_center_color: "#b0b0b0",
+    vline_center_width: 0.2,
+    vline_center_style: "solid",
     dot_center_color: "#b0b0b0",
     hline_header: false,
     hline_footer: false,
@@ -82,9 +98,22 @@ const defaults: Record<PatternKind, Values & { kind: PatternKind }> = {
     dot_outer: false,
     dot_spacing: 8,
     dot_radius: 0.3,
-    margin_x: 0,
-    margin_color: "#b0b0b0",
     vline_spacing: 8,
+    vline_width: 0.2,
+    vline_color: "#b0b0b0",
+    vline_style: "solid",
+    hline_top: 0,
+    hline_bottom: 0,
+    hline_left: 0,
+    hline_right: 0,
+    vline_top: 0,
+    vline_bottom: 0,
+    vline_left: 0,
+    vline_right: 0,
+    dot_top: 0,
+    dot_bottom: 0,
+    dot_left: 0,
+    dot_right: 0,
   },
   midori: {
     kind: "midori",
@@ -265,41 +294,68 @@ function TextFields({ values, prefix, set }: { values: Values; prefix: string; s
   );
 }
 
+function EdgeDistanceFields({ values, prefix, set }: { values: Values; prefix: string; set: (key: string, value: Value) => void }) {
+  return (
+    <>
+      {(["top", "bottom", "left", "right"] as const).map((edge, index) => (
+        <Field key={edge} label={`距${["上", "下", "左", "右"][index]}边缘（mm）`} value={values[`${prefix}_${edge}`]} min={0} step={0.5} onChange={(value) => set(`${prefix}_${edge}`, value)} />
+      ))}
+    </>
+  );
+}
+
+function LineStyleFields({ title, values, prefix, set }: { title: string; values: Values; prefix: string; set: (key: string, value: Value) => void }) {
+  return (
+    <>
+      <h4 className="text-xs font-medium text-muted-foreground sm:col-span-2">{title}</h4>
+      <Field label="线宽" value={values[`${prefix}_width`] ?? 0.2} min={0.01} step={0.05} onChange={(value) => set(`${prefix}_width`, value)} />
+      <Field label="颜色" value={values[`${prefix}_color`] ?? "#b0b0b0"} type="color" onChange={(value) => set(`${prefix}_color`, value)} />
+      <Select label="样式" value={values[`${prefix}_style`] ?? "solid"} options={LINE_STYLE_OPTIONS} onChange={(value) => set(`${prefix}_style`, value)} />
+    </>
+  );
+}
+
 function PatternFields({ section, set }: { section: Section; set: (key: string, value: Value) => void }) {
   const p = section.pattern;
   if (p.kind === "basic")
     return (
       <>
-        <Field label="基础间距（mm）" value={p.spacing} min={0.1} step={0.1} onChange={(v) => set("spacing", v)} />
-        <Field label="线宽" value={p.line_width} min={0.01} step={0.05} onChange={(v) => set("line_width", v)} />
-        <Field label="线条颜色" value={p.line_color} type="color" onChange={(v) => set("line_color", v)} />
-        <div className="flex flex-wrap items-end gap-4">
+        <div className="flex flex-wrap items-end gap-4 sm:col-span-2">
           <Field label="横线" value={p.draw_hlines} type="checkbox" onChange={(v) => set("draw_hlines", v)} />
           <Field label="竖线" value={p.draw_vlines} type="checkbox" onChange={(v) => set("draw_vlines", v)} />
           <Field label="点阵" value={p.draw_dots} type="checkbox" onChange={(v) => set("draw_dots", v)} />
         </div>
         {p.draw_hlines && (
-          <>
-            <Field label="横线边缘颜色" value={p.hline_edge_color} type="color" onChange={(v) => set("hline_edge_color", v)} />
-            <Field label="横线边缘线宽" value={p.hline_edge_width} min={0.01} step={0.05} onChange={(v) => set("hline_edge_width", v)} />
-          </>
+          <div className="grid gap-4 border-t pt-4 sm:col-span-2 sm:grid-cols-2">
+            <h3 className="text-sm font-medium sm:col-span-2">横线参数</h3>
+            <Field label="横线间距（mm）" value={p.spacing} min={0.1} step={0.1} onChange={(v) => set("spacing", v)} />
+            <EdgeDistanceFields values={p} prefix="hline" set={set} />
+            <LineStyleFields title="最上侧横线" values={p} prefix="hline_top" set={set} />
+            <LineStyleFields title="最下侧横线" values={p} prefix="hline_bottom" set={set} />
+            <LineStyleFields title="中心横线" values={p} prefix="hline_center" set={set} />
+            <LineStyleFields title="其余横线" values={p} prefix="line" set={set} />
+          </div>
         )}
         {p.draw_vlines && (
-          <>
+          <div className="grid gap-4 border-t pt-4 sm:col-span-2 sm:grid-cols-2">
+            <h3 className="text-sm font-medium sm:col-span-2">竖线参数</h3>
             <Field label="竖线间距（mm）" value={p.vline_spacing} min={0.1} step={0.1} onChange={(v) => set("vline_spacing", v)} />
-            <Field label="竖线边缘颜色" value={p.vline_edge_color} type="color" onChange={(v) => set("vline_edge_color", v)} />
-            <Field label="竖线边缘线宽" value={p.vline_edge_width} min={0.01} step={0.05} onChange={(v) => set("vline_edge_width", v)} />
-          </>
+            <EdgeDistanceFields values={p} prefix="vline" set={set} />
+            <LineStyleFields title="最左侧竖线" values={p} prefix="vline_left" set={set} />
+            <LineStyleFields title="最右侧竖线" values={p} prefix="vline_right" set={set} />
+            <LineStyleFields title="中心竖线" values={p} prefix="vline_center" set={set} />
+            <LineStyleFields title="其余竖线" values={p} prefix="vline" set={set} />
+          </div>
         )}
         {p.draw_dots && (
-          <>
+          <div className="grid gap-4 border-t pt-4 sm:col-span-2 sm:grid-cols-2">
+            <h3 className="text-sm font-medium sm:col-span-2">点阵参数</h3>
             <Field label="点阵间距（mm）" value={p.dot_spacing} min={0.1} step={0.1} onChange={(v) => set("dot_spacing", v)} />
             <Field label="点半径（mm）" value={p.dot_radius} min={0.01} step={0.05} onChange={(v) => set("dot_radius", v)} />
             <Field label="中心点颜色" value={p.dot_center_color} type="color" onChange={(v) => set("dot_center_color", v)} />
-          </>
+            <EdgeDistanceFields values={p} prefix="dot" set={set} />
+          </div>
         )}
-        <Field label="边距线 X（0 为关闭）" value={p.margin_x} min={0} step={0.5} onChange={(v) => set("margin_x", v)} />
-        {Number(p.margin_x) > 0 && <Field label="边距线颜色" value={p.margin_color} type="color" onChange={(v) => set("margin_color", v)} />}
       </>
     );
   if (p.kind === "midori")
@@ -602,7 +658,14 @@ function loadJSON<T>(key: string, fallback: T): T {
 }
 
 function cleanPattern(pattern: Section["pattern"]) {
-  if (pattern.kind === "basic" && Number(pattern.margin_x) <= 0) return { ...pattern, margin_x: null };
+  if (pattern.kind === "basic") {
+    const cleaned = { ...pattern };
+    delete cleaned.hline_edge_color;
+    delete cleaned.hline_edge_width;
+    delete cleaned.vline_edge_color;
+    delete cleaned.vline_edge_width;
+    return cleaned;
+  }
   if (pattern.kind !== "timeline") return pattern;
   return {
     ...pattern,
