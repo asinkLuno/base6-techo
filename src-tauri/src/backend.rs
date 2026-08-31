@@ -21,7 +21,7 @@ use chrono::{
 };
 use eight::{EightPattern, draw_eight};
 use midori::{MidoriPattern, draw_midori};
-use month::{MonthPattern, draw_month};
+use month::{MonthPattern, TrackerPattern, draw_month, draw_tracker};
 use serde::Deserialize;
 use tauri::Manager;
 use timeline::{TimelinePattern, draw_timeline};
@@ -292,6 +292,7 @@ enum Pattern {
     Midori(MidoriPattern),
     Month(MonthPattern),
     Timeline(TimelinePattern),
+    Tracker(TrackerPattern),
 }
 
 #[derive(Clone, Copy, Debug, Default, Deserialize, Eq, Ord, PartialEq, PartialOrd)]
@@ -326,6 +327,7 @@ impl Pattern {
             Self::Midori(p) => &p.line_color,
             Self::Month(p) => &p.line_color,
             Self::Timeline(p) => &p.line_color,
+            Self::Tracker(p) => &p.line_color,
         }
     }
     fn line_width(&self) -> f64 {
@@ -336,6 +338,7 @@ impl Pattern {
             Self::Midori(p) => p.line_width,
             Self::Month(p) => p.line_width,
             Self::Timeline(p) => p.line_width,
+            Self::Tracker(p) => p.line_width,
         }
     }
     fn validate(&self) -> Result<(), String> {
@@ -346,6 +349,7 @@ impl Pattern {
             Self::Midori(p) => p.validate(),
             Self::Month(p) => p.validate(),
             Self::Timeline(p) => p.validate(),
+            Self::Tracker(p) => p.validate(),
         }
     }
 }
@@ -443,6 +447,7 @@ struct Poly {
     points: Vec<(f64, f64)>,
     color: String,
     fill: bool,
+    arrow: bool,
 }
 #[derive(Clone, Default)]
 struct PageDraw {
@@ -660,6 +665,10 @@ fn render_page(
         }
         Pattern::Month(p) => {
             let (l, pa, t) = draw_month(geo, p, index, &doc.binding_text_font);
+            (l, vec![], pa, t)
+        }
+        Pattern::Tracker(p) => {
+            let (l, pa, t) = draw_tracker(geo, p, index, &doc.binding_text_font);
             (l, vec![], pa, t)
         }
     };
@@ -924,7 +933,7 @@ fn render_latex(pages: &[OutputPage]) -> String {
         )];
         let mut line_groups: BTreeMap<(String, String, LineStyle), Vec<String>> = BTreeMap::new();
         let mut dot_groups: BTreeMap<String, Vec<String>> = BTreeMap::new();
-        let mut path_groups: BTreeMap<(String, bool), Vec<String>> = BTreeMap::new();
+        let mut path_groups: BTreeMap<(String, bool, bool), Vec<String>> = BTreeMap::new();
         for placement in &page.placements {
             for line in &placement.draw.lines {
                 let raw = line.color.as_deref().unwrap_or("#000000");
@@ -950,14 +959,17 @@ fn render_latex(pages: &[OutputPage]) -> String {
                     .map(|(x, y)| format!("({},{})", placement.dx + x, y))
                     .collect::<Vec<_>>()
                     .join(" -- ");
+                let (cmd, tail) = if poly.fill {
+                    ("fill", " -- cycle")
+                } else if poly.arrow {
+                    ("draw[->]", "")
+                } else {
+                    ("draw", " -- cycle")
+                };
                 path_groups
-                    .entry((color, poly.fill))
+                    .entry((color, poly.fill, poly.arrow))
                     .or_default()
-                    .push(format!(
-                        "  \\{} {} -- cycle;",
-                        if poly.fill { "fill" } else { "draw" },
-                        points
-                    ));
+                    .push(format!("  \\{cmd} {points}{tail};"));
             }
             for dot in &placement.draw.dots {
                 let raw = dot.color.as_deref().unwrap_or("#000000");
@@ -994,7 +1006,7 @@ fn render_latex(pages: &[OutputPage]) -> String {
                 commands.join("\n")
             ));
         }
-        for ((color, _), commands) in path_groups {
+        for ((color, _, _), commands) in path_groups {
             parts.push(format!(
                 "\\begin{{scope}}[{color}]\n{}\n\\end{{scope}}",
                 commands.join("\n")

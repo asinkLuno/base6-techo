@@ -52,8 +52,8 @@ impl MonthPattern {
 }
 
 /// 第 index 页对应的年月（页序依次推进月份）。
-fn month_ym(p: &MonthPattern, index: usize) -> (i32, u32) {
-    let total = i64::from(p.year) * 12 + i64::from(p.month) - 1 + index as i64;
+fn month_ym(year: i32, month: u32, index: usize) -> (i32, u32) {
+    let total = i64::from(year) * 12 + i64::from(month) - 1 + index as i64;
     (total.div_euclid(12) as i32, total.rem_euclid(12) as u32 + 1)
 }
 
@@ -76,7 +76,7 @@ pub(crate) fn draw_month(
     let mut lines = Vec::new();
     let mut paths = Vec::new();
     let mut texts = Vec::new();
-    let (year, month) = month_ym(p, index);
+    let (year, month) = month_ym(p.year, p.month, index);
     let Some(first) = NaiveDate::from_ymd_opt(year, month, 1) else {
         return (lines, paths, texts);
     };
@@ -177,6 +177,7 @@ pub(crate) fn draw_month(
             points: arc(0.0, tau),
             color: p.phase_color.clone(),
             fill: false,
+            arrow: false,
         });
         // 照面区域：亮侧圆弧 + 明暗界线（半短轴 = (1-2×照面)×半径，月牙凸向亮面、凸月凸向暗面）。
         let half_pi = std::f64::consts::FRAC_PI_2;
@@ -193,9 +194,227 @@ pub(crate) fn draw_month(
             points: lit,
             color: p.phase_color.clone(),
             fill: true,
+            arrow: false,
         });
     }
     // 整体逆时针旋转 90°：设计 (x,y) → 页面 (r.x + y, r.y + r.height - x)。
+    let base = r.y + r.height;
+    let left = r.x;
+    for line in &mut lines {
+        let (x1, y1) = (left + line.y1, base - line.x1);
+        let (x2, y2) = (left + line.y2, base - line.x2);
+        line.x1 = x1;
+        line.y1 = y1;
+        line.x2 = x2;
+        line.y2 = y2;
+    }
+    for poly in &mut paths {
+        for point in &mut poly.points {
+            *point = (left + point.1, base - point.0);
+        }
+    }
+    for text in &mut texts {
+        let (x, y) = (left + text.y, base - text.x);
+        text.x = x;
+        text.y = y;
+        text.rotation = 90;
+    }
+    (lines, paths, texts)
+}
+
+const A: f64 = 5.5; // mm，打卡单元格边长
+const ITEM_W: f64 = 2.0; // 打卡项列宽 = ITEM_W × A
+const TRACKER_GAP: f64 = 2.0; // mm，上下两表间距
+const TRACKER_UP: f64 = 3.0; // mm，整体上移
+
+#[derive(Clone, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub(crate) struct TrackerPattern {
+    pub(crate) year: i32,
+    pub(crate) month: u32,
+    pub(crate) items: usize,
+    pub(crate) line_color: String,
+    pub(crate) line_width: f64,
+    pub(crate) date_size: f64,
+}
+impl Default for TrackerPattern {
+    fn default() -> Self {
+        let now = Utc::now();
+        Self {
+            year: now.year(),
+            month: now.month(),
+            items: 4,
+            line_color: "#7a7a7a".into(),
+            line_width: 0.4,
+            date_size: 8.0,
+        }
+    }
+}
+impl TrackerPattern {
+    pub(crate) fn validate(&self) -> Result<(), String> {
+        if !(1..=12).contains(&self.month) {
+            return Err("month must be in 1..12".into());
+        }
+        if !(1..=30).contains(&self.items) {
+            return Err("items must be in 1..30".into());
+        }
+        if self.line_width <= 0.0 || self.date_size <= 0.0 {
+            return Err("line_width and date_size must be > 0".into());
+        }
+        validate_color(&self.line_color)
+    }
+}
+
+/// 一张打卡表：表头行（日期，锚在格右上）+ items 行空格；顶部边线不画（开口样式）。
+#[allow(clippy::too_many_arguments)]
+fn push_table(
+    lines: &mut Vec<Line>,
+    texts: &mut Vec<Text>,
+    p: &TrackerPattern,
+    font: &str,
+    lm: f64,
+    top: f64,
+    first: u32,
+    count: usize,
+    with_items: bool,
+    rows: usize,
+) {
+    let grid = |x1, y1, x2, y2| Line {
+        x1,
+        y1,
+        x2,
+        y2,
+        color: None,
+        width: None,
+        style: LineStyle::Solid,
+    };
+    let mut xs = vec![lm];
+    if with_items {
+        xs.push(lm + ITEM_W * A);
+    }
+    for _ in 0..count {
+        let next = xs.last().unwrap() + A;
+        xs.push(next);
+    }
+    // 竖线不过表头行，横线跳过顶部边线，交叉处留缺口。
+    for x in &xs {
+        for i in 1..rows {
+            lines.push(grid(
+                *x,
+                top + i as f64 * A + GAP,
+                *x,
+                top + (i + 1) as f64 * A - GAP,
+            ));
+        }
+    }
+    for i in 1..=rows {
+        let y = top + i as f64 * A;
+        for k in 0..xs.len() - 1 {
+            lines.push(grid(xs[k] + GAP, y, xs[k + 1] - GAP, y));
+        }
+    }
+    let off = usize::from(with_items);
+    for i in 0..count {
+        texts.push(Text {
+            x: xs[off + i + 1],
+            y: top + A - 0.2,
+            content: (first + i as u32).to_string(),
+            size: p.date_size,
+            color: p.line_color.clone(),
+            rotation: 0,
+            font: font.into(),
+            anchor: "south east",
+        });
+    }
+}
+
+/// 月打卡页：上半表 1–14 号（带打卡项列），下半表 15–月末；随页序推进月份。
+pub(crate) fn draw_tracker(
+    geo: Geometry,
+    p: &TrackerPattern,
+    index: usize,
+    font: &str,
+) -> (Vec<Line>, Vec<Poly>, Vec<Text>) {
+    let mut lines = Vec::new();
+    let mut paths = Vec::new();
+    let mut texts = Vec::new();
+    let r = geo.content;
+    // 与月历一致：横放设计坐标系，整体逆时针旋转 90°。
+    let land = Rect {
+        x: 0.0,
+        y: 0.0,
+        width: r.height,
+        height: r.width,
+    };
+    let (year, month) = month_ym(p.year, p.month, index);
+    let Some(first) = NaiveDate::from_ymd_opt(year, month, 1) else {
+        return (lines, paths, texts);
+    };
+    let (ny, nm) = if month == 12 {
+        (year + 1, 1)
+    } else {
+        (year, month + 1)
+    };
+    let Some(next) = NaiveDate::from_ymd_opt(ny, nm, 1) else {
+        return (lines, paths, texts);
+    };
+    let days = (next - first).num_days() as u32;
+
+    let items = p.items.max(1);
+    let rows = items + 1;
+    let count1 = days.min(14);
+    let count2 = days - count1;
+    let w1 = ITEM_W * A + f64::from(count1 as u16) * A;
+    let w2 = f64::from(count2 as u16) * A;
+    let max_w = if count2 > 0 { w1.max(w2) } else { w1 };
+    let lm = land.x + (land.width - max_w) / 2.0;
+    let table_h = rows as f64 * A;
+    let total = if count2 > 0 {
+        2.0 * table_h + TRACKER_GAP
+    } else {
+        table_h
+    };
+    let top1 = land.y + (land.height - total) / 2.0 - TRACKER_UP;
+    let top2 = top1 + table_h + TRACKER_GAP;
+    push_table(
+        &mut lines,
+        &mut texts,
+        p,
+        font,
+        lm,
+        top1,
+        1,
+        count1 as usize,
+        true,
+        rows,
+    );
+    if count2 > 0 {
+        push_table(
+            &mut lines,
+            &mut texts,
+            p,
+            font,
+            lm,
+            top2,
+            1 + count1,
+            count2 as usize,
+            false,
+            rows,
+        );
+        // 连接箭头：上表打卡第 i 行左缘 → 下表第 i 行左缘（左外侧逐行错开的折线箭头，表头不连）。
+        for j in 1..rows {
+            let yc1 = top1 + (j as f64 + 0.5) * A;
+            let yc2 = top2 + (j as f64 + 0.5) * A;
+            let xm = (lm - 1.5 - j as f64 * 1.5).max(land.x + 0.8);
+            paths.push(Poly {
+                points: vec![(lm - 0.4, yc1), (xm, yc1), (xm, yc2), (lm - 0.4, yc2)],
+                color: p.line_color.clone(),
+                fill: false,
+                arrow: true,
+            });
+        }
+    }
+    // 整体逆时针旋转 90°（同月历页），文字锚点保持原名。
     let base = r.y + r.height;
     let left = r.x;
     for line in &mut lines {
@@ -272,6 +491,25 @@ mod tests {
         let (full_illum, waxing) = moon_illumination(late);
         assert!(full_illum > 0.9);
         assert!(!waxing);
+    }
+
+    #[test]
+    fn tracker_tables_match_senary_layout() {
+        let page = PageSettings::default();
+        let p = TrackerPattern {
+            year: 2026,
+            month: 8,
+            ..Default::default()
+        };
+        let (lines, paths, texts) = draw_tracker(geometry_for(&page, 1), &p, 0, r"\sffamily");
+        // 上表：16 条列界 ×4 段竖线 + 5 条横线 ×15 段；下表：18 ×4 + 5 ×17；行连接箭头 5。
+        assert_eq!(lines.len(), 16 * 4 + 5 * 15 + 18 * 4 + 5 * 17);
+        assert_eq!(paths.len(), 4);
+        // 31 个表头日期。
+        assert_eq!(texts.len(), 31);
+        assert_eq!(texts[0].content, "1");
+        assert_eq!(texts[0].anchor, "south east");
+        assert_eq!(texts[14].content, "15");
     }
 
     #[test]

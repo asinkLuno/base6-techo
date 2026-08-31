@@ -19,7 +19,7 @@ import { cn } from "./lib/utils";
 
 type Value = string | number | boolean | null;
 type Values = Record<string, Value>;
-type PatternKind = "basic" | "bunkwan" | "eight" | "midori" | "month" | "timeline";
+type PatternKind = "basic" | "bunkwan" | "eight" | "midori" | "month" | "timeline" | "tracker";
 type Section = {
   id: string;
   expanded: boolean;
@@ -41,6 +41,7 @@ const patternNames: Record<PatternKind, string> = {
   midori: "Midori",
   month: "月历",
   timeline: "时间轴",
+  tracker: "月打卡",
 };
 
 const PAGE_SIZES: Record<string, [number, number]> = {
@@ -163,6 +164,15 @@ const defaults: Record<PatternKind, Values & { kind: PatternKind }> = {
     year: new Date().getFullYear(),
     month: new Date().getMonth() + 1,
     phase_color: "#e5b93f",
+    line_color: "#7a7a7a",
+    line_width: 0.4,
+    date_size: 8,
+  },
+  tracker: {
+    kind: "tracker",
+    year: new Date().getFullYear(),
+    month: new Date().getMonth() + 1,
+    items: 4,
     line_color: "#7a7a7a",
     line_width: 0.4,
     date_size: 8,
@@ -483,6 +493,17 @@ function PatternFields({ section, set }: { section: Section; set: (key: string, 
         <Field label="年" value={p.year} min={1900} max={2100} onChange={(v) => set("year", v)} />
         <Field label="月" value={p.month} min={1} max={12} onChange={(v) => set("month", v)} />
         <Field label="月相颜色" value={p.phase_color} type="color" onChange={(v) => set("phase_color", v)} />
+        <Field label="线条颜色" value={p.line_color} type="color" onChange={(v) => set("line_color", v)} />
+        <Field label="线宽（pt）" value={p.line_width} min={0.01} step={0.05} onChange={(v) => set("line_width", v)} />
+        <Field label="日期字号（pt）" value={p.date_size} min={1} step={0.5} onChange={(v) => set("date_size", v)} />
+      </>
+    );
+  if (p.kind === "tracker")
+    return (
+      <>
+        <Field label="年" value={p.year} min={1900} max={2100} onChange={(v) => set("year", v)} />
+        <Field label="月" value={p.month} min={1} max={12} onChange={(v) => set("month", v)} />
+        <Field label="打卡项数" value={p.items} min={1} max={30} onChange={(v) => set("items", v)} />
         <Field label="线条颜色" value={p.line_color} type="color" onChange={(v) => set("line_color", v)} />
         <Field label="线宽（pt）" value={p.line_width} min={0.01} step={0.05} onChange={(v) => set("line_width", v)} />
         <Field label="日期字号（pt）" value={p.date_size} min={1} step={0.5} onChange={(v) => set("date_size", v)} />
