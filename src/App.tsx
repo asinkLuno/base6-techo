@@ -19,7 +19,7 @@ import { cn } from "./lib/utils";
 
 type Value = string | number | boolean | null;
 type Values = Record<string, Value>;
-type PatternKind = "basic" | "bunkwan" | "eight" | "midori" | "timeline";
+type PatternKind = "basic" | "bunkwan" | "eight" | "midori" | "month" | "timeline";
 type Section = {
   id: string;
   expanded: boolean;
@@ -39,6 +39,7 @@ const patternNames: Record<PatternKind, string> = {
   bunkwan: "博文馆当用日历",
   eight: "八分视图",
   midori: "Midori",
+  month: "月历",
   timeline: "时间轴",
 };
 
@@ -156,6 +157,15 @@ const defaults: Record<PatternKind, Values & { kind: PatternKind }> = {
     line_style: "solid",
     center_gap: 2,
     date_size: 10,
+  },
+  month: {
+    kind: "month",
+    year: new Date().getFullYear(),
+    month: new Date().getMonth() + 1,
+    phase_color: "#e5b93f",
+    line_color: "#7a7a7a",
+    line_width: 0.4,
+    date_size: 8,
   },
   timeline: {
     kind: "timeline",
@@ -464,6 +474,17 @@ function PatternFields({ section, set }: { section: Section; set: (key: string, 
         <Field label="线宽（pt）" value={p.line_width} min={0.01} step={0.05} onChange={(v) => set("line_width", v)} />
         <Select label="线样式" value={p.line_style} options={LINE_STYLE_OPTIONS} onChange={(v) => set("line_style", v)} />
         <Field label="中心点间距（mm）" value={p.center_gap} min={0} step={0.5} onChange={(v) => set("center_gap", v)} />
+        <Field label="日期字号（pt）" value={p.date_size} min={1} step={0.5} onChange={(v) => set("date_size", v)} />
+      </>
+    );
+  if (p.kind === "month")
+    return (
+      <>
+        <Field label="年" value={p.year} min={1900} max={2100} onChange={(v) => set("year", v)} />
+        <Field label="月" value={p.month} min={1} max={12} onChange={(v) => set("month", v)} />
+        <Field label="月相颜色" value={p.phase_color} type="color" onChange={(v) => set("phase_color", v)} />
+        <Field label="线条颜色" value={p.line_color} type="color" onChange={(v) => set("line_color", v)} />
+        <Field label="线宽（pt）" value={p.line_width} min={0.01} step={0.05} onChange={(v) => set("line_width", v)} />
         <Field label="日期字号（pt）" value={p.date_size} min={1} step={0.5} onChange={(v) => set("date_size", v)} />
       </>
     );
@@ -796,13 +817,14 @@ function cleanPattern(pattern: Section["pattern"]) {
     delete cleaned.date_size;
     return cleaned;
   }
-  if (pattern.kind !== "timeline") return pattern;
-  return {
-    ...pattern,
-    latitude: pattern.latitude ?? null,
-    longitude: pattern.longitude ?? null,
-    timezone: pattern.timezone || null,
-  };
+  if (pattern.kind === "timeline")
+    return {
+      ...pattern,
+      latitude: pattern.latitude ?? null,
+      longitude: pattern.longitude ?? null,
+      timezone: pattern.timezone || null,
+    };
+  return pattern;
 }
 
 export default function App() {

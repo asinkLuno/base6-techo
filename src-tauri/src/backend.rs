@@ -10,6 +10,7 @@ mod basic;
 mod bunkwan;
 mod eight;
 mod midori;
+mod month;
 mod timeline;
 
 use basic::{BasicPattern, draw_basic};
@@ -20,6 +21,7 @@ use chrono::{
 };
 use eight::{EightPattern, draw_eight};
 use midori::{MidoriPattern, draw_midori};
+use month::{MonthPattern, draw_month};
 use serde::Deserialize;
 use tauri::Manager;
 use timeline::{TimelinePattern, draw_timeline};
@@ -288,6 +290,7 @@ enum Pattern {
     Bunkwan(BunkwanPattern),
     Eight(EightPattern),
     Midori(MidoriPattern),
+    Month(MonthPattern),
     Timeline(TimelinePattern),
 }
 
@@ -321,6 +324,7 @@ impl Pattern {
             Self::Bunkwan(p) => &p.line_color,
             Self::Eight(p) => &p.line_color,
             Self::Midori(p) => &p.line_color,
+            Self::Month(p) => &p.line_color,
             Self::Timeline(p) => &p.line_color,
         }
     }
@@ -330,6 +334,7 @@ impl Pattern {
             Self::Bunkwan(p) => p.line_width,
             Self::Eight(p) => p.line_width,
             Self::Midori(p) => p.line_width,
+            Self::Month(p) => p.line_width,
             Self::Timeline(p) => p.line_width,
         }
     }
@@ -339,6 +344,7 @@ impl Pattern {
             Self::Bunkwan(p) => p.validate(),
             Self::Eight(p) => p.validate(),
             Self::Midori(p) => p.validate(),
+            Self::Month(p) => p.validate(),
             Self::Timeline(p) => p.validate(),
         }
     }
@@ -432,11 +438,18 @@ struct Text {
     font: String,
     anchor: &'static str,
 }
+#[derive(Clone)]
+struct Poly {
+    points: Vec<(f64, f64)>,
+    color: String,
+    fill: bool,
+}
 #[derive(Clone, Default)]
 struct PageDraw {
     lines: Vec<Line>,
     texts: Vec<Text>,
     dots: Vec<Dot>,
+    paths: Vec<Poly>,
 }
 #[derive(Clone)]
 struct Placement {
@@ -627,21 +640,28 @@ fn render_page(
 ) -> PageDraw {
     let geo = geometry_for(page, number);
     let date = dates.get(index).copied().flatten();
-    let (lines, dots, mut texts) = match pattern {
+    let (lines, dots, paths, mut texts) = match pattern {
         Pattern::Basic(p) => {
             let (l, d) = draw_basic(geo, p);
-            (l, d, vec![])
+            (l, d, vec![], vec![])
         }
-        Pattern::Bunkwan(p) => (draw_bunkwan(geo, p), vec![], vec![]),
+        Pattern::Bunkwan(p) => (draw_bunkwan(geo, p), vec![], vec![], vec![]),
         Pattern::Midori(p) => {
             let (l, d) = draw_midori(geo, p);
-            (l, d, vec![])
+            (l, d, vec![], vec![])
         }
         Pattern::Eight(p) => {
             let (l, d, t) = draw_eight(geo, p, index, &doc.binding_text_font);
-            (l, d, t)
+            (l, d, vec![], t)
         }
-        Pattern::Timeline(p) => draw_timeline(geo, p, date, &doc.binding_text_font),
+        Pattern::Timeline(p) => {
+            let (l, d, t) = draw_timeline(geo, p, date, &doc.binding_text_font);
+            (l, d, vec![], t)
+        }
+        Pattern::Month(p) => {
+            let (l, pa, t) = draw_month(geo, p, index, &doc.binding_text_font);
+            (l, vec![], pa, t)
+        }
     };
     let visible = doc.header_parity == Parity::Both
         || (doc.header_parity == Parity::Odd && !(index + 1).is_multiple_of(2))
@@ -759,7 +779,12 @@ fn render_page(
         1.0,
         false,
     );
-    PageDraw { lines, dots, texts }
+    PageDraw {
+        lines,
+        dots,
+        paths,
+        texts,
+    }
 }
 
 fn normal_output(section: &RenderSectionRequest, start: usize) -> Vec<OutputPage> {
@@ -899,6 +924,7 @@ fn render_latex(pages: &[OutputPage]) -> String {
         )];
         let mut line_groups: BTreeMap<(String, String, LineStyle), Vec<String>> = BTreeMap::new();
         let mut dot_groups: BTreeMap<String, Vec<String>> = BTreeMap::new();
+        let mut path_groups: BTreeMap<(String, bool), Vec<String>> = BTreeMap::new();
         for placement in &page.placements {
             for line in &placement.draw.lines {
                 let raw = line.color.as_deref().unwrap_or("#000000");
@@ -913,6 +939,24 @@ fn render_latex(pages: &[OutputPage]) -> String {
                         line.y1,
                         placement.dx + line.x2,
                         line.y2
+                    ));
+            }
+            for poly in &placement.draw.paths {
+                let color = color_name(&poly.color);
+                colors.insert(color.clone(), poly.color.clone());
+                let points = poly
+                    .points
+                    .iter()
+                    .map(|(x, y)| format!("({},{})", placement.dx + x, y))
+                    .collect::<Vec<_>>()
+                    .join(" -- ");
+                path_groups
+                    .entry((color, poly.fill))
+                    .or_default()
+                    .push(format!(
+                        "  \\{} {} -- cycle;",
+                        if poly.fill { "fill" } else { "draw" },
+                        points
                     ));
             }
             for dot in &placement.draw.dots {
@@ -950,6 +994,12 @@ fn render_latex(pages: &[OutputPage]) -> String {
                 commands.join("\n")
             ));
         }
+        for ((color, _), commands) in path_groups {
+            parts.push(format!(
+                "\\begin{{scope}}[{color}]\n{}\n\\end{{scope}}",
+                commands.join("\n")
+            ));
+        }
         for placement in &page.placements {
             for text in &placement.draw.texts {
                 let color = if text.color == PAGE_NUMBER_COLOR {
@@ -960,7 +1010,7 @@ fn render_latex(pages: &[OutputPage]) -> String {
                     name
                 };
                 uses_font |= !text.font.trim_start().starts_with('\\');
-                parts.push(format!(r"\node[{}, rotate={}, anchor={}, font={{{}\fontsize{{{}}}{{{}}}\selectfont}}] at ({},{}) {{{}}};", color, text.rotation, text.anchor, font_command(&text.font), text.size, text.size * 1.2, placement.dx + text.x, text.y, tex_escape(&text.content)));
+                parts.push(format!(r"\node[{color}, rotate={}, anchor={}, font={{{}\fontsize{{{}}}{{{}}}\selectfont}}] at ({},{}) {{{}}};", text.rotation, text.anchor, font_command(&text.font), text.size, text.size * 1.2, placement.dx + text.x, text.y, tex_escape(&text.content)));
             }
         }
         bodies.push(format!(

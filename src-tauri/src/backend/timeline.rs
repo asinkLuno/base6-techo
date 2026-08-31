@@ -99,7 +99,7 @@ pub(crate) fn timeline_color(
     )
 }
 
-fn solar_elevation(latitude: f64, longitude: f64, moment: chrono::DateTime<Utc>) -> f64 {
+pub(crate) fn solar_elevation(latitude: f64, longitude: f64, moment: chrono::DateTime<Utc>) -> f64 {
     let jd = moment.timestamp() as f64 / 86400.0 + 2440587.5;
     let t = (jd - 2451545.0) / 36525.0;
     let l0 = (280.46646 + t * (36000.76983 + t * 0.0003032)).rem_euclid(360.0);
