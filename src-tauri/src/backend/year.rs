@@ -5,7 +5,7 @@ use chrono::{Datelike, NaiveDate, Utc};
 use serde::Deserialize;
 
 use super::{
-    Geometry, Rect, Text, WeekdayLang,
+    Geometry, HashMap, Rect, Text, WeekdayLang,
     eight::{MINI_PAD, push_one_month},
 };
 
@@ -95,7 +95,14 @@ impl YearPattern {
 
 /// rows×cols 月历网格；单格宽度撑满，高度按列宽等比（标题 + 表头 + 最多 6 行日期）、
 /// 不超过行带高度并在行带内垂直居中。
-pub(crate) fn draw_year(geo: Geometry, p: &YearPattern, index: usize, font: &str) -> Vec<Text> {
+pub(crate) fn draw_year(
+    geo: Geometry,
+    p: &YearPattern,
+    index: usize,
+    font: &str,
+    holidays: &Option<HashMap<String, String>>,
+    lunar: bool,
+) -> Vec<Text> {
     let mut texts = Vec::new();
     let r = geo.content;
     let (rows, cols) = (p.rows.max(1), p.cols.max(1));
@@ -122,6 +129,10 @@ pub(crate) fn draw_year(geo: Geometry, p: &YearPattern, index: usize, font: &str
             p.weekday_lang,
             None,
             font,
+            holidays,
+            lunar,
+            false,
+            &mut Vec::new(),
         );
     }
     texts
@@ -210,18 +221,23 @@ mod tests {
     fn page_draws_two_month_calendars() {
         let page = PageSettings::default();
         let p = year("2026-01", "2026-12");
-        let texts = draw_year(geometry_for(&page, 1), &p, 0, r"\sffamily");
+        let texts = draw_year(geometry_for(&page, 1), &p, 0, r"\sffamily", &None, false);
         assert!(texts.iter().any(|t| t.content == "2026年1月"));
         assert!(texts.iter().any(|t| t.content == "2026年2月"));
-        // 2026-01-01 是周四：首行只有 1、2、3 号，且无本周红色高亮。
+        // 2026-01-01 是周四（黑色），2026-02-01 是周日（红色，周末）
         assert_eq!(
             texts
                 .iter()
                 .filter(|t| t.content == "1" && t.color == MINI_BLACK)
                 .count(),
-            2,
-            "两个月各有一个黑色的 1 号"
+            1,
+            "只有 1 月 1 号是黑色"
         );
-        assert!(texts.iter().all(|t| t.color != MINI_RED));
+        assert!(
+            texts
+                .iter()
+                .any(|t| t.content == "1" && t.color == MINI_RED),
+            "2 月 1 号是红色（周末）"
+        );
     }
 }

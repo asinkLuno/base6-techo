@@ -1,5 +1,5 @@
 use std::{
-    collections::{BTreeMap, BTreeSet},
+    collections::{BTreeMap, BTreeSet, HashMap},
     fs,
     path::{Path, PathBuf},
     process::Command,
@@ -129,6 +129,7 @@ struct DocumentSettings {
     binding_text_edge: Option<f64>,
     binding_text_font: String,
     binding_text_color: String,
+    pub(crate) lunar: bool,
     non_binding_text: Option<String>,
     non_binding_text_2: Option<String>,
     non_binding_text_size: f64,
@@ -152,6 +153,7 @@ impl Default for DocumentSettings {
             binding_text_edge: None,
             binding_text_font: r"\sffamily".into(),
             binding_text_color: "#7a7a7a".into(),
+            lunar: false,
             non_binding_text: None,
             non_binding_text_2: None,
             non_binding_text_size: 8.0,
@@ -322,6 +324,8 @@ pub(crate) struct RenderSectionRequest {
     #[serde(default)]
     document: DocumentSettings,
     pattern: Pattern,
+    #[serde(default)]
+    holidays: Option<HashMap<String, String>>,
 }
 
 #[derive(Clone, Copy, Deserialize)]
@@ -602,6 +606,8 @@ fn render_page(
     doc: &DocumentSettings,
     index: usize,
     shown_number: Option<usize>,
+    holidays: &Option<HashMap<String, String>>,
+    lunar: bool,
 ) -> PageDraw {
     let geo = geometry_for(page, number);
     let (lines, dots, paths, mut texts) = match pattern {
@@ -615,23 +621,23 @@ fn render_page(
             (l, d, vec![], vec![])
         }
         Pattern::Eight(p) => {
-            let (l, d, t) = draw_eight(geo, p, index, &doc.binding_text_font);
-            (l, d, vec![], t)
+            let (l, d, pa, t) = draw_eight(geo, p, index, &doc.binding_text_font, holidays, lunar);
+            (l, d, pa, t)
         }
         Pattern::Timeline(p) => {
             let (l, d, t) = draw_timeline(geo, p, &doc.binding_text_font);
             (l, d, vec![], t)
         }
         Pattern::Month(p) => {
-            let (l, pa, t) = draw_month(geo, p, index, &doc.binding_text_font);
+            let (l, pa, t) = draw_month(geo, p, index, &doc.binding_text_font, holidays, lunar);
             (l, vec![], pa, t)
         }
         Pattern::Tracker(p) => {
-            let (l, pa, t) = draw_tracker(geo, p, index, &doc.binding_text_font);
+            let (l, pa, t) = draw_tracker(geo, p, index, &doc.binding_text_font, holidays);
             (l, vec![], pa, t)
         }
         Pattern::Year(p) => {
-            let t = draw_year(geo, p, index, &doc.binding_text_font);
+            let t = draw_year(geo, p, index, &doc.binding_text_font, holidays, lunar);
             (vec![], vec![], vec![], t)
         }
     };
@@ -732,6 +738,8 @@ fn normal_output(
     start: usize,
     pages: usize,
     number_start: usize,
+    holidays: &Option<HashMap<String, String>>,
+    lunar: bool,
 ) -> Vec<OutputPage> {
     (0..pages)
         .map(|i| {
@@ -743,6 +751,8 @@ fn normal_output(
                 &section.document,
                 i,
                 shown,
+                holidays,
+                lunar,
             );
             for line in &mut draw.lines {
                 line.color
@@ -1082,7 +1092,14 @@ fn generate(
         // 预览最多渲 2 页。
         let pages = section.pattern.page_count();
         let pages = if preview { pages.min(2) } else { pages };
-        generated.extend(normal_output(&section, number, pages, page_number));
+        generated.extend(normal_output(
+            &section,
+            number,
+            pages,
+            page_number,
+            &section.holidays,
+            section.document.lunar,
+        ));
         number += pages;
         if section.document.page_number {
             page_number += pages;
@@ -1227,6 +1244,47 @@ mod tests {
                     },
                     "document": {
                         "binding_text_font": "Sarasa UI SC"
+                    },
+                    "holidays": {
+                        "2026-01-01": "元旦",
+                        "2026-01-02": "元旦",
+                        "2026-01-03": "元旦",
+                        "2026-01-04": "上班(补元旦假期)",
+                        "2026-02-14": "上班(补春节假期)",
+                        "2026-02-15": "春节",
+                        "2026-02-16": "春节",
+                        "2026-02-17": "春节",
+                        "2026-02-18": "春节",
+                        "2026-02-19": "春节",
+                        "2026-02-20": "春节",
+                        "2026-02-21": "春节",
+                        "2026-02-22": "春节",
+                        "2026-02-23": "春节",
+                        "2026-02-28": "上班(补春节假期)",
+                        "2026-04-04": "清明节",
+                        "2026-04-05": "清明节",
+                        "2026-04-06": "清明节",
+                        "2026-05-01": "劳动节",
+                        "2026-05-02": "劳动节",
+                        "2026-05-03": "劳动节",
+                        "2026-05-04": "劳动节",
+                        "2026-05-05": "劳动节",
+                        "2026-05-09": "上班(补劳动节假期)",
+                        "2026-06-19": "端午节",
+                        "2026-06-20": "端午节",
+                        "2026-06-21": "端午节",
+                        "2026-09-20": "上班(补国庆节假期)",
+                        "2026-09-25": "中秋节",
+                        "2026-09-26": "中秋节",
+                        "2026-09-27": "中秋节",
+                        "2026-10-01": "国庆节",
+                        "2026-10-02": "国庆节",
+                        "2026-10-03": "国庆节",
+                        "2026-10-04": "国庆节",
+                        "2026-10-05": "国庆节",
+                        "2026-10-06": "国庆节",
+                        "2026-10-07": "国庆节",
+                        "2026-10-10": "上班(补国庆节假期)"
                     }
                 }]
             }"#,
@@ -1234,6 +1292,162 @@ mod tests {
         .unwrap();
         let (year_path, _) = generate(year, false, None).unwrap();
         println!("PDF: {}", year_path.display());
+    }
+
+    #[test]
+    fn test_lunar_date() {
+        use super::lunar_date;
+        use chrono::NaiveDate;
+        let d = NaiveDate::from_ymd_opt(2026, 1, 1).unwrap();
+        let lunar = lunar_date(d);
+        println!("2026-01-01 lunar: {:?}", lunar);
+        assert!(lunar.is_some(), "lunar date should exist");
+    }
+
+    #[test]
+    fn render_lunar_calendar() {
+        let year: RunPipelineRequest = serde_json::from_str(
+            r#"{
+                "output": "/tmp/year-2026-lunar.pdf",
+                "sections": [{
+                    "pattern": {
+                        "kind": "year",
+                        "start": "2026-01",
+                        "end": "2026-12",
+                        "rows": 2,
+                        "cols": 2
+                    },
+                    "document": {
+                        "binding_text_font": "Sarasa UI SC",
+                        "lunar": true
+                    },
+                    "holidays": {
+                        "2026-01-01": "元旦",
+                        "2026-01-02": "元旦",
+                        "2026-01-03": "元旦",
+                        "2026-01-04": "上班(补元旦假期)",
+                        "2026-02-14": "上班(补春节假期)",
+                        "2026-02-15": "春节",
+                        "2026-02-16": "春节",
+                        "2026-02-17": "春节",
+                        "2026-02-18": "春节",
+                        "2026-02-19": "春节",
+                        "2026-02-20": "春节",
+                        "2026-02-21": "春节",
+                        "2026-02-22": "春节",
+                        "2026-02-23": "春节",
+                        "2026-02-28": "上班(补春节假期)",
+                        "2026-04-04": "清明节",
+                        "2026-04-05": "清明节",
+                        "2026-04-06": "清明节",
+                        "2026-05-01": "劳动节",
+                        "2026-05-02": "劳动节",
+                        "2026-05-03": "劳动节",
+                        "2026-05-04": "劳动节",
+                        "2026-05-05": "劳动节",
+                        "2026-05-09": "上班(补劳动节假期)",
+                        "2026-06-19": "端午节",
+                        "2026-06-20": "端午节",
+                        "2026-06-21": "端午节",
+                        "2026-09-20": "上班(补国庆节假期)",
+                        "2026-09-25": "中秋节",
+                        "2026-09-26": "中秋节",
+                        "2026-09-27": "中秋节",
+                        "2026-10-01": "国庆节",
+                        "2026-10-02": "国庆节",
+                        "2026-10-03": "国庆节",
+                        "2026-10-04": "国庆节",
+                        "2026-10-05": "国庆节",
+                        "2026-10-06": "国庆节",
+                        "2026-10-07": "国庆节",
+                        "2026-10-10": "上班(补国庆节假期)"
+                    }
+                }]
+            }"#,
+        )
+        .unwrap();
+        let (lunar_path, _) = generate(year, false, None).unwrap();
+        println!("Lunar PDF: {}", lunar_path.display());
+        // Debug: check if lunar texts exist
+        let year2: RunPipelineRequest = serde_json::from_str(
+            r#"{
+                "output": "/tmp/year-2026-lunar2.pdf",
+                "sections": [{
+                    "pattern": {
+                        "kind": "year",
+                        "start": "2026-01",
+                        "end": "2026-12",
+                        "rows": 2,
+                        "cols": 2
+                    },
+                    "document": {
+                        "binding_text_font": "Sarasa UI SC",
+                        "lunar": true
+                    }
+                }]
+            }"#,
+        )
+        .unwrap();
+        let (lunar_path2, _) = generate(year2, false, None).unwrap();
+        println!("Generated: {}", lunar_path2.display());
+    }
+    #[test]
+    fn render_month_with_holidays_and_lunar() {
+        let body: RunPipelineRequest = serde_json::from_str(
+            r#"{
+                "output": "/tmp/month-2026-01.pdf",
+                "sections": [{
+                    "pattern": {
+                        "kind": "month",
+                        "year": 2026,
+                        "month": 1
+                    },
+                    "document": {
+                        "binding_text_font": "Sarasa UI SC",
+                        "lunar": true
+                    },
+                    "holidays": {
+                        "2026-01-01": "元旦",
+                        "2026-01-02": "元旦",
+                        "2026-01-03": "元旦",
+                        "2026-01-04": "上班(补元旦假期)"
+                    }
+                }]
+            }"#,
+        )
+        .unwrap();
+        let (path, _) = generate(body, false, None).unwrap();
+        println!("Month PDF: {}", path.display());
+    }
+
+    #[test]
+    fn render_eight_with_holidays_and_lunar() {
+        let body: RunPipelineRequest = serde_json::from_str(
+            r#"{
+                "output": "/tmp/eight-2026-01.pdf",
+                "sections": [{
+                    "pattern": {
+                        "kind": "eight",
+                        "start_date": "2026-01-05",
+                        "end_date": "2026-01-11",
+                        "weekday_lang": "zh"
+                    },
+                    "document": {
+                        "binding_text_font": "Sarasa UI SC",
+                        "lunar": true
+                    },
+                    "holidays": {
+                        "2026-01-01": "元旦",
+                        "2026-01-02": "元旦",
+                        "2026-01-03": "元旦",
+                        "2026-01-04": "上班(补元旦假期)"
+                    }
+                }]
+            }"#,
+        )
+        .unwrap();
+        let (path, _) = generate(body, false, None).unwrap();
+        println!("Eight PDF: {}", path.display());
     }
 
     #[test]
@@ -1386,7 +1600,7 @@ mod tests {
         };
         let pattern = Pattern::Basic(Box::default());
         for (number, expected_x) in [(1, 77.5), (2, 70.5)] {
-            let draw = render_page(&page, &pattern, number, &document, 0, None);
+            let draw = render_page(&page, &pattern, number, &document, 0, None, &None, false);
             assert!(draw.texts.iter().all(|text| text.x == expected_x));
         }
     }
@@ -1407,7 +1621,7 @@ mod tests {
         };
         let pattern = Pattern::Basic(Box::default());
         // 参与页码：页码显示在页头/页脚中心，用各自的颜色。
-        let draw = render_page(&page, &pattern, 1, &document, 0, Some(7));
+        let draw = render_page(&page, &pattern, 1, &document, 0, Some(7), &None, false);
         let number = |y: f64, color: &str| {
             draw.texts
                 .iter()
@@ -1419,7 +1633,7 @@ mod tests {
             &document.footer.text_color
         ));
         // 不参与页码：不显示。
-        let draw = render_page(&page, &pattern, 1, &document, 0, None);
+        let draw = render_page(&page, &pattern, 1, &document, 0, None, &None, false);
         assert!(draw.texts.iter().all(|t| t.content != "7"));
     }
 
@@ -1434,7 +1648,7 @@ mod tests {
             ..Default::default()
         };
         let pattern = Pattern::Bunkwan(BunkwanPattern::default());
-        let draw = render_page(&page, &pattern, 1, &document, 0, None);
+        let draw = render_page(&page, &pattern, 1, &document, 0, None, &None, false);
         let content = geometry_for(&page, 1).content;
         assert_eq!((draw.lines[0].x1, draw.lines[0].y1), (content.x, content.y));
         assert!(draw.texts.iter().any(|text| text.content == "header"));

@@ -16,6 +16,7 @@ import { zhCN } from "react-day-picker/locale";
 import { Select as SelectRoot, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./components/ui/select";
 import { ColorPicker } from "./components/ui/color-picker";
 import { cn } from "./lib/utils";
+import { parseICS } from "./lib/ics-parser";
 
 type Value = string | number | boolean | null;
 type Values = Record<string, Value>;
@@ -253,6 +254,7 @@ function newSection(width = 148, height = 210): Section {
       non_binding_text_spacing: 5,
       non_binding_text_edge: null,
       non_binding_text_color: "#7a7a7a",
+    lunar: false,
     },
     watermarkEnabled: false,
     nonBindingEnabled: false,
@@ -655,7 +657,7 @@ function bandRequest(values: Values, prefix: "header" | "footer", enabled: boole
   };
 }
 
-function sectionRequest(section: Section): RenderSectionRequest {
+function sectionRequest(section: Section, holidays: Record<string, string>): RenderSectionRequest {
   return {
     page: {
       ...section.page,
@@ -683,18 +685,20 @@ function sectionRequest(section: Section): RenderSectionRequest {
       non_binding_text_spacing: section.document.non_binding_text_spacing,
       non_binding_text_edge: section.document.non_binding_text_edge,
       non_binding_text_color: section.document.non_binding_text_color,
-    },
-    pattern: cleanPattern(section.pattern),
+      lunar: section.document.lunar,
+  },
+  pattern: cleanPattern(section.pattern),
+  holidays,
   } as unknown as RenderSectionRequest;
 }
 
-const SortableSection = memo(function SortableSection({ section, index, update, remove }: { section: Section; index: number; update: (id: string, patch: Partial<Section>) => void; remove: (id: string) => void }) {
+const SortableSection = memo(function SortableSection({ section, index, update, remove, holidays }: { section: Section; index: number; update: (id: string, patch: Partial<Section>) => void; remove: (id: string) => void; holidays: Record<string, string> }) {
   const sortable = useSortable({ id: section.id });
   const [preview, setPreview] = useState("");
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewing, setPreviewing] = useState(false);
   const [previewError, setPreviewError] = useState("");
-  const previewRequest = previewOpen ? JSON.stringify(sectionRequest(section)) : "";
+  const previewRequest = previewOpen ? JSON.stringify(sectionRequest(section, holidays)) : "";
   useEffect(() => {
     if (!previewOpen) return;
     let stale = false;
@@ -802,6 +806,7 @@ const SortableSection = memo(function SortableSection({ section, index, update, 
               <Field label="离边缘距离（mm，留空居中）" value={section.document.binding_text_edge} type="number" min={0} step={0.5} onChange={(v) => doc("binding_text_edge", Number(v) || null)} />
               <TextFields values={section.document} prefix="binding_text" set={doc} />
               <Field label="水印颜色" value={section.document.binding_text_color} type="color" onChange={(v) => doc("binding_text_color", v)} />
+              <Field label="显示农历" value={section.document.lunar} type="checkbox" onChange={(v) => doc("lunar", v)} />
             </Group>
             <Group title="非装订侧水印" enabled={section.nonBindingEnabled} onEnabled={(nonBindingEnabled) => update(section.id, { nonBindingEnabled })}>
               <Field label="非装订侧宽度（mm）" value={section.page.non_binding} min={0} step={0.5} onChange={(v) => page("non_binding", v)} />
@@ -869,6 +874,7 @@ export default function App() {
       sheetsPerGroup?: number;
       size?: { width: number; height: number };
       pageSize?: string;
+      holidays?: Record<string, string>;
     } | null>("base6.state", null),
   );
   const [sections, setSections] = useState<Section[]>(() =>
@@ -881,7 +887,8 @@ export default function App() {
   );
   const [binding, setBinding] = useState<"booklet" | "thread" | null>(saved?.binding ?? "booklet");
   const [size, setSize] = useState(saved?.size ?? { width: 148, height: 210 });
-  const [pageSize, setPageSize] = useState(saved?.pageSize ?? "A5");
+const [pageSize, setPageSize] = useState(saved?.pageSize ?? "A5");
+const [holidays, setHolidays] = useState<Record<string, string>>(saved?.holidays ?? {});
   const [fontOptions, setFontOptions] = useState<[string, string][]>(FONT_OPTIONS);
   useEffect(() => {
     invoke<string>("list_system_fonts")
@@ -901,8 +908,8 @@ export default function App() {
   const [status, setStatus] = useState("");
   const [running, setRunning] = useState(false);
   useEffect(() => {
-    localStorage.setItem("base6.state", JSON.stringify({ sections, binding, sheetsPerGroup, size, pageSize }));
-  }, [sections, binding, sheetsPerGroup, size, pageSize]);
+localStorage.setItem("base6.state", JSON.stringify({ sections, binding, sheetsPerGroup, size, pageSize, holidays }));
+  }, [sections, binding, sheetsPerGroup, size, pageSize, holidays]);
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
   const update = useCallback((id: string, patch: Partial<Section>) => setSections((items) => items.map((item) => (item.id === id ? { ...item, ...patch } : item))), []);
   const removeSection = useCallback((id: string) => setSections((items) => items.filter(({ id: itemId }) => itemId !== id)), []);
@@ -926,7 +933,7 @@ export default function App() {
     try {
       await invoke<string>("write_text_file", {
         path: output,
-        content: JSON.stringify({ sections, binding, sheetsPerGroup, size, pageSize }, null, 2),
+        content: JSON.stringify({ sections, binding, sheetsPerGroup, size, pageSize, holidays }, null, 2),
       });
       setStatus("预设已导出");
     } catch (error) {
@@ -947,6 +954,7 @@ export default function App() {
         sheetsPerGroup?: unknown;
         size?: unknown;
         pageSize?: unknown;
+        holidays?: unknown;
       };
       if (!data || !Array.isArray(data.sections)) {
         setStatus("预设文件格式不正确");
@@ -957,11 +965,30 @@ export default function App() {
       if (typeof data.sheetsPerGroup === "number") setSheetsPerGroup(data.sheetsPerGroup);
       if (data.size && typeof data.size === "object" && "width" in data.size && "height" in data.size) setSize(data.size as { width: number; height: number });
       if (typeof data.pageSize === "string") setPageSize(data.pageSize);
+      if (data.holidays && typeof data.holidays === "object") setHolidays(data.holidays as Record<string, string>);
       setStatus("预设已导入");
     } catch (error) {
       setStatus(`导入失败：${String(error)}`);
     }
   }
+
+  async function importICS() {
+    try {
+      const path = await open({
+        title: "选择 ICS 日历文件",
+        filters: [{ name: "ICS 日历", extensions: ["ics", "ical"] }],
+        multiple: false,
+      });
+      if (!path) return;
+      const content = await invoke<string>("read_text_file", { path });
+      const parsed = parseICS(content);
+      setHolidays(parsed);
+      setStatus(`已导入 ${Object.keys(parsed).length} 个节日`);
+    } catch (error) {
+      setStatus(`导入失败：${String(error)}`);
+    }
+  }
+
   async function generate() {
     const output = await save({
       title: "生成手帐 PDF",
@@ -974,7 +1001,7 @@ export default function App() {
     try {
       const request = {
         output,
-        sections: sections.map((section) => sectionRequest(section)),
+        sections: sections.map((section) => sectionRequest(section, holidays)),
         bind: { mode: binding, sheets_per_group: sheetsPerGroup },
       } as unknown as RunPipelineRequest;
       setStatus(`已生成：${await invoke<string>("run_pipeline", { body: request })}`);
@@ -998,7 +1025,7 @@ export default function App() {
           <DndContext sensors={sensors} onDragEnd={dragEnd}>
             <SortableContext items={sections.map(({ id }) => id)} strategy={verticalListSortingStrategy}>
               {sections.map((section, index) => (
-                <SortableSection key={section.id} section={section} index={index} update={update} remove={removeSection} />
+<SortableSection key={section.id} section={section} index={index} update={update} remove={removeSection} holidays={holidays} />
               ))}
             </SortableContext>
           </DndContext>
@@ -1033,6 +1060,25 @@ export default function App() {
                 <>
                   <Field label="宽度（mm）" value={size.width} min={10} step={0.5} onChange={(v) => applySize(Number(v), size.height)} />
                   <Field label="高度（mm）" value={size.height} min={10} step={0.5} onChange={(v) => applySize(size.width, Number(v))} />
+              <div className="grid gap-3">
+                <div className="flex items-center gap-2">
+                  <Button variant="outline" size="sm" onClick={importICS} disabled={running}>
+                    <Upload />
+                    导入 ICS 日历
+                  </Button>
+                  {Object.keys(holidays).length > 0 && (
+                    <Button variant="ghost" size="sm" onClick={() => setHolidays({})}>
+                      <Trash2 />
+                      清除
+                    </Button>
+                  )}
+                </div>
+                {Object.keys(holidays).length > 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    已导入 {Object.keys(holidays).length} 个节日日期
+                  </p>
+                )}
+              </div>
                 </>
               )}
               <FontPicker

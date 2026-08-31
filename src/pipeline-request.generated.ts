@@ -123,6 +123,7 @@ export interface RenderSectionRequest {
   page?: PageRequest;
   document?: DocumentRequest;
   pattern: Pattern;
+  holidays?: Record<string, string>;
 }
 export interface PageRequest {
   width?: Width;

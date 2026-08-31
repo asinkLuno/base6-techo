@@ -1,19 +1,20 @@
 //! 月历 — 移植自 lunar techo 的 senary 月历正面：7 列周一为首的网格
 //! （交叉处留 0.2mm 缺口）、左上角日期、右上角照面比例月相方块。
 
-use chrono::{Datelike, Duration, NaiveDate, TimeZone, Utc};
+use chrono::{Datelike, Duration, NaiveDate, TimeZone, Utc, Weekday};
 use serde::Deserialize;
 
 use super::{
-    Geometry, Line, LineStyle, Poly, Rect, Text, WeekdayLang, validate_color, weekday_headers,
+    Geometry, HashMap, Line, LineStyle, Poly, Rect, Text, WeekdayLang, lunar_date, validate_color,
+    weekday_headers,
 };
 
 const COLS: usize = 7;
 const HEAD_H: f64 = 4.0; // mm，星期表头行高
 const PAD: f64 = 0.2; // mm，日期距格边
 const GAP: f64 = 0.2; // mm，网格交叉处留白
-const PS: f64 = 2.0; // mm，月相圆盘直径
-const MOON_STEPS: usize = 24; // 圆弧采样数
+pub(crate) const PS: f64 = 2.0; // mm，月相圆盘直径
+pub(crate) const MOON_STEPS: usize = 24; // 圆弧采样数
 const SYNODIC: f64 = 29.53058867; // 朔望月（天）
 
 #[derive(Clone, Deserialize)]
@@ -61,7 +62,7 @@ fn month_ym(year: i32, month: u32, index: usize) -> (i32, u32) {
 }
 
 /// 以 2000-01-06 18:14 UTC 朔为历元的近似月相：(照面比例 0..1, 是否盈)。
-fn moon_illumination(moment: chrono::DateTime<Utc>) -> (f64, bool) {
+pub(crate) fn moon_illumination(moment: chrono::DateTime<Utc>) -> (f64, bool) {
     let epoch = Utc.with_ymd_and_hms(2000, 1, 6, 18, 14, 0).unwrap();
     let frac = ((moment - epoch).num_seconds() as f64 / 86400.0).rem_euclid(SYNODIC) / SYNODIC;
     (
@@ -75,6 +76,8 @@ pub(crate) fn draw_month(
     p: &MonthPattern,
     index: usize,
     font: &str,
+    holidays: &Option<HashMap<String, String>>,
+    lunar: bool,
 ) -> (Vec<Line>, Vec<Poly>, Vec<Text>) {
     let mut lines = Vec::new();
     let mut paths = Vec::new();
@@ -149,16 +152,55 @@ pub(crate) fn draw_month(
         let row = (pos / COLS) as f64;
         let col = (pos % COLS) as f64;
         let date = first + Duration::days(i64::from(d as u16 - 1));
+        let date_key = format!("{}-{:02}-{:02}", date.year(), date.month(), date.day());
+        let is_weekend = date.weekday() == Weekday::Sat || date.weekday() == Weekday::Sun;
+        let holiday_name = holidays.as_ref().and_then(|h| h.get(&date_key));
+        let is_compensatory = holiday_name.is_some_and(|n| n.starts_with("上班"));
+        let is_red = holiday_name.is_some() && !is_compensatory || is_weekend && !is_compensatory;
+        let text_color = if is_red { "#FF0000" } else { &p.line_color };
         texts.push(Text {
             x: land.x + cell_w * col + PAD,
             y: gy + cell_h * row + PAD,
             content: d.to_string(),
             size: p.date_size,
-            color: p.line_color.clone(),
+            color: text_color.to_string(),
             rotation: 0,
             font: font.into(),
             anchor: "north west",
         });
+        // 农历日期：日期数字正下方
+        if lunar && let Some(lunar_str) = lunar_date(date) {
+            texts.push(Text {
+                x: land.x + cell_w * col + PAD,
+                y: gy + cell_h * row + PAD + p.date_size - 0.15,
+                content: lunar_str,
+                size: p.date_size * 0.5,
+                color: p.line_color.clone(),
+                rotation: 0,
+                font: font.into(),
+                anchor: "north west",
+            });
+        }
+        // 节日名称：日期数字正下方（调休上班日不显示名称）
+        if let Some(name) = holiday_name
+            && !is_compensatory
+        {
+            texts.push(Text {
+                x: land.x + cell_w * col + PAD,
+                y: gy
+                    + cell_h * row
+                    + PAD
+                    + p.date_size
+                    + (if lunar { p.date_size * 0.5 - 0.05 } else { 0.0 })
+                    - 0.15,
+                content: name.clone(),
+                size: p.date_size * 0.55,
+                color: "#FF0000".to_string(),
+                rotation: 0,
+                font: font.into(),
+                anchor: "north west",
+            });
+        }
         // 右上角圆形月相：圆盘描边 + 照面多边形（盈相亮面在右，亏相在左）。
         let rx = land.x + cell_w * (col + 1.0) - PAD;
         let ty = gy + cell_h * row + PAD;
@@ -281,6 +323,9 @@ fn push_table(
     count: usize,
     with_items: bool,
     rows: usize,
+    holidays: &Option<HashMap<String, String>>,
+    year: i32,
+    month: u32,
 ) {
     let grid = |x1, y1, x2, y2| Line {
         x1,
@@ -318,12 +363,21 @@ fn push_table(
     }
     let off = usize::from(with_items);
     for i in 0..count {
+        let day = first + i as u32;
+        let date_key = format!("{}-{:02}-{:02}", year, month, day);
+        let date = NaiveDate::from_ymd_opt(year, month, day);
+        let is_weekend =
+            date.is_some_and(|d| d.weekday() == Weekday::Sat || d.weekday() == Weekday::Sun);
+        let holiday_name = holidays.as_ref().and_then(|h| h.get(&date_key));
+        let is_compensatory = holiday_name.is_some_and(|n| n.starts_with("上班"));
+        let is_red = holiday_name.is_some() && !is_compensatory || is_weekend && !is_compensatory;
+        let text_color = if is_red { "#FF0000" } else { &p.line_color };
         texts.push(Text {
             x: xs[off + i + 1],
             y: top + A - 0.2,
-            content: (first + i as u32).to_string(),
+            content: day.to_string(),
             size: p.date_size,
-            color: p.line_color.clone(),
+            color: text_color.to_string(),
             rotation: 0,
             font: font.into(),
             anchor: "south east",
@@ -337,6 +391,7 @@ pub(crate) fn draw_tracker(
     p: &TrackerPattern,
     index: usize,
     font: &str,
+    holidays: &Option<HashMap<String, String>>,
 ) -> (Vec<Line>, Vec<Poly>, Vec<Text>) {
     let mut lines = Vec::new();
     let mut paths = Vec::new();
@@ -390,6 +445,9 @@ pub(crate) fn draw_tracker(
         count1 as usize,
         true,
         rows,
+        holidays,
+        year,
+        month,
     );
     if count2 > 0 {
         push_table(
@@ -403,6 +461,9 @@ pub(crate) fn draw_tracker(
             count2 as usize,
             false,
             rows,
+            holidays,
+            ny,
+            nm,
         );
         // 连接箭头：上表打卡第 i 行左缘 → 下表第 i 行左缘（左外侧逐行错开的折线箭头，表头不连）。
         for j in 1..rows {
@@ -456,7 +517,8 @@ mod tests {
             month: 8,
             ..Default::default()
         };
-        let (lines, paths, texts) = draw_month(geometry_for(&page, 1), &p, 0, r"\sffamily");
+        let (lines, paths, texts) =
+            draw_month(geometry_for(&page, 1), &p, 0, r"\sffamily", &None, false);
         // 2026-08：周六起，31 天，6 行 → 竖线 8×6 + 横线 7×7，月相圆盘 + 照面多边形 31×2。
         assert_eq!(lines.len(), 8 * 6 + 7 * 7);
         assert_eq!(paths.len(), 62);
@@ -478,7 +540,7 @@ mod tests {
             month: 12,
             ..Default::default()
         };
-        let (_, _, texts) = draw_month(geometry_for(&page, 2), &p, 1, r"\sffamily");
+        let (_, _, texts) = draw_month(geometry_for(&page, 2), &p, 1, r"\sffamily", &None, false);
         // 2027-01 共 31 天。
         assert!(texts.iter().any(|t| t.content == "31"));
         assert_eq!(texts[7].content, "1");
@@ -504,7 +566,8 @@ mod tests {
             month: 8,
             ..Default::default()
         };
-        let (lines, paths, texts) = draw_tracker(geometry_for(&page, 1), &p, 0, r"\sffamily");
+        let (lines, paths, texts) =
+            draw_tracker(geometry_for(&page, 1), &p, 0, r"\sffamily", &None);
         // 上表：16 条列界 ×4 段竖线 + 5 条横线 ×15 段；下表：18 ×4 + 5 ×17；行连接箭头 5。
         assert_eq!(lines.len(), 16 * 4 + 5 * 15 + 18 * 4 + 5 * 17);
         assert_eq!(paths.len(), 4);
@@ -536,14 +599,15 @@ mod tests {
             ..Default::default()
         };
         // 默认英文表头（与旧版一致）。
-        let (_, _, texts) = draw_month(geometry_for(&page, 1), &p, 0, r"\sffamily");
+        let (_, _, texts) = draw_month(geometry_for(&page, 1), &p, 0, r"\sffamily", &None, false);
         assert_eq!(texts[0].content, "Mo");
         for (lang, first) in [(WeekdayLang::Zh, "一"), (WeekdayLang::Ja, "月")] {
             let p = MonthPattern {
                 weekday_lang: lang,
                 ..p.clone()
             };
-            let (_, _, texts) = draw_month(geometry_for(&page, 1), &p, 0, r"\sffamily");
+            let (_, _, texts) =
+                draw_month(geometry_for(&page, 1), &p, 0, r"\sffamily", &None, false);
             assert_eq!(texts[0].content, first);
         }
     }

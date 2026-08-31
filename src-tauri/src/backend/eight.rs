@@ -1,9 +1,10 @@
 use chrono::{Datelike, Duration, NaiveDate, Utc, Weekday};
 use serde::Deserialize;
 
+use super::month::{MOON_STEPS, PS, moon_illumination};
 use super::{
-    Dot, Geometry, Line, LineStyle, Rect, Text, WeekdayLang, chrono_format, format_date,
-    lunar_date, validate_color, validate_date_format, weekday_headers,
+    Dot, Geometry, HashMap, Line, LineStyle, Poly, Rect, Text, WeekdayLang, chrono_format,
+    format_date, lunar_date, validate_color, validate_date_format, weekday_headers,
 };
 
 #[derive(Clone, Deserialize)]
@@ -19,6 +20,7 @@ pub(crate) struct EightPattern {
     pub(crate) line_style: LineStyle,
     pub(crate) center_gap: f64,
     pub(crate) date_size: f64,
+    pub(crate) phase_color: String,
 }
 impl Default for EightPattern {
     fn default() -> Self {
@@ -35,6 +37,7 @@ impl Default for EightPattern {
             line_style: LineStyle::Solid,
             center_gap: 2.0,
             date_size: 10.0,
+            phase_color: "#e5b93f".into(),
         }
     }
 }
@@ -51,6 +54,9 @@ impl EightPattern {
         }
         if self.line_width <= 0.0 || self.date_size <= 0.0 {
             return Err("line_width and date_size must be > 0".into());
+        }
+        if self.phase_color.is_empty() {
+            return Err("phase_color must not be empty".into());
         }
         if self.center_gap < 0.0 {
             return Err("center_gap must be >= 0".into());
@@ -100,6 +106,9 @@ fn push_mini_calendar(
     week_start: NaiveDate,
     p: &EightPattern,
     font: &str,
+    holidays: &Option<HashMap<String, String>>,
+    lunar: bool,
+    paths: &mut Vec<Poly>,
 ) {
     let first = NaiveDate::from_ymd_opt(week_start.year(), week_start.month(), 1)
         .expect("month of an existing date is valid");
@@ -116,6 +125,10 @@ fn push_mini_calendar(
             p.weekday_lang,
             Some((week_start, week_start + Duration::days(6))),
             font,
+            holidays,
+            lunar,
+            true,
+            paths,
         );
     }
     push_one_month(
@@ -129,6 +142,10 @@ fn push_mini_calendar(
         p.weekday_lang,
         Some((week_start, week_start + Duration::days(6))),
         font,
+        holidays,
+        lunar,
+        false,
+        paths,
     );
 }
 
@@ -142,6 +159,10 @@ pub(crate) fn push_one_month(
     lang: WeekdayLang,
     highlight: Option<(NaiveDate, NaiveDate)>,
     font: &str,
+    holidays: &Option<HashMap<String, String>>,
+    lunar: bool,
+    mini: bool,
+    paths: &mut Vec<Poly>,
 ) {
     let Some(next) = next_month_first(first) else {
         return;
@@ -160,7 +181,18 @@ pub(crate) fn push_one_month(
         WeekdayLang::Zh | WeekdayLang::Ja => "zh-CN",
     };
     let head = weekday_headers(lang);
-    let mut label = |content: &str, i: f64, j: usize, color: &str| {
+    fn push_text(
+        texts: &mut Vec<Text>,
+        rect: Rect,
+        cell_w: f64,
+        cell_h: f64,
+        size: f64,
+        font: &str,
+        content: &str,
+        i: f64,
+        j: usize,
+        color: &str,
+    ) {
         texts.push(Text {
             x: rect.x + MINI_PAD + cell_w * (i + 0.5),
             y: rect.y + MINI_PAD + cell_h * (j as f64 + 0.5),
@@ -171,26 +203,115 @@ pub(crate) fn push_one_month(
             font: font.into(),
             anchor: "center",
         });
-    };
-    label(
+    }
+    push_text(
+        texts,
+        rect,
+        cell_w,
+        cell_h,
+        size,
+        font,
         &format_date(first, title_format, locale),
         3.0,
         0,
         MINI_BLACK,
     );
     for (i, w) in head.iter().enumerate() {
-        label(w, i as f64, 1, MINI_BLACK);
+        push_text(
+            texts, rect, cell_w, cell_h, size, font, w, i as f64, 1, MINI_BLACK,
+        );
     }
     for d in 1..=days {
         let date = first + Duration::days(d as i64 - 1);
         let pos = first_wd + d - 1;
         let red = highlight.is_some_and(|(s, e)| (s..=e).contains(&date));
-        label(
+        let is_weekend = date.weekday() == Weekday::Sat || date.weekday() == Weekday::Sun;
+        let date_key = format!("{}-{:02}-{:02}", date.year(), date.month(), date.day());
+        let holiday_name = holidays.as_ref().and_then(|h| h.get(&date_key));
+        let is_compensatory = holiday_name.is_some_and(|n| n.starts_with("上班"));
+        let is_red =
+            red || (holiday_name.is_some() && !is_compensatory) || (is_weekend && !is_compensatory);
+        push_text(
+            texts,
+            rect,
+            cell_w,
+            cell_h,
+            size,
+            font,
             &d.to_string(),
             (pos % 7) as f64,
             pos / 7 + 2,
-            if red { MINI_RED } else { MINI_BLACK },
+            if is_red { MINI_RED } else { MINI_BLACK },
         );
+        // 右上角月相：微缩月历不画
+        if !mini {
+            let rx = rect.x + MINI_PAD + cell_w * ((pos % 7) as f64 + 1.0);
+            let ty = rect.y + MINI_PAD + cell_h * ((pos / 7 + 2) as f64);
+            let (illum, waxing) = moon_illumination(date.and_hms_opt(12, 0, 0).unwrap().and_utc());
+            let cx = rx - PS / 2.0;
+            let cy = ty + PS / 2.0;
+            let radius = PS / 2.0;
+            let tau = std::f64::consts::TAU;
+            let half_pi = std::f64::consts::FRAC_PI_2;
+            let arc = |start: f64, end: f64| {
+                (0..=MOON_STEPS)
+                    .map(|i| {
+                        let phi = start + (end - start) * i as f64 / MOON_STEPS as f64;
+                        (cx + radius * phi.cos(), cy + radius * phi.sin())
+                    })
+                    .collect::<Vec<_>>()
+            };
+            paths.push(Poly {
+                points: arc(0.0, tau),
+                color: "#e5b93f".to_string(),
+                fill: false,
+                arrow: false,
+            });
+            let mut lit = arc(-half_pi, half_pi);
+            for (x, y) in arc(half_pi, -half_pi) {
+                lit.push((cx + (1.0 - 2.0 * illum) * (x - cx), y));
+            }
+            if !waxing {
+                for point in &mut lit {
+                    point.0 = 2.0 * cx - point.0;
+                }
+            }
+            paths.push(Poly {
+                points: lit,
+                color: "#e5b93f".to_string(),
+                fill: true,
+                arrow: false,
+            });
+        }
+        // 农历日期与节日名称：同一格内日期下方居中（微缩月历仅染色，不显示文字）
+        if !mini {
+            if lunar && let Some(lunar_str) = lunar_date(date) {
+                texts.push(Text {
+                    x: rect.x + MINI_PAD + cell_w * ((pos % 7) as f64 + 0.5),
+                    y: rect.y + MINI_PAD + cell_h * ((pos / 7 + 2) as f64 + 0.72),
+                    content: lunar_str,
+                    size: size * 0.5,
+                    color: MINI_BLACK.into(),
+                    rotation: 0,
+                    font: font.into(),
+                    anchor: "center",
+                });
+            }
+            if let Some(name) = holiday_name
+                && !is_compensatory
+            {
+                texts.push(Text {
+                    x: rect.x + MINI_PAD + cell_w * ((pos % 7) as f64 + 0.5),
+                    y: rect.y + MINI_PAD + cell_h * ((pos / 7 + 2) as f64 + 0.88),
+                    content: name.clone(),
+                    size: size * 0.5,
+                    color: MINI_RED.into(),
+                    rotation: 0,
+                    font: font.into(),
+                    anchor: "center",
+                });
+            }
+        }
     }
 }
 
@@ -201,7 +322,9 @@ pub(crate) fn draw_eight(
     p: &EightPattern,
     index: usize,
     font: &str,
-) -> (Vec<Line>, Vec<Dot>, Vec<Text>) {
+    holidays: &Option<HashMap<String, String>>,
+    lunar: bool,
+) -> (Vec<Line>, Vec<Dot>, Vec<Poly>, Vec<Text>) {
     let r = geo.content;
     let cx = r.x + r.width / 2.0;
     let cy = r.y + r.height / 2.0;
@@ -230,7 +353,7 @@ pub(crate) fn draw_eight(
         square: false,
     }];
     let Some(&(week_start, _)) = p.weeks().get(index / 2) else {
-        return (lines, dots, vec![]);
+        return (lines, dots, vec![], vec![]);
     };
     // section 内第 1、3、5… 页画空/周一/周四/周五，第 2、4、6… 页画周二/周三/周六/周日。
     let offsets: [Option<u32>; 4] = if (index + 1) % 2 == 1 {
@@ -239,6 +362,7 @@ pub(crate) fn draw_eight(
         [Some(1), Some(2), Some(5), Some(6)]
     };
     let mut texts = Vec::new();
+    let mut paths = Vec::new();
     // 空白格放当月迷你月历，本周所在行红色高亮。
     if (index + 1) % 2 == 1 {
         push_mini_calendar(
@@ -252,6 +376,9 @@ pub(crate) fn draw_eight(
             week_start,
             p,
             font,
+            holidays,
+            lunar,
+            &mut paths,
         );
     }
     for (slot, offset) in offsets.into_iter().enumerate() {
@@ -272,8 +399,50 @@ pub(crate) fn draw_eight(
             font: font.into(),
             anchor: "north west",
         });
+        // 右上角月相
+        {
+            let date = week_start + Duration::days(i64::from(offset));
+            let (illum, waxing) = moon_illumination(date.and_hms_opt(12, 0, 0).unwrap().and_utc());
+            let rx = cx + r.width / 2.0 - 2.0;
+            let ty = cy;
+            let mps = PS * 0.7;
+            let mx = rx - mps / 2.0;
+            let my = ty + mps / 2.0;
+            let radius = mps / 2.0;
+            let tau = std::f64::consts::TAU;
+            let half_pi = std::f64::consts::FRAC_PI_2;
+            let arc = |start: f64, end: f64| {
+                (0..=MOON_STEPS)
+                    .map(|i| {
+                        let phi = start + (end - start) * i as f64 / MOON_STEPS as f64;
+                        (mx + radius * phi.cos(), my + radius * phi.sin())
+                    })
+                    .collect::<Vec<_>>()
+            };
+            paths.push(Poly {
+                points: arc(0.0, tau),
+                color: p.phase_color.clone(),
+                fill: false,
+                arrow: false,
+            });
+            let mut lit = arc(-half_pi, half_pi);
+            for (x, y) in arc(half_pi, -half_pi) {
+                lit.push((mx + (1.0 - 2.0 * illum) * (x - mx), y));
+            }
+            if !waxing {
+                for point in &mut lit {
+                    point.0 = 2.0 * mx - point.0;
+                }
+            }
+            paths.push(Poly {
+                points: lit,
+                color: p.phase_color.clone(),
+                fill: true,
+                arrow: false,
+            });
+        }
     }
-    (lines, dots, texts)
+    (lines, dots, paths, texts)
 }
 
 #[cfg(test)]
@@ -334,7 +503,15 @@ mod tests {
     }
 
     fn draw(page: &PageSettings, p: &EightPattern, index: usize) -> Vec<Text> {
-        draw_eight(geometry_for(page, index + 1), p, index, r"\sffamily").2
+        draw_eight(
+            geometry_for(page, index + 1),
+            p,
+            index,
+            r"\sffamily",
+            &None,
+            false,
+        )
+        .3
     }
 
     #[test]
@@ -415,7 +592,8 @@ mod tests {
     fn out_of_range_week_draws_empty_grid() {
         let page = PageSettings::default();
         let p = pattern("2026-08-03", "2026-08-09");
-        let (lines, dots, texts) = draw_eight(geometry_for(&page, 5), &p, 4, r"\sffamily");
+        let (lines, dots, _paths, texts) =
+            draw_eight(geometry_for(&page, 5), &p, 4, r"\sffamily", &None, false);
         assert_eq!(lines.len(), 4);
         assert_eq!(dots.len(), 1);
         assert!(texts.is_empty());
