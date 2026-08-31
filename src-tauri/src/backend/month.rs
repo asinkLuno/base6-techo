@@ -4,7 +4,9 @@
 use chrono::{Datelike, Duration, NaiveDate, TimeZone, Utc};
 use serde::Deserialize;
 
-use super::{Geometry, Line, LineStyle, Poly, Rect, Text, validate_color};
+use super::{
+    Geometry, Line, LineStyle, Poly, Rect, Text, WeekdayLang, validate_color, weekday_headers,
+};
 
 const COLS: usize = 7;
 const HEAD_H: f64 = 4.0; // mm，星期表头行高
@@ -13,7 +15,6 @@ const GAP: f64 = 0.2; // mm，网格交叉处留白
 const PS: f64 = 2.0; // mm，月相圆盘直径
 const MOON_STEPS: usize = 24; // 圆弧采样数
 const SYNODIC: f64 = 29.53058867; // 朔望月（天）
-const WEEKDAYS: [&str; COLS] = ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"];
 
 #[derive(Clone, Deserialize)]
 #[serde(default, deny_unknown_fields)]
@@ -24,6 +25,7 @@ pub(crate) struct MonthPattern {
     pub(crate) line_color: String,
     pub(crate) line_width: f64,
     pub(crate) date_size: f64,
+    pub(crate) weekday_lang: WeekdayLang,
 }
 impl Default for MonthPattern {
     fn default() -> Self {
@@ -35,6 +37,7 @@ impl Default for MonthPattern {
             line_color: "#7a7a7a".into(),
             line_width: 0.4,
             date_size: 8.0,
+            weekday_lang: WeekdayLang::En,
         }
     }
 }
@@ -129,7 +132,7 @@ pub(crate) fn draw_month(
             lines.push(grid(x1, y, x2, y));
         }
     }
-    for (i, w) in WEEKDAYS.iter().enumerate() {
+    for (i, w) in weekday_headers(p.weekday_lang).iter().enumerate() {
         texts.push(Text {
             x: land.x + cell_w * (i as f64 + 0.5),
             y: land.y + HEAD_H / 2.0,
@@ -223,7 +226,7 @@ pub(crate) fn draw_month(
 }
 
 const A: f64 = 5.5; // mm，打卡单元格边长
-const ITEM_W: f64 = 2.0; // 打卡项列宽 = ITEM_W × A
+const ITEM_W: f64 = 3.0; // 打卡项列宽 = ITEM_W × A
 const TRACKER_GAP: f64 = 2.0; // mm，上下两表间距
 const TRACKER_UP: f64 = 3.0; // mm，整体上移
 
@@ -522,5 +525,26 @@ mod tests {
         assert!(p.validate().is_ok());
         let p = MonthPattern { month: 13, ..p };
         assert!(p.validate().is_err());
+    }
+
+    #[test]
+    fn weekday_headers_follow_language() {
+        let page = PageSettings::default();
+        let p = MonthPattern {
+            year: 2026,
+            month: 8,
+            ..Default::default()
+        };
+        // 默认英文表头（与旧版一致）。
+        let (_, _, texts) = draw_month(geometry_for(&page, 1), &p, 0, r"\sffamily");
+        assert_eq!(texts[0].content, "Mo");
+        for (lang, first) in [(WeekdayLang::Zh, "一"), (WeekdayLang::Ja, "月")] {
+            let p = MonthPattern {
+                weekday_lang: lang,
+                ..p.clone()
+            };
+            let (_, _, texts) = draw_month(geometry_for(&page, 1), &p, 0, r"\sffamily");
+            assert_eq!(texts[0].content, first);
+        }
     }
 }

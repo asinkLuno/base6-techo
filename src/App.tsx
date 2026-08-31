@@ -58,6 +58,7 @@ const FONT_OPTIONS: [string, string][] = [
   [String.raw`\ttfamily`, "等宽（mono）"],
 ];
 const LINE_STYLE_OPTIONS: [string, string][] = [["solid", "实线"], ["dashed", "虚线"], ["dotted", "点线"], ["dash-dot", "点虚线"], ["double-solid", "双实线"]];
+const WEEKDAY_LANG_OPTIONS: [string, string][] = [["zh", "中文"], ["en", "English"], ["ja", "日本語"]];
 
 const TZ_OPTIONS: [string, string][] = [...Array.from({ length: 12 }, (_, i) => [`Etc/GMT-${12 - i}`, `东${12 - i}区（UTC+${12 - i}）`] as [string, string]), ["Etc/GMT", "零时区（UTC）"], ...Array.from({ length: 12 }, (_, i) => [`Etc/GMT+${i + 1}`, `西${i + 1}区（UTC-${i + 1}）`] as [string, string])];
 
@@ -153,6 +154,7 @@ const defaults: Record<PatternKind, Values & { kind: PatternKind }> = {
     end_date: toISODate(currentSunday),
     date_format: "%-d",
     date_locale: "zh-CN",
+    weekday_lang: "zh",
     line_color: "#7a7a7a",
     line_width: 0.4,
     line_style: "solid",
@@ -167,6 +169,7 @@ const defaults: Record<PatternKind, Values & { kind: PatternKind }> = {
     line_color: "#7a7a7a",
     line_width: 0.4,
     date_size: 8,
+    weekday_lang: "en",
   },
   tracker: {
     kind: "tracker",
@@ -485,6 +488,12 @@ function PatternFields({ section, set }: { section: Section; set: (key: string, 
         <Select label="线样式" value={p.line_style} options={LINE_STYLE_OPTIONS} onChange={(v) => set("line_style", v)} />
         <Field label="中心点间距（mm）" value={p.center_gap} min={0} step={0.5} onChange={(v) => set("center_gap", v)} />
         <Field label="日期字号（pt）" value={p.date_size} min={1} step={0.5} onChange={(v) => set("date_size", v)} />
+        <Select
+          label="表头语言"
+          value={p.weekday_lang}
+          options={WEEKDAY_LANG_OPTIONS}
+          onChange={(v) => set("weekday_lang", v)}
+        />
       </>
     );
   if (p.kind === "month")
@@ -496,6 +505,12 @@ function PatternFields({ section, set }: { section: Section; set: (key: string, 
         <Field label="线条颜色" value={p.line_color} type="color" onChange={(v) => set("line_color", v)} />
         <Field label="线宽（pt）" value={p.line_width} min={0.01} step={0.05} onChange={(v) => set("line_width", v)} />
         <Field label="日期字号（pt）" value={p.date_size} min={1} step={0.5} onChange={(v) => set("date_size", v)} />
+        <Select
+          label="表头语言"
+          value={p.weekday_lang}
+          options={WEEKDAY_LANG_OPTIONS}
+          onChange={(v) => set("weekday_lang", v)}
+        />
       </>
     );
   if (p.kind === "tracker")

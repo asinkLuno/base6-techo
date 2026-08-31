@@ -295,6 +295,24 @@ enum Pattern {
     Tracker(TrackerPattern),
 }
 
+/// 迷你月历/月历的星期表头语言。
+#[derive(Clone, Copy, Deserialize, Default)]
+#[serde(rename_all = "lowercase")]
+pub(crate) enum WeekdayLang {
+    #[default]
+    Zh,
+    En,
+    Ja,
+}
+
+pub(crate) fn weekday_headers(lang: WeekdayLang) -> [&'static str; 7] {
+    match lang {
+        WeekdayLang::Zh => ["一", "二", "三", "四", "五", "六", "日"],
+        WeekdayLang::En => ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"],
+        WeekdayLang::Ja => ["月", "火", "水", "木", "金", "土", "日"],
+    }
+}
+
 #[derive(Clone, Copy, Debug, Default, Deserialize, Eq, Ord, PartialEq, PartialOrd)]
 #[serde(rename_all = "kebab-case")]
 enum LineStyle {
@@ -1258,6 +1276,32 @@ mod tests {
     use super::timeline::timeline_color;
     use super::*;
     use chrono::Utc;
+
+    /// 手工样张：cargo test render_cross_month_week_sample -- --ignored --nocapture
+    #[test]
+    #[ignore]
+    fn render_cross_month_week_sample() {
+        let body: RunPipelineRequest = serde_json::from_str(
+            r#"{
+                "output": "/tmp/week-2026-08-31.pdf",
+                "sections": [{
+                    "pattern": {
+                        "kind": "eight",
+                        "start_date": "2026-08-31",
+                        "end_date": "2026-09-06",
+                        "weekday_lang": "ja"
+                    },
+                    "document": {
+                        "page_count": 2,
+                        "binding_text_font": "Sarasa UI SC"
+                    }
+                }]
+            }"#,
+        )
+        .unwrap();
+        let (path, _) = generate(body, false, None).unwrap();
+        println!("PDF: {}", path.display());
+    }
 
     #[test]
     fn booklet_uses_one_signature() {

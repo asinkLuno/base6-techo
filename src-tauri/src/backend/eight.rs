@@ -2,8 +2,8 @@ use chrono::{Datelike, Duration, NaiveDate, Utc, Weekday};
 use serde::Deserialize;
 
 use super::{
-    Dot, Geometry, Line, LineStyle, Text, chrono_format, format_date, lunar_date, validate_color,
-    validate_date_format,
+    Dot, Geometry, Line, LineStyle, Rect, Text, WeekdayLang, chrono_format, format_date,
+    lunar_date, validate_color, validate_date_format, weekday_headers,
 };
 
 #[derive(Clone, Deserialize)]
@@ -13,6 +13,7 @@ pub(crate) struct EightPattern {
     pub(crate) end_date: NaiveDate,
     pub(crate) date_format: String,
     pub(crate) date_locale: String,
+    pub(crate) weekday_lang: WeekdayLang,
     pub(crate) line_color: String,
     pub(crate) line_width: f64,
     pub(crate) line_style: LineStyle,
@@ -28,6 +29,7 @@ impl Default for EightPattern {
             end_date: monday + Duration::days(6),
             date_format: "%-d".into(),
             date_locale: "zh-CN".into(),
+            weekday_lang: WeekdayLang::Zh,
             line_color: "#7A7A7A".into(),
             line_width: 0.4,
             line_style: LineStyle::Solid,
@@ -77,6 +79,117 @@ impl EightPattern {
     }
 }
 
+const MINI_PAD: f64 = 2.0; // mm，迷你月历距所在矩形边缘
+const MINI_RED: &str = "#FF0000";
+const MINI_BLACK: &str = "#000000";
+
+/// 次月 1 号。
+fn next_month_first(first: NaiveDate) -> Option<NaiveDate> {
+    if first.month() == 12 {
+        NaiveDate::from_ymd_opt(first.year() + 1, 1, 1)
+    } else {
+        NaiveDate::from_ymd_opt(first.year(), first.month() + 1, 1)
+    }
+}
+
+/// 空白格（周一所在页左上象限）内上下画两个月：不跨月的周显示本月和下月，
+/// 跨月的周恰好就是所跨的两个月。本周内的日期红色，其余黑色。
+fn push_mini_calendar(
+    texts: &mut Vec<Text>,
+    quad: Rect,
+    week_start: NaiveDate,
+    p: &EightPattern,
+    font: &str,
+) {
+    let first = NaiveDate::from_ymd_opt(week_start.year(), week_start.month(), 1)
+        .expect("month of an existing date is valid");
+    if let Some(next) = next_month_first(first) {
+        push_one_month(
+            texts,
+            Rect {
+                y: quad.y + quad.height / 2.0,
+                height: quad.height / 2.0,
+                ..quad
+            },
+            next,
+            week_start,
+            p,
+            font,
+        );
+    }
+    push_one_month(
+        texts,
+        Rect {
+            height: quad.height / 2.0,
+            ..quad
+        },
+        first,
+        week_start,
+        p,
+        font,
+    );
+}
+
+/// 单个月历：月份标题 + 星期表头 + 日期（周一为首的 7 列，仅文字无框线），
+/// 落在 [week_start, week_start+6] 内的日期红色。
+fn push_one_month(
+    texts: &mut Vec<Text>,
+    rect: Rect,
+    first: NaiveDate,
+    week_start: NaiveDate,
+    p: &EightPattern,
+    font: &str,
+) {
+    let Some(next) = next_month_first(first) else {
+        return;
+    };
+    let days = (next - first).num_days() as usize;
+    let first_wd = first.weekday().num_days_from_monday() as usize;
+    let rows = (first_wd + days).div_ceil(7);
+    let cell_w = (rect.width - 2.0 * MINI_PAD) / 7.0;
+    let cell_h = (rect.height - 2.0 * MINI_PAD) / (rows + 2) as f64;
+    let size = p.date_size * 0.7;
+    let zh = p.date_locale.starts_with("zh");
+    let title_format = if zh { "%Y年%-m月" } else { "%b %Y" };
+    let head = weekday_headers(p.weekday_lang);
+    let week_end = week_start + Duration::days(6);
+    let mut label = |content: &str, i: f64, j: usize, color: &str| {
+        texts.push(Text {
+            x: rect.x + MINI_PAD + cell_w * (i + 0.5),
+            y: rect.y + MINI_PAD + cell_h * (j as f64 + 0.5),
+            content: content.into(),
+            size,
+            color: color.into(),
+            rotation: 0,
+            font: font.into(),
+            anchor: "center",
+        });
+    };
+    label(
+        &format_date(first, title_format, &p.date_locale),
+        3.0,
+        0,
+        MINI_BLACK,
+    );
+    for (i, w) in head.iter().enumerate() {
+        label(w, i as f64, 1, MINI_BLACK);
+    }
+    for d in 1..=days {
+        let date = first + Duration::days(d as i64 - 1);
+        let pos = first_wd + d - 1;
+        label(
+            &d.to_string(),
+            (pos % 7) as f64,
+            pos / 7 + 2,
+            if (week_start..=week_end).contains(&date) {
+                MINI_RED
+            } else {
+                MINI_BLACK
+            },
+        );
+    }
+}
+
 /// `index`：section 内 0 起的页序（即第 index+1 页）；第 1、3、5… 页画整周前半
 /// （空/周一/周四/周五），第 2、4、6… 页画后半（周二/周三/周六/周日），保证顺序。
 pub(crate) fn draw_eight(
@@ -122,6 +235,21 @@ pub(crate) fn draw_eight(
         [Some(1), Some(2), Some(5), Some(6)]
     };
     let mut texts = Vec::new();
+    // 空白格放当月迷你月历，本周所在行红色高亮。
+    if (index + 1) % 2 == 1 {
+        push_mini_calendar(
+            &mut texts,
+            Rect {
+                x: r.x,
+                y: r.y,
+                width: r.width / 2.0,
+                height: r.height / 2.0,
+            },
+            week_start,
+            p,
+            font,
+        );
+    }
     for (slot, offset) in offsets.into_iter().enumerate() {
         let Some(offset) = offset else { continue };
         let cx = r.x + f64::from(slot as u16 % 2) * r.width / 2.0;
@@ -193,7 +321,12 @@ mod tests {
     }
 
     fn days(texts: &[Text]) -> Vec<&str> {
-        texts.iter().map(|text| text.content.as_str()).collect()
+        // 迷你月历用 center 锚点，格子日期用 north west。
+        texts
+            .iter()
+            .filter(|text| text.anchor == "north west")
+            .map(|text| text.content.as_str())
+            .collect()
     }
 
     fn draw(page: &PageSettings, p: &EightPattern, index: usize) -> Vec<Text> {
@@ -224,6 +357,54 @@ mod tests {
         assert_eq!(days(&draw(&page, &p, 0))[0], "2026年 六月廿一");
         p.date_format = "%Q".into();
         assert!(p.validate().is_err());
+    }
+
+    #[test]
+    fn blank_cell_gets_mini_month_calendar() {
+        let page = PageSettings::default();
+        let p = pattern("2026-08-03", "2026-08-16");
+        let texts = draw(&page, &p, 0);
+        let mini: Vec<&Text> = texts.iter().filter(|t| t.anchor == "center").collect();
+        // 两个月：8 月（标题+7 表头+31 天）+ 9 月（标题+7 表头+30 天）。
+        assert_eq!(mini.len(), 2 * 8 + 31 + 30);
+        assert!(mini.iter().any(|t| t.content == "2026年8月"));
+        assert!(mini.iter().any(|t| t.content == "2026年9月"));
+        let colored =
+            |s: &str, color: &str| mini.iter().any(|t| t.content == s && t.color == color);
+        // 本周 8/3–8/9 红色，8/1、8/2、8/10 及 9 月黑色。
+        assert!(colored("3", MINI_RED) && colored("9", MINI_RED));
+        assert!(colored("1", MINI_BLACK) && colored("2", MINI_BLACK));
+        assert!(colored("10", MINI_BLACK));
+        assert!(colored("30", MINI_BLACK));
+        // 后半页（偶数序号页）没有空白格，不画月历。
+        assert!(draw(&page, &p, 1).iter().all(|t| t.anchor != "center"));
+    }
+
+    #[test]
+    fn cross_month_week_highlights_both_calendars() {
+        let page = PageSettings::default();
+        let p = pattern("2026-08-31", "2026-09-06");
+        let texts = draw(&page, &p, 0);
+        let mini: Vec<&Text> = texts.iter().filter(|t| t.anchor == "center").collect();
+        let colored =
+            |s: &str, color: &str| mini.iter().any(|t| t.content == s && t.color == color);
+        // 8 月只有 31 红色；9 月 1–6 红色，7 及以后黑色。
+        assert!(colored("31", MINI_RED));
+        assert!(colored("30", MINI_BLACK));
+        for d in 1..=6 {
+            assert!(colored(&d.to_string(), MINI_RED));
+        }
+        assert!(colored("7", MINI_BLACK));
+    }
+
+    #[test]
+    fn mini_calendar_header_follows_language() {
+        let page = PageSettings::default();
+        let mut p = pattern("2026-08-03", "2026-08-09");
+        p.weekday_lang = WeekdayLang::Ja;
+        assert!(draw(&page, &p, 0).iter().any(|t| t.content == "月"));
+        p.weekday_lang = WeekdayLang::En;
+        assert!(draw(&page, &p, 0).iter().any(|t| t.content == "Mo"));
     }
 
     #[test]
