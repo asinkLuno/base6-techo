@@ -124,6 +124,7 @@ export interface RenderSectionRequest {
   document?: DocumentRequest;
   pattern: Pattern;
   holidays?: Record<string, string>;
+  title?: string;
 }
 export interface PageRequest {
   width?: Width;

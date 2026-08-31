@@ -336,6 +336,8 @@ pub(crate) struct RenderSectionRequest {
     pattern: Pattern,
     #[serde(default)]
     holidays: Option<HashMap<String, String>>,
+    #[serde(default)]
+    title: Option<String>,
 }
 
 #[derive(Clone, Copy, Deserialize)]
@@ -440,6 +442,8 @@ struct OutputPage {
     width: f64,
     height: f64,
     placements: Vec<Placement>,
+    /// PDF 书签标题，只设在 section 的第一页（阅读器侧边栏大纲）。
+    bookmark: Option<String>,
 }
 
 fn validate_color(color: &str) -> Result<(), String> {
@@ -781,6 +785,7 @@ fn normal_output(
                 width: section.page.width,
                 height: section.page.height,
                 placements: vec![Placement { dx: 0.0, draw }],
+                bookmark: if i == 0 { section.title.clone() } else { None },
             }
         })
         .collect()
@@ -811,6 +816,7 @@ fn impose(
         width,
         height,
         placements: vec![],
+        bookmark: None,
     });
     let sheets = pages.len() / 4;
     let mut out = Vec::new();
@@ -826,10 +832,15 @@ fn impose(
                     p.dx += width;
                     p
                 }));
+                // 跨页左右两半各带书签时只保留前者：两个条目指向同一物理页没有意义。
                 out.push(OutputPage {
                     width: width * 2.0,
                     height,
                     placements,
+                    bookmark: pages[a]
+                        .bookmark
+                        .clone()
+                        .or_else(|| pages[b].bookmark.clone()),
                 });
             }
         }
@@ -1001,14 +1012,30 @@ fn render_latex(pages: &[OutputPage]) -> String {
         .collect::<Vec<_>>()
         .join("\n");
     format!(
-        "\\documentclass[multi=tikzpicture]{{standalone}}\n{}\n\\usepackage{{tikz}}\n{}\n\\begin{{document}}\n{}\n\\end{{document}}\n",
+        "\\documentclass[multi=tikzpicture]{{standalone}}\n{}\n\\usepackage{{tikz}}\n\\usepackage{{hyperref}}\n\\usepackage{{bookmark}}\n{}\n\\begin{{document}}\n{}\n\\end{{document}}\n",
         if uses_font {
             r"\usepackage{fontspec}"
         } else {
             ""
         },
         definitions,
-        bodies.join("\n\n")
+        {
+            let bookmarks = pages
+                .iter()
+                .enumerate()
+                .filter_map(|(i, page)| {
+                    page.bookmark
+                        .as_deref()
+                        .map(|title| format!(r"\bookmark[page={}]{{{}}}", i + 1, tex_escape(title)))
+                })
+                .collect::<Vec<_>>()
+                .join("\n");
+            if bookmarks.is_empty() {
+                bodies.join("\n\n")
+            } else {
+                format!("{bookmarks}\n\n{}", bodies.join("\n\n"))
+            }
+        },
     )
 }
 
@@ -1208,6 +1235,25 @@ mod tests {
     use super::timeline::timeline_color;
     use super::*;
     use chrono::Utc;
+
+    /// 手工样张（检查阅读器侧边栏书签）：cargo test render_bookmark_sample -- --ignored --nocapture
+    #[test]
+    #[ignore]
+    fn render_bookmark_sample() {
+        let body: RunPipelineRequest = serde_json::from_str(
+            r#"{
+                "output": "/tmp/bookmark-sample.pdf",
+                "sections": [
+                    { "title": "月历", "pattern": { "kind": "basic", "pages": 2 } },
+                    { "title": "八分视图", "pattern": { "kind": "eight", "start_date": "2026-08-31", "end_date": "2026-09-06" } },
+                    { "title": "Midori", "pattern": { "kind": "midori" } }
+                ]
+            }"#,
+        )
+        .unwrap();
+        let (path, _) = generate(body, false, None).unwrap();
+        println!("TOC PDF: {}", path.display());
+    }
 
     /// 手工样张：cargo test render_cross_month_week_sample -- --ignored --nocapture
     #[test]
@@ -1473,6 +1519,7 @@ mod tests {
                         ..Default::default()
                     },
                 }],
+                bookmark: None,
             })
             .collect();
         let (spreads, sheets) = impose(pages, BindingMode::Booklet, 4).unwrap();
@@ -1685,6 +1732,30 @@ mod tests {
             timeline_color(&p, Some(date), 29 * 60).as_deref(),
             Some("#ffd700")
         );
+    }
+
+    #[test]
+    fn section_first_page_carries_pdf_bookmark() {
+        let request: RunPipelineRequest = serde_json::from_value(serde_json::json!({
+            "output": "/tmp/bookmark.pdf",
+            "sections": [
+                { "title": "月历", "pattern": { "kind": "basic", "pages": 2 } },
+                { "pattern": { "kind": "basic", "pages": 1 } },
+                { "title": "时间轴", "pattern": { "kind": "basic", "pages": 1 } }
+            ],
+            "bind": { "mode": null, "sheets_per_group": 4 }
+        }))
+        .unwrap();
+        let pages = normal_output(
+            &request.sections[0],
+            1,
+            2,
+            1,
+            &request.sections[0].holidays,
+            false,
+        );
+        assert_eq!(pages[0].bookmark.as_deref(), Some("月历"));
+        assert_eq!(pages[1].bookmark, None);
     }
 
     #[test]

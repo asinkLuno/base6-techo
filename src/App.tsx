@@ -712,6 +712,7 @@ function sectionRequest(section: Section, holidays: Record<string, string>): Ren
       non_binding_text_color: section.document.non_binding_text_color,
       lunar: section.document.lunar,
   },
+  title: patternNames[section.pattern.kind],
   pattern: cleanPattern(section.pattern),
   holidays,
   } as unknown as RenderSectionRequest;
@@ -1033,7 +1034,7 @@ localStorage.setItem("base6.state", JSON.stringify({ sections, binding, sheetsPe
             </div>
           )}
           <div className="mb-1 flex items-center justify-between">
-            <h2 className="text-lg font-semibold">Sessions</h2>
+            <h2 className="text-lg font-semibold">Sections</h2>
             <Button variant="outline" onClick={() => setSections((items) => [...items, newSection(size.width, size.height)])}>
               <Plus />
               添加
@@ -1046,7 +1047,7 @@ localStorage.setItem("base6.state", JSON.stringify({ sections, binding, sheetsPe
               ))}
             </SortableContext>
           </DndContext>
-          {sections.length === 0 && <div className="rounded-xl border border-dashed p-10 text-center text-sm text-muted-foreground">至少添加一个 Session。</div>}
+          {sections.length === 0 && <div className="rounded-xl border border-dashed p-10 text-center text-sm text-muted-foreground">至少添加一个 Section。</div>}
         </section>
         <Card className="lg:sticky lg:top-8">
           <CardHeader>
@@ -1134,7 +1135,7 @@ localStorage.setItem("base6.state", JSON.stringify({ sections, binding, sheetsPe
             {binding === "thread" && <Field label="每帖纸张数" value={sheetsPerGroup} min={1} onChange={(value) => setSheetsPerGroup(Number(value))} />}
             <div className="border-t pt-4 text-sm">
               <div className="flex justify-between">
-                <span className="text-muted-foreground">Sessions</span>
+                <span className="text-muted-foreground">Sections</span>
                 <span>{sections.length}</span>
               </div>
               <div className="mt-2 flex justify-between">
