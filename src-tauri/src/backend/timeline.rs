@@ -19,6 +19,7 @@ pub(crate) struct TimelinePattern {
     pub(crate) timezone: Option<String>,
     pub(crate) daylight_color: String,
     pub(crate) night_color: String,
+    pub(crate) date: Option<NaiveDate>,
 }
 impl Default for TimelinePattern {
     fn default() -> Self {
@@ -34,6 +35,7 @@ impl Default for TimelinePattern {
             timezone: None,
             daylight_color: "#ffd700".into(),
             night_color: "#0047ab".into(),
+            date: None,
         }
     }
 }
@@ -132,9 +134,9 @@ pub(crate) fn solar_elevation(latitude: f64, longitude: f64, moment: chrono::Dat
 pub(crate) fn draw_timeline(
     geo: Geometry,
     p: &TimelinePattern,
-    date: Option<NaiveDate>,
     font: &str,
 ) -> (Vec<Line>, Vec<Dot>, Vec<Text>) {
+    let date = p.date;
     let mid = (p.start + p.end) / 2;
     let (start, end) = if p.pages == 1 {
         (p.start, p.end)

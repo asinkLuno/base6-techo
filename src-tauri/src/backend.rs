@@ -17,7 +17,7 @@ mod year;
 use basic::{BasicPattern, draw_basic};
 use bunkwan::{BunkwanPattern, draw_bunkwan, lunar_date};
 use chrono::{
-    Duration, Locale, NaiveDate,
+    Locale, NaiveDate,
     format::{Item, StrftimeItems},
 };
 use eight::{EightPattern, draw_eight};
@@ -76,27 +76,51 @@ impl PageSettings {
     }
 }
 
-#[derive(Clone, Copy, Deserialize, PartialEq)]
-#[serde(rename_all = "lowercase")]
-enum Parity {
-    Odd,
-    Even,
-    Both,
+/// 页头/页脚共用的带状区域参数（文字或页码）。
+#[derive(Clone, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+struct BandSettings {
+    text: Option<String>,
+    text_2: Option<String>,
+    text_size: f64,
+    text_2_size: f64,
+    text_spacing: f64,
+    text_color: String,
+    page_number: bool,
 }
 
-#[derive(Clone, Copy, Deserialize)]
-#[serde(rename_all = "lowercase")]
-enum DatePosition {
-    Center,
-    Binding,
-    Outer,
+impl Default for BandSettings {
+    fn default() -> Self {
+        Self {
+            text: None,
+            text_2: None,
+            text_size: 8.0,
+            text_2_size: 8.0,
+            text_spacing: 5.0,
+            text_color: "#7a7a7a".into(),
+            page_number: false,
+        }
+    }
+}
+
+impl BandSettings {
+    fn validate(&self) -> Result<(), String> {
+        if self.text_size <= 0.0 || self.text_2_size <= 0.0 {
+            return Err("text sizes must be > 0".into());
+        }
+        if self.text_spacing < 0.0 {
+            return Err("text spacing must be >= 0".into());
+        }
+        validate_color(&self.text_color)
+    }
 }
 
 #[derive(Clone, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 struct DocumentSettings {
-    page_count: usize,
-    show_header: bool,
+    page_number: bool,
+    header: BandSettings,
+    footer: BandSettings,
     binding_text: Option<String>,
     binding_text_2: Option<String>,
     binding_text_size: f64,
@@ -105,20 +129,6 @@ struct DocumentSettings {
     binding_text_edge: Option<f64>,
     binding_text_font: String,
     binding_text_color: String,
-    header_date: Option<NaiveDate>,
-    header_date_end: Option<NaiveDate>,
-    header_date_format: String,
-    header_date_locale: String,
-    header_parity: Parity,
-    header_date_size: f64,
-    header_date_font: Option<String>,
-    header_date_position: DatePosition,
-    header_text: Option<String>,
-    header_text_2: Option<String>,
-    header_text_size: f64,
-    header_text_2_size: f64,
-    header_text_spacing: f64,
-    header_text_color: String,
     non_binding_text: Option<String>,
     non_binding_text_2: Option<String>,
     non_binding_text_size: f64,
@@ -126,19 +136,14 @@ struct DocumentSettings {
     non_binding_text_spacing: f64,
     non_binding_text_edge: Option<f64>,
     non_binding_text_color: String,
-    footer_text: Option<String>,
-    footer_text_2: Option<String>,
-    footer_text_size: f64,
-    footer_text_2_size: f64,
-    footer_text_spacing: f64,
-    footer_text_color: String,
 }
 
 impl Default for DocumentSettings {
     fn default() -> Self {
         Self {
-            page_count: 32,
-            show_header: true,
+            page_number: true,
+            header: BandSettings::default(),
+            footer: BandSettings::default(),
             binding_text: None,
             binding_text_2: None,
             binding_text_size: 8.0,
@@ -147,20 +152,6 @@ impl Default for DocumentSettings {
             binding_text_edge: None,
             binding_text_font: r"\sffamily".into(),
             binding_text_color: "#7a7a7a".into(),
-            header_date: None,
-            header_date_end: None,
-            header_date_format: "%Y-%m-%d".into(),
-            header_date_locale: "zh_CN".into(),
-            header_parity: Parity::Both,
-            header_date_size: 8.0,
-            header_date_font: None,
-            header_date_position: DatePosition::Center,
-            header_text: None,
-            header_text_2: None,
-            header_text_size: 8.0,
-            header_text_2_size: 8.0,
-            header_text_spacing: 5.0,
-            header_text_color: "#7a7a7a".into(),
             non_binding_text: None,
             non_binding_text_2: None,
             non_binding_text_size: 8.0,
@@ -168,58 +159,26 @@ impl Default for DocumentSettings {
             non_binding_text_spacing: 5.0,
             non_binding_text_edge: None,
             non_binding_text_color: "#7a7a7a".into(),
-            footer_text: None,
-            footer_text_2: None,
-            footer_text_size: 8.0,
-            footer_text_2_size: 8.0,
-            footer_text_spacing: 5.0,
-            footer_text_color: "#7a7a7a".into(),
         }
     }
 }
 
 impl DocumentSettings {
     fn validate(&self, page: &PageSettings) -> Result<(), String> {
-        if !(1..=500).contains(&self.page_count) {
-            return Err("page_count must be in 1..500".into());
-        }
-        if let (Some(start), Some(end)) = (self.header_date, self.header_date_end)
-            && end < start
-        {
-            return Err("结束日期必须晚于或等于开始日期".into());
-        }
-        validate_date_format(&self.header_date_format, &self.header_date_locale)?;
-        if chrono_format(&self.header_date_format).contains('\u{e000}')
-            && self
-                .dates()
-                .into_iter()
-                .flatten()
-                .any(|date| lunar_date(date).is_none())
-        {
-            return Err("农历日期仅支持 1901-02-19 至 2101-01-28".into());
-        }
+        self.header.validate()?;
+        self.footer.validate()?;
         let sizes = [
             self.binding_text_size,
             self.binding_text_2_size,
-            self.header_date_size,
-            self.header_text_size,
-            self.header_text_2_size,
             self.non_binding_text_size,
             self.non_binding_text_2_size,
-            self.footer_text_size,
-            self.footer_text_2_size,
         ];
         if sizes.into_iter().any(|v| v <= 0.0) {
             return Err("text sizes must be > 0".into());
         }
-        if [
-            self.binding_text_spacing,
-            self.header_text_spacing,
-            self.non_binding_text_spacing,
-            self.footer_text_spacing,
-        ]
-        .into_iter()
-        .any(|v| v < 0.0)
+        if [self.binding_text_spacing, self.non_binding_text_spacing]
+            .into_iter()
+            .any(|v| v < 0.0)
         {
             return Err("text spacing must be >= 0".into());
         }
@@ -233,16 +192,12 @@ impl DocumentSettings {
         if self.binding_text_font.trim().is_empty() {
             return Err("binding_text_font must not be empty".into());
         }
-        for color in [
-            &self.binding_text_color,
-            &self.header_text_color,
-            &self.non_binding_text_color,
-            &self.footer_text_color,
-        ] {
+        for color in [&self.binding_text_color, &self.non_binding_text_color] {
             validate_color(color)?;
         }
-        if (self.footer_text.as_deref().is_some_and(|s| !s.is_empty())
-            || self.footer_text_2.as_deref().is_some_and(|s| !s.is_empty()))
+        if (self.footer.text.as_deref().is_some_and(|s| !s.is_empty())
+            || self.footer.text_2.as_deref().is_some_and(|s| !s.is_empty())
+            || self.footer.page_number)
             && page.footer < 5.0
         {
             return Err(format!(
@@ -251,37 +206,6 @@ impl DocumentSettings {
             ));
         }
         Ok(())
-    }
-
-    fn dates(&self) -> Vec<Option<NaiveDate>> {
-        let Some(start) = self.header_date else {
-            return vec![None; self.page_count];
-        };
-        let days = self
-            .header_date_end
-            .map(|end| (end - start).num_days() as usize + 1);
-        let mut dates = vec![None; self.page_count];
-        if self.header_parity == Parity::Both {
-            for (i, slot) in dates
-                .iter_mut()
-                .take(days.unwrap_or(self.page_count).min(self.page_count))
-                .enumerate()
-            {
-                *slot = Some(start + Duration::days(i as i64));
-            }
-        } else {
-            let count = days
-                .unwrap_or(self.page_count)
-                .min(self.page_count.div_ceil(2));
-            for i in 0..count {
-                let date = start + Duration::days(i as i64);
-                dates[i * 2] = Some(date);
-                if i * 2 + 1 < dates.len() {
-                    dates[i * 2 + 1] = Some(date);
-                }
-            }
-        }
-        dates
     }
 }
 
@@ -340,6 +264,17 @@ impl LineStyle {
 }
 
 impl Pattern {
+    /// section 的页数由版式自身参数决定：是多少页就是多少页。
+    fn page_count(&self) -> usize {
+        match self {
+            Self::Basic(p) => p.pages,
+            Self::Bunkwan(_) | Self::Midori(_) | Self::Month(_) | Self::Tracker(_) => 1,
+            Self::Eight(p) => p.weeks().len() * 2,
+            Self::Timeline(p) => p.pages as usize,
+            Self::Year(p) => p.page_count(),
+        }
+    }
+
     fn line_color(&self) -> &str {
         match self {
             Self::Basic(p) => &p.line_color,
@@ -666,10 +601,9 @@ fn render_page(
     number: usize,
     doc: &DocumentSettings,
     index: usize,
-    dates: &[Option<NaiveDate>],
+    shown_number: Option<usize>,
 ) -> PageDraw {
     let geo = geometry_for(page, number);
-    let date = dates.get(index).copied().flatten();
     let (lines, dots, paths, mut texts) = match pattern {
         Pattern::Basic(p) => {
             let (l, d) = draw_basic(geo, p);
@@ -685,7 +619,7 @@ fn render_page(
             (l, d, vec![], t)
         }
         Pattern::Timeline(p) => {
-            let (l, d, t) = draw_timeline(geo, p, date, &doc.binding_text_font);
+            let (l, d, t) = draw_timeline(geo, p, &doc.binding_text_font);
             (l, d, vec![], t)
         }
         Pattern::Month(p) => {
@@ -701,44 +635,6 @@ fn render_page(
             (vec![], vec![], vec![], t)
         }
     };
-    let visible = doc.header_parity == Parity::Both
-        || (doc.header_parity == Parity::Odd && !(index + 1).is_multiple_of(2))
-        || (doc.header_parity == Parity::Even && (index + 1).is_multiple_of(2));
-    if doc.show_header
-        && visible
-        && let Some(date) = date
-    {
-        let (x, anchor) = match doc.header_date_position {
-            DatePosition::Binding => {
-                if geo.binding_side == Side::Left {
-                    (page.binding / 2.0, "west")
-                } else {
-                    (page.width - page.binding / 2.0, "east")
-                }
-            }
-            DatePosition::Outer => {
-                if geo.binding_side == Side::Left {
-                    (page.width - page.non_binding / 2.0, "east")
-                } else {
-                    (page.non_binding / 2.0, "west")
-                }
-            }
-            DatePosition::Center => (geo.content.x + geo.content.width / 2.0, "center"),
-        };
-        texts.push(Text {
-            x,
-            y: page.header / 2.0,
-            content: format_date(date, &doc.header_date_format, &doc.header_date_locale),
-            size: doc.header_date_size,
-            color: doc.header_text_color.clone(),
-            rotation: 0,
-            font: doc
-                .header_date_font
-                .clone()
-                .unwrap_or_else(|| doc.binding_text_font.clone()),
-            anchor,
-        });
-    }
     let binding_x = if geo.binding_side == Side::Left {
         doc.binding_text_edge.unwrap_or(page.binding / 2.0)
     } else {
@@ -787,36 +683,42 @@ fn render_page(
         },
         true,
     );
-    add_text_block(
-        &mut texts,
-        &doc.binding_text_font,
-        [
-            (&doc.header_text, doc.header_text_size),
-            (&doc.header_text_2, doc.header_text_2_size),
-        ],
-        doc.header_text_spacing,
-        geo.content.x + geo.content.width / 2.0,
-        page.header / 2.0,
-        &doc.header_text_color,
-        0,
-        1.0,
-        false,
-    );
-    add_text_block(
-        &mut texts,
-        &doc.binding_text_font,
-        [
-            (&doc.footer_text, doc.footer_text_size),
-            (&doc.footer_text_2, doc.footer_text_2_size),
-        ],
-        doc.footer_text_spacing,
-        page.width / 2.0,
-        page.height - page.footer / 2.0,
-        &doc.footer_text_color,
-        0,
-        1.0,
-        false,
-    );
+    let shown = shown_number.map(|n| n.to_string());
+    // 页头/页脚参数完全一致，同一循环处理：文字 + 页码，都居中在内容区。
+    for (band, y) in [
+        (&doc.header, page.header / 2.0),
+        (&doc.footer, page.height - page.footer / 2.0),
+    ] {
+        add_text_block(
+            &mut texts,
+            &doc.binding_text_font,
+            [
+                (&band.text, band.text_size),
+                (&band.text_2, band.text_2_size),
+            ],
+            band.text_spacing,
+            geo.content.x + geo.content.width / 2.0,
+            y,
+            &band.text_color,
+            0,
+            1.0,
+            false,
+        );
+        if band.page_number
+            && let Some(content) = &shown
+        {
+            texts.push(Text {
+                x: geo.content.x + geo.content.width / 2.0,
+                y,
+                content: content.clone(),
+                size: band.text_size,
+                color: band.text_color.clone(),
+                rotation: 0,
+                font: doc.binding_text_font.clone(),
+                anchor: "center",
+            });
+        }
+    }
     PageDraw {
         lines,
         dots,
@@ -825,17 +727,22 @@ fn render_page(
     }
 }
 
-fn normal_output(section: &RenderSectionRequest, start: usize) -> Vec<OutputPage> {
-    let dates = section.document.dates();
-    (0..section.document.page_count)
+fn normal_output(
+    section: &RenderSectionRequest,
+    start: usize,
+    pages: usize,
+    number_start: usize,
+) -> Vec<OutputPage> {
+    (0..pages)
         .map(|i| {
+            let shown = section.document.page_number.then_some(number_start + i);
             let mut draw = render_page(
                 &section.page,
                 &section.pattern,
                 start + i,
                 &section.document,
                 i,
-                &dates,
+                shown,
             );
             for line in &mut draw.lines {
                 line.color
@@ -1167,23 +1074,19 @@ fn generate(
         section.page.validate()?;
         section.document.validate(&section.page)?;
         section.pattern.validate()?;
-        if let Pattern::Eight(p) = &section.pattern {
-            if section.document.header_date.is_some() {
-                return Err("八分视图不支持页头日期模式".into());
-            }
-            if section.document.page_count > p.weeks().len() * 2 {
-                return Err("八分视图的页数不能超过整星期数 × 2".into());
-            }
-        }
     }
     let mut generated = Vec::new();
     let mut number = 1;
-    for mut section in body.sections {
-        if preview {
-            section.document.page_count = 2;
+    let mut page_number = 1;
+    for section in body.sections {
+        // 预览最多渲 2 页。
+        let pages = section.pattern.page_count();
+        let pages = if preview { pages.min(2) } else { pages };
+        generated.extend(normal_output(&section, number, pages, page_number));
+        number += pages;
+        if section.document.page_number {
+            page_number += pages;
         }
-        generated.extend(normal_output(&section, number));
-        number += section.document.page_count;
         if preview {
             break;
         }
@@ -1303,7 +1206,6 @@ mod tests {
                         "weekday_lang": "ja"
                     },
                     "document": {
-                        "page_count": 2,
                         "binding_text_font": "Sarasa UI SC"
                     }
                 }]
@@ -1324,7 +1226,6 @@ mod tests {
                         "cols": 2
                     },
                     "document": {
-                        "page_count": 3,
                         "binding_text_font": "Sarasa UI SC"
                     }
                 }]
@@ -1474,55 +1375,69 @@ mod tests {
     }
 
     #[test]
-    fn date_ranges_repeat_across_spreads() {
-        let document = DocumentSettings {
-            page_count: 6,
-            header_date: NaiveDate::from_ymd_opt(2025, 3, 1),
-            header_date_end: NaiveDate::from_ymd_opt(2025, 3, 3),
-            header_parity: Parity::Odd,
-            ..Default::default()
-        };
-        assert_eq!(
-            document.dates(),
-            [
-                "2025-03-01",
-                "2025-03-01",
-                "2025-03-02",
-                "2025-03-02",
-                "2025-03-03",
-                "2025-03-03"
-            ]
-            .map(|date| Some(NaiveDate::parse_from_str(date, "%F").unwrap()))
-        );
-    }
-
-    #[test]
     fn headers_center_between_binding_and_outer_margins() {
         let page = PageSettings::default();
         let document = DocumentSettings {
-            header_date: NaiveDate::from_ymd_opt(2025, 3, 1),
-            header_text: Some("header".into()),
+            header: BandSettings {
+                text: Some("header".into()),
+                ..Default::default()
+            },
             ..Default::default()
         };
         let pattern = Pattern::Basic(Box::default());
         for (number, expected_x) in [(1, 77.5), (2, 70.5)] {
-            let draw = render_page(&page, &pattern, number, &document, 0, &document.dates());
+            let draw = render_page(&page, &pattern, number, &document, 0, None);
             assert!(draw.texts.iter().all(|text| text.x == expected_x));
         }
+    }
+
+    #[test]
+    fn page_numbers_render_in_header_and_footer() {
+        let page = PageSettings::default();
+        let document = DocumentSettings {
+            header: BandSettings {
+                page_number: true,
+                ..Default::default()
+            },
+            footer: BandSettings {
+                page_number: true,
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+        let pattern = Pattern::Basic(Box::default());
+        // 参与页码：页码显示在页头/页脚中心，用各自的颜色。
+        let draw = render_page(&page, &pattern, 1, &document, 0, Some(7));
+        let number = |y: f64, color: &str| {
+            draw.texts
+                .iter()
+                .any(|t| t.content == "7" && t.y == y && t.color == color)
+        };
+        assert!(number(page.header / 2.0, &document.header.text_color));
+        assert!(number(
+            page.height - page.footer / 2.0,
+            &document.footer.text_color
+        ));
+        // 不参与页码：不显示。
+        let draw = render_page(&page, &pattern, 1, &document, 0, None);
+        assert!(draw.texts.iter().all(|t| t.content != "7"));
     }
 
     #[test]
     fn bunkwan_uses_content_range_and_shared_header() {
         let page = PageSettings::default();
         let document = DocumentSettings {
-            header_date: NaiveDate::from_ymd_opt(2026, 8, 1),
+            header: BandSettings {
+                text: Some("header".into()),
+                ..Default::default()
+            },
             ..Default::default()
         };
         let pattern = Pattern::Bunkwan(BunkwanPattern::default());
-        let draw = render_page(&page, &pattern, 1, &document, 0, &document.dates());
+        let draw = render_page(&page, &pattern, 1, &document, 0, None);
         let content = geometry_for(&page, 1).content;
         assert_eq!((draw.lines[0].x1, draw.lines[0].y1), (content.x, content.y));
-        assert!(draw.texts.iter().any(|text| text.content == "2026-08-01"));
+        assert!(draw.texts.iter().any(|text| text.content == "header"));
     }
 
     #[test]
@@ -1567,11 +1482,11 @@ mod tests {
         let request: RunPipelineRequest = serde_json::from_value(serde_json::json!({
             "output": output,
             "sections": [
-                { "document": { "page_count": 1, "binding_text": "[base-6]" }, "pattern": { "kind": "basic", "draw_hlines": true } },
-                { "document": { "page_count": 31, "header_date": "2026-08-01", "header_date_end": "2026-08-31" }, "pattern": { "kind": "bunkwan" } },
-                { "document": { "page_count": 4 }, "pattern": { "kind": "eight", "start_date": "2026-08-03", "end_date": "2026-08-16" } },
-                { "document": { "page_count": 1 }, "pattern": { "kind": "midori" } },
-                { "document": { "page_count": 1 }, "pattern": { "kind": "timeline", "pages": 1 } }
+                { "document": { "binding_text": "[base-6]" }, "pattern": { "kind": "basic", "pages": 1, "draw_hlines": true } },
+                { "pattern": { "kind": "bunkwan" } },
+                { "pattern": { "kind": "eight", "start_date": "2026-08-03", "end_date": "2026-08-16" } },
+                { "pattern": { "kind": "midori" } },
+                { "pattern": { "kind": "timeline", "pages": 1, "date": "2026-08-01", "latitude": 31.23, "longitude": 121.47, "timezone": "Asia/Shanghai" } }
             ],
             "bind": { "mode": "booklet", "sheets_per_group": 4 }
         }))

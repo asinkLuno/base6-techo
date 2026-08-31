@@ -23,14 +23,15 @@ type PatternKind = "basic" | "bunkwan" | "eight" | "midori" | "month" | "timelin
 type Section = {
   id: string;
   expanded: boolean;
-  pages: number;
   headerEnabled: boolean;
+  headerMode: "text" | "number";
   footerEnabled: boolean;
+  footerMode: "text" | "number";
+  pageNumber: boolean;
   watermarkEnabled: boolean;
   page: Values;
   document: Values;
   pattern: Values & { kind: PatternKind };
-  headerStyle: "date" | "text" | "none";
   nonBindingEnabled: boolean;
 };
 
@@ -71,6 +72,7 @@ currentSunday.setDate(currentMonday.getDate() + 6);
 const defaults: Record<PatternKind, Values & { kind: PatternKind }> = {
   basic: {
     kind: "basic",
+    pages: 32,
     spacing: 8,
     line_width: 0.2,
     line_color: "#b0b0b0",
@@ -195,6 +197,7 @@ const defaults: Record<PatternKind, Values & { kind: PatternKind }> = {
     start: 0,
     end: 26,
     pages: 1,
+    date: "",
     line_color: "#7a7a7a",
     line_width: 1.138,
     label_size: 10.2,
@@ -210,9 +213,11 @@ function newSection(width = 148, height = 210): Section {
   return {
     id: crypto.randomUUID(),
     expanded: true,
-    pages: 32,
     headerEnabled: false,
+    headerMode: "text",
     footerEnabled: false,
+    footerMode: "text",
+    pageNumber: true,
     page: {
       width,
       height,
@@ -222,13 +227,6 @@ function newSection(width = 148, height = 210): Section {
       non_binding: 8,
     },
     document: {
-      header_date: new Date().toISOString().slice(0, 10),
-      header_date_end: null,
-      header_date_format: "%Y-%m-%d",
-      header_date_locale: "zh-CN",
-      header_parity: "both",
-      header_date_size: 8,
-      header_date_position: "center",
       binding_text: "",
       binding_text_2: "",
       binding_text_size: 8,
@@ -258,7 +256,6 @@ function newSection(width = 148, height = 210): Section {
     },
     watermarkEnabled: false,
     nonBindingEnabled: false,
-    headerStyle: "date",
     pattern: { ...defaults.basic },
   };
 }
@@ -420,6 +417,7 @@ function PatternFields({ section, set }: { section: Section; set: (key: string, 
     return (
       <>
         <div className="flex flex-wrap items-end gap-4 sm:col-span-2">
+          <Field label="页数" value={p.pages} min={1} max={500} onChange={(v) => set("pages", v)} />
           <Field label="横线" value={p.draw_hlines} type="checkbox" onChange={(v) => set("draw_hlines", v)} />
           <Field label="竖线" value={p.draw_vlines} type="checkbox" onChange={(v) => set("draw_vlines", v)} />
           <Field label="点阵" value={p.draw_dots} type="checkbox" onChange={(v) => set("draw_dots", v)} />
@@ -563,6 +561,7 @@ function PatternFields({ section, set }: { section: Section; set: (key: string, 
         ]}
         onChange={(v) => set("pages", Number(v))}
       />
+      <Field label="日期（留空不区分昼夜）" value={p.date} type="date" onChange={(v) => set("date", v || "")} />
       <Field label="线条颜色" value={p.line_color} type="color" onChange={(v) => set("line_color", v)} />
       <Field label="线宽" value={p.line_width} min={0.01} step={0.05} onChange={(v) => set("line_width", v)} />
       <Field label="标签字号（pt）" value={p.label_size} min={1} step={0.1} onChange={(v) => set("label_size", v)} /> <Field label="纬度（留空不绘制日照）" value={p.latitude} type="text" placeholder="如 30°15′N 或 30.25" onChange={(v) => set("latitude", toDecimal(String(v)) ?? v)} />
@@ -622,33 +621,41 @@ function FontPicker({ value, options, onChange }: { value: string; options: [str
   );
 }
 
+// 页数由版式真实参数决定：是多少页就算多少页。
 function effectivePages(section: Section): number {
-  const { headerEnabled, headerStyle, pages, document, pattern } = section;
-  if (pattern.kind === "eight" && pattern.start_date && pattern.end_date) {
-    const start = parseISODate(String(pattern.start_date));
-    const end = parseISODate(String(pattern.end_date));
-    if (start && end && start <= end) {
-      return (Math.round((end.getTime() - start.getTime()) / 86400000 / 7) + 1) * 2;
+  const p = section.pattern;
+  if (p.kind === "basic" || p.kind === "timeline") return Math.max(1, Number(p.pages) || 1);
+  if (p.kind === "eight") {
+    const start = parseISODate(String(p.start_date));
+    const end = parseISODate(String(p.end_date));
+    if (start && end && start <= end) return (Math.round((end.getTime() - start.getTime()) / 86400000 / 7) + 1) * 2;
+  }
+  if (p.kind === "year") {
+    const [sy, sm] = String(p.start).split("-").map(Number);
+    const [ey, em] = String(p.end).split("-").map(Number);
+    if (sy && sm && ey && em) {
+      const months = ey * 12 + em - sy * 12 - sm + 1;
+      if (months > 0) return Math.ceil(months / (Number(p.rows) * Number(p.cols) || 1));
     }
   }
-  if (headerEnabled && headerStyle === "date" && document.header_date && document.header_date_end) {
-    const days = Math.round((Date.parse(String(document.header_date_end)) - Date.parse(String(document.header_date))) / 86400000) + 1;
-    // 奇数/偶数页模式：每天占一个可见页 + 一个空白对页，页数按 2×天数扩展
-    const factor = document.header_parity === "both" ? 1 : 2;
-    return Math.min(Math.max(days * factor, 1), pages);
-  }
-  return pages;
+  return 1;
 }
 
-function dateModeError(section: Section): string | null {
-  if (!(section.headerEnabled && section.headerStyle === "date")) return null;
-  const { header_date, header_date_end } = section.document;
-  if (!header_date || !header_date_end) return "页头日期模式需要同时填写开始和结束日期";
-  if (String(header_date_end) < String(header_date)) return "页头日期模式的结束日期必须晚于或等于开始日期";
-  return null;
+// 页头/页脚参数完全一致，共用同一个带状区域请求。
+function bandRequest(values: Values, prefix: "header" | "footer", enabled: boolean, mode: "text" | "number") {
+  const text = enabled && mode === "text";
+  return {
+    text: text ? values[`${prefix}_text`] || null : null,
+    text_2: text ? values[`${prefix}_text_2`] || null : null,
+    text_size: values[`${prefix}_text_size`],
+    text_2_size: values[`${prefix}_text_2_size`],
+    text_spacing: values[`${prefix}_text_spacing`],
+    text_color: values[`${prefix}_text_color`],
+    page_number: enabled && mode === "number",
+  };
 }
 
-function sectionRequest(section: Section, pageCount = effectivePages(section)): RenderSectionRequest {
+function sectionRequest(section: Section): RenderSectionRequest {
   return {
     page: {
       ...section.page,
@@ -658,19 +665,24 @@ function sectionRequest(section: Section, pageCount = effectivePages(section)): 
       non_binding: section.nonBindingEnabled ? section.page.non_binding : 0,
     },
     document: {
-      ...section.document,
-      page_count: pageCount,
-      show_header: section.headerEnabled && section.headerStyle === "date",
-      header_date: section.headerEnabled && section.headerStyle === "date" ? section.document.header_date : null,
-      header_date_end: section.headerEnabled && section.headerStyle === "date" ? section.document.header_date_end || null : null,
-      header_text: section.headerEnabled && section.headerStyle === "text" ? section.document.header_text || null : null,
-      header_text_2: section.headerEnabled && section.headerStyle === "text" ? section.document.header_text_2 || null : null,
-      footer_text: section.footerEnabled ? section.document.footer_text || null : null,
-      footer_text_2: section.footerEnabled ? section.document.footer_text_2 || null : null,
+      page_number: section.pageNumber,
+      header: bandRequest(section.document, "header", section.headerEnabled, section.headerMode),
+      footer: bandRequest(section.document, "footer", section.footerEnabled, section.footerMode),
       binding_text: section.watermarkEnabled ? section.document.binding_text || null : null,
       binding_text_2: section.watermarkEnabled ? section.document.binding_text_2 || null : null,
+      binding_text_size: section.document.binding_text_size,
+      binding_text_2_size: section.document.binding_text_2_size,
+      binding_text_spacing: section.document.binding_text_spacing,
+      binding_text_edge: section.document.binding_text_edge,
+      binding_text_font: section.document.binding_text_font,
+      binding_text_color: section.document.binding_text_color,
       non_binding_text: section.nonBindingEnabled ? section.document.non_binding_text || null : null,
       non_binding_text_2: section.nonBindingEnabled ? section.document.non_binding_text_2 || null : null,
+      non_binding_text_size: section.document.non_binding_text_size,
+      non_binding_text_2_size: section.document.non_binding_text_2_size,
+      non_binding_text_spacing: section.document.non_binding_text_spacing,
+      non_binding_text_edge: section.document.non_binding_text_edge,
+      non_binding_text_color: section.document.non_binding_text_color,
     },
     pattern: cleanPattern(section.pattern),
   } as unknown as RenderSectionRequest;
@@ -682,19 +694,13 @@ const SortableSection = memo(function SortableSection({ section, index, update, 
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewing, setPreviewing] = useState(false);
   const [previewError, setPreviewError] = useState("");
-  const previewRequest = previewOpen ? JSON.stringify(sectionRequest(section, 2)) : "";
+  const previewRequest = previewOpen ? JSON.stringify(sectionRequest(section)) : "";
   useEffect(() => {
     if (!previewOpen) return;
     let stale = false;
     const timer = setTimeout(() => {
       setPreviewing(true);
       setPreviewError("");
-      const dateErr = dateModeError(section);
-      if (dateErr) {
-        setPreviewing(false);
-        setPreviewError(dateErr);
-        return;
-      }
       invoke<string>("preview_section", { body: JSON.parse(previewRequest) })
         .then(
           (pdf) => {
@@ -740,7 +746,7 @@ const SortableSection = memo(function SortableSection({ section, index, update, 
           <button className="min-w-0 flex-1 text-left" onClick={() => update(section.id, { expanded: !section.expanded })}>
             <span className="block truncate font-medium">#{index + 1}</span>
             <span className="text-xs text-muted-foreground">
-              {patternNames[section.pattern.kind]} · {section.pages} 页
+              {patternNames[section.pattern.kind]} · {effectivePages(section)} 页
             </span>
           </button>
           <Button variant="ghost" size="icon" aria-label={previewOpen ? "关闭预览" : "预览前 2 页"} onClick={() => setPreviewOpen((open) => !open)}>
@@ -762,63 +768,33 @@ const SortableSection = memo(function SortableSection({ section, index, update, 
         )}
         {section.expanded && (
           <CardContent className="grid gap-4 border-t bg-muted/30 pt-5 sm:grid-cols-2">
-            <Field label="页数" value={section.pages} min={1} max={500} onChange={(pages) => update(section.id, { pages: Number(pages) })} />
+            <Field label="参与页码" value={section.pageNumber} type="checkbox" onChange={(pageNumber) => update(section.id, { pageNumber: Boolean(pageNumber) })} />
             <Group title="页头" enabled={section.headerEnabled} onEnabled={(headerEnabled) => update(section.id, { headerEnabled })}>
               <Field label="页头高度（mm）" value={section.page.header} min={0} step={0.5} onChange={(v) => page("header", v)} />
               <Select
-                label="页头样式"
-                value={section.headerStyle}
+                label="页头内容"
+                value={section.headerMode}
                 options={[
-                  ["date", "日期"],
-                  ["text", "水印文字"],
-                  ["none", "无样式（空白）"],
+                  ["text", "文字"],
+                  ["number", "页码"],
                 ]}
-                disabledKeys={section.pattern.kind === "eight" ? ["date"] : undefined}
-                onChange={(v) => update(section.id, { headerStyle: v as Section["headerStyle"] })}
+                onChange={(v) => update(section.id, { headerMode: v as Section["headerMode"] })}
               />
-              {section.headerStyle === "date" && (
-                <>
-                  <Field label="开始日期" value={section.document.header_date} type="date" onChange={(v) => doc("header_date", v)} />
-                  <Field label="结束日期" value={section.document.header_date_end ?? ""} type="date" onChange={(v) => doc("header_date_end", v || null)} />
-                  <Field label="日期格式" value={section.document.header_date_format} type="text" placeholder="例如：%Y年 %cccc（农历）" onChange={(v) => doc("header_date_format", v)} />
-                  <Select
-                    label="语言"
-                    value={section.document.header_date_locale}
-                    options={[
-                      ["zh-CN", "中文"],
-                      ["en-US", "English"],
-                    ]}
-                    onChange={(v) => doc("header_date_locale", v)}
-                  />
-                  <Select
-                    label="显示页"
-                    value={section.document.header_parity}
-                    options={[
-                      ["both", "全部"],
-                      ["odd", "奇数页"],
-                      ["even", "偶数页"],
-                    ]}
-                    onChange={(v) => doc("header_parity", v)}
-                  />
-                  <Select
-                    label="位置"
-                    value={section.document.header_date_position}
-                    options={[
-                      ["center", "居中"],
-                      ["binding", "装订侧"],
-                      ["outer", "外侧"],
-                    ]}
-                    onChange={(v) => doc("header_date_position", v)}
-                  />
-                  <Field label="字号（pt）" value={section.document.header_date_size} min={1} step={0.5} onChange={(v) => doc("header_date_size", v)} />
-                </>
-              )}
-              {section.headerStyle === "text" && <TextFields values={section.document} prefix="header_text" set={doc} />}
+              {section.headerMode === "text" && <TextFields values={section.document} prefix="header_text" set={doc} />}
               <Field label="页头颜色" value={section.document.header_text_color} type="color" onChange={(v) => doc("header_text_color", v)} />
             </Group>
             <Group title="页脚" enabled={section.footerEnabled} onEnabled={(footerEnabled) => update(section.id, { footerEnabled })}>
               <Field label="页脚高度（mm）" value={section.page.footer} min={5} step={0.5} onChange={(v) => page("footer", v)} />
-              <TextFields values={section.document} prefix="footer_text" set={doc} />
+              <Select
+                label="页脚内容"
+                value={section.footerMode}
+                options={[
+                  ["text", "文字"],
+                  ["number", "页码"],
+                ]}
+                onChange={(v) => update(section.id, { footerMode: v as Section["footerMode"] })}
+              />
+              {section.footerMode === "text" && <TextFields values={section.document} prefix="footer_text" set={doc} />}
               <Field label="页脚颜色" value={section.document.footer_text_color} type="color" onChange={(v) => doc("footer_text_color", v)} />
             </Group>
             <Group title="装订侧水印" enabled={section.watermarkEnabled} onEnabled={(watermarkEnabled) => update(section.id, { watermarkEnabled })}>
@@ -838,12 +814,7 @@ const SortableSection = memo(function SortableSection({ section, index, update, 
                 label="版式"
                 value={section.pattern.kind}
                 options={Object.entries(patternNames)}
-                onChange={(kind) =>
-                  update(section.id, {
-                    pattern: { ...defaults[kind as PatternKind] },
-                    ...(kind === "eight" && section.headerStyle === "date" ? { headerStyle: "none" as const } : {}),
-                  })
-                }
+                onChange={(kind) => update(section.id, { pattern: { ...defaults[kind as PatternKind] } })}
               />
               <div className="grid gap-4 border-t pt-4 sm:grid-cols-2">
                 <PatternFields section={section} set={pattern} />
@@ -885,6 +856,7 @@ function cleanPattern(pattern: Section["pattern"]) {
       latitude: pattern.latitude ?? null,
       longitude: pattern.longitude ?? null,
       timezone: pattern.timezone || null,
+      date: pattern.date || null,
     };
   return pattern;
 }
@@ -899,7 +871,14 @@ export default function App() {
       pageSize?: string;
     } | null>("base6.state", null),
   );
-  const [sections, setSections] = useState<Section[]>(saved?.sections ?? [newSection()]);
+  const [sections, setSections] = useState<Section[]>(() =>
+    (saved?.sections ?? [newSection()]).map((s) => ({
+      ...s,
+      pageNumber: s.pageNumber ?? true,
+      headerMode: s.headerMode ?? "text",
+      footerMode: s.footerMode ?? "text",
+    })),
+  );
   const [binding, setBinding] = useState<"booklet" | "thread" | null>(saved?.binding ?? "booklet");
   const [size, setSize] = useState(saved?.size ?? { width: 148, height: 210 });
   const [pageSize, setPageSize] = useState(saved?.pageSize ?? "A5");
@@ -990,13 +969,6 @@ export default function App() {
       filters: [{ name: "PDF", extensions: ["pdf"] }],
     });
     if (!output) return;
-    for (const section of sections) {
-      const err = dateModeError(section);
-      if (err) {
-        setStatus(err);
-        return;
-      }
-    }
     setRunning(true);
     setStatus("正在排版并生成 PDF…");
     try {

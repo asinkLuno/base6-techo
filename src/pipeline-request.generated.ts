@@ -9,8 +9,7 @@ export type Header = number;
 export type Footer = number;
 export type Binding = number;
 export type NonBinding = number;
-export type PageCount = number;
-export type ShowHeader = boolean;
+export type PageNumber = boolean;
 export type BindingText = string | null;
 export type BindingText2 = string | null;
 export type BindingTextSize = number;
@@ -19,20 +18,6 @@ export type BindingTextSpacing = number;
 export type BindingTextEdge = number | null;
 export type BindingTextFont = string;
 export type BindingTextColor = string;
-export type HeaderDate = string | null;
-export type HeaderDateEnd = string | null;
-export type HeaderDateFormat = string;
-export type HeaderDateLocale = string;
-export type HeaderParity = "odd" | "even" | "both";
-export type HeaderDateSize = number;
-export type HeaderDateFont = string | null;
-export type HeaderDatePosition = "center" | "binding" | "outer";
-export type HeaderText = string | null;
-export type HeaderText2 = string | null;
-export type HeaderTextSize = number;
-export type HeaderText2Size = number;
-export type HeaderTextSpacing = number;
-export type HeaderTextColor = string;
 export type NonBindingText = string | null;
 export type NonBindingText2 = string | null;
 export type NonBindingTextSize = number;
@@ -40,12 +25,6 @@ export type NonBindingText2Size = number;
 export type NonBindingTextSpacing = number;
 export type NonBindingTextEdge = number | null;
 export type NonBindingTextColor = string;
-export type FooterText = string | null;
-export type FooterText2 = string | null;
-export type FooterTextSize = number;
-export type FooterText2Size = number;
-export type FooterTextSpacing = number;
-export type FooterTextColor = string;
 export type Pattern = BasicPatternRequest | BunkwanPatternRequest | MidoriPatternRequest | TimelinePatternRequest;
 export type Kind = "basic";
 export type Spacing = number;
@@ -131,6 +110,7 @@ export type Longitude = number | null;
 export type Timezone = string | null;
 export type DaylightColor = string;
 export type NightColor = string;
+export type Date = string | null;
 export type Mode = ("booklet" | "thread") | null;
 export type SheetsPerGroup = number;
 
@@ -153,8 +133,9 @@ export interface PageRequest {
   non_binding?: NonBinding;
 }
 export interface DocumentRequest {
-  page_count?: PageCount;
-  show_header?: ShowHeader;
+  page_number?: PageNumber;
+  header?: BandRequest;
+  footer?: BandRequest;
   binding_text?: BindingText;
   binding_text_2?: BindingText2;
   binding_text_size?: BindingTextSize;
@@ -163,20 +144,6 @@ export interface DocumentRequest {
   binding_text_edge?: BindingTextEdge;
   binding_text_font?: BindingTextFont;
   binding_text_color?: BindingTextColor;
-  header_date?: HeaderDate;
-  header_date_end?: HeaderDateEnd;
-  header_date_format?: HeaderDateFormat;
-  header_date_locale?: HeaderDateLocale;
-  header_parity?: HeaderParity;
-  header_date_size?: HeaderDateSize;
-  header_date_font?: HeaderDateFont;
-  header_date_position?: HeaderDatePosition;
-  header_text?: HeaderText;
-  header_text_2?: HeaderText2;
-  header_text_size?: HeaderTextSize;
-  header_text_2_size?: HeaderText2Size;
-  header_text_spacing?: HeaderTextSpacing;
-  header_text_color?: HeaderTextColor;
   non_binding_text?: NonBindingText;
   non_binding_text_2?: NonBindingText2;
   non_binding_text_size?: NonBindingTextSize;
@@ -184,15 +151,19 @@ export interface DocumentRequest {
   non_binding_text_spacing?: NonBindingTextSpacing;
   non_binding_text_edge?: NonBindingTextEdge;
   non_binding_text_color?: NonBindingTextColor;
-  footer_text?: FooterText;
-  footer_text_2?: FooterText2;
-  footer_text_size?: FooterTextSize;
-  footer_text_2_size?: FooterText2Size;
-  footer_text_spacing?: FooterTextSpacing;
-  footer_text_color?: FooterTextColor;
+}
+export interface BandRequest {
+  text?: BindingText;
+  text_2?: BindingText2;
+  text_size?: BindingTextSize;
+  text_2_size?: BindingText2Size;
+  text_spacing?: BindingTextSpacing;
+  text_color?: BindingTextColor;
+  page_number?: PageNumber;
 }
 export interface BasicPatternRequest {
   kind?: Kind;
+  pages?: number;
   spacing?: Spacing;
   line_width?: LineWidth;
   line_color?: LineColor;
@@ -276,6 +247,7 @@ export interface TimelinePatternRequest {
   start?: Start;
   end?: End;
   pages?: Pages;
+  date?: Date;
   line_color?: LineColor2;
   line_width?: LineWidth2;
   label_size?: LabelSize;

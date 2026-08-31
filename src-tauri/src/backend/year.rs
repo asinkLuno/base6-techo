@@ -60,6 +60,15 @@ impl YearPattern {
         Ok(())
     }
 
+    /// 页数 = 总月数按每页 rows×cols 个月向上取整。
+    pub(crate) fn page_count(&self) -> usize {
+        let (Some((sy, sm)), Some((ey, em))) = (parse_ym(&self.start), parse_ym(&self.end)) else {
+            return 1;
+        };
+        let months = (ey * 12 + em as i32 - sy * 12 - sm as i32 + 1).max(1) as usize;
+        months.div_ceil((self.rows * self.cols).max(1))
+    }
+
     /// 第 index 页（双页为一行）的 rows×cols 个月份；超出结束月份的位置为 None。
     fn page_months(&self, index: usize) -> Vec<Option<(i32, u32)>> {
         let per = self.rows * self.cols;

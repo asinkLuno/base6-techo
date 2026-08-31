@@ -5,6 +5,7 @@ use super::{Dot, Geometry, Line, LineStyle, centered, inset, region, validate_co
 #[derive(Clone, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub(crate) struct BasicPattern {
+    pub(crate) pages: usize,
     pub(crate) spacing: f64,
     pub(crate) line_width: f64,
     pub(crate) line_color: String,
@@ -66,6 +67,7 @@ pub(crate) struct BasicPattern {
 impl Default for BasicPattern {
     fn default() -> Self {
         Self {
+            pages: 1,
             spacing: 8.0,
             line_width: 0.2,
             line_color: "#B0B0B0".into(),
@@ -128,6 +130,9 @@ impl Default for BasicPattern {
 
 impl BasicPattern {
     pub(crate) fn validate(&self) -> Result<(), String> {
+        if !(1..=500).contains(&self.pages) {
+            return Err("pages must be in 1..=500".into());
+        }
         if self.spacing <= 0.0
             || self.line_width <= 0.0
             || self.vline_width <= 0.0
