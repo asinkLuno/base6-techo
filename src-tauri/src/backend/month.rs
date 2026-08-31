@@ -27,6 +27,7 @@ pub(crate) struct MonthPattern {
     pub(crate) line_width: f64,
     pub(crate) date_size: f64,
     pub(crate) weekday_lang: WeekdayLang,
+    pub(crate) two_page: bool,
 }
 impl Default for MonthPattern {
     fn default() -> Self {
@@ -39,6 +40,7 @@ impl Default for MonthPattern {
             line_width: 0.4,
             date_size: 8.0,
             weekday_lang: WeekdayLang::En,
+            two_page: false,
         }
     }
 }
@@ -82,7 +84,14 @@ pub(crate) fn draw_month(
     let mut lines = Vec::new();
     let mut paths = Vec::new();
     let mut texts = Vec::new();
-    let (year, month) = month_ym(p.year, p.month, index);
+    // 双页模式：同一月拆两页，页 0 显示周一~周三列，页 1 显示周四~周六列（周日不显示）。
+    let cols = if p.two_page { 3 } else { COLS };
+    let off = if p.two_page { 3 * index } else { 0 };
+    let (year, month) = if p.two_page {
+        (p.year, p.month)
+    } else {
+        month_ym(p.year, p.month, index)
+    };
     let Some(first) = NaiveDate::from_ymd_opt(year, month, 1) else {
         return (lines, paths, texts);
     };
@@ -107,8 +116,8 @@ pub(crate) fn draw_month(
         height: r.width,
     };
     let gy = land.y + HEAD_H;
-    let cell_w = land.width / f64::from(COLS as u16);
     let cell_h = (land.height - HEAD_H) / weeks as f64;
+    let cell_w = land.width / f64::from(cols as u16);
     let grid = |x1, y1, x2, y2| Line {
         x1,
         y1,
@@ -119,7 +128,7 @@ pub(crate) fn draw_month(
         style: LineStyle::Solid,
     };
     // 竖线按行分段，横线按列分段，交叉处各留 GAP 缺口。
-    for i in 0..=COLS {
+    for i in 0..=cols {
         let x = land.x + cell_w * i as f64;
         for j in 0..weeks {
             let y1 = gy + cell_h * j as f64 + GAP;
@@ -129,13 +138,16 @@ pub(crate) fn draw_month(
     }
     for j in 0..=weeks {
         let y = gy + cell_h * j as f64;
-        for i in 0..COLS {
+        for i in 0..cols {
             let x1 = land.x + cell_w * i as f64 + GAP;
             let x2 = land.x + cell_w * (i + 1) as f64 - GAP;
             lines.push(grid(x1, y, x2, y));
         }
     }
-    for (i, w) in weekday_headers(p.weekday_lang).iter().enumerate() {
+    for (i, w) in weekday_headers(p.weekday_lang)[off..off + cols]
+        .iter()
+        .enumerate()
+    {
         texts.push(Text {
             x: land.x + cell_w * (i as f64 + 0.5),
             y: land.y + HEAD_H / 2.0,
@@ -149,8 +161,12 @@ pub(crate) fn draw_month(
     }
     for d in 1..=days {
         let pos = first_weekday + d - 1;
+        let gcol = pos % COLS;
+        if !(off..off + cols).contains(&gcol) {
+            continue;
+        }
         let row = (pos / COLS) as f64;
-        let col = (pos % COLS) as f64;
+        let col = (gcol - off) as f64;
         let date = first + Duration::days(i64::from(d as u16 - 1));
         let date_key = format!("{}-{:02}-{:02}", date.year(), date.month(), date.day());
         let is_weekend = date.weekday() == Weekday::Sat || date.weekday() == Weekday::Sun;
@@ -610,5 +626,31 @@ mod tests {
                 draw_month(geometry_for(&page, 1), &p, 0, r"\sffamily", &None, false);
             assert_eq!(texts[0].content, first);
         }
+    }
+    #[test]
+    fn two_page_splits_weekday_columns() {
+        let page = PageSettings::default();
+        let p = MonthPattern {
+            year: 2026,
+            month: 8,
+            two_page: true,
+            ..Default::default()
+        };
+        // 2026-08：周六起，31 天，6 行；每页 3 列：竖线 4×6 + 横线 7×3，各 13 天落格。
+        let (lines, paths, texts) =
+            draw_month(geometry_for(&page, 1), &p, 0, r"\sffamily", &None, false);
+        assert_eq!(lines.len(), 4 * 6 + 7 * 3);
+        assert_eq!(paths.len(), 26);
+        assert_eq!(texts.len(), 16);
+        assert_eq!(texts[0].content, "Mo");
+        assert_eq!(texts[3].content, "3");
+        assert!(!texts.iter().any(|t| t.content == "1"));
+
+        let (_, paths, texts) =
+            draw_month(geometry_for(&page, 2), &p, 1, r"\sffamily", &None, false);
+        assert_eq!(texts[0].content, "Th");
+        assert_eq!(texts[3].content, "1");
+        assert!(!texts.iter().any(|t| t.content == "2")); // 周日不显示
+        assert_eq!(paths.len(), 26);
     }
 }

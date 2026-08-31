@@ -108,7 +108,6 @@ fn push_mini_calendar(
     font: &str,
     holidays: &Option<HashMap<String, String>>,
     lunar: bool,
-    paths: &mut Vec<Poly>,
 ) {
     let first = NaiveDate::from_ymd_opt(week_start.year(), week_start.month(), 1)
         .expect("month of an existing date is valid");
@@ -128,7 +127,6 @@ fn push_mini_calendar(
             holidays,
             lunar,
             true,
-            paths,
         );
     }
     push_one_month(
@@ -145,7 +143,6 @@ fn push_mini_calendar(
         holidays,
         lunar,
         false,
-        paths,
     );
 }
 
@@ -162,7 +159,6 @@ pub(crate) fn push_one_month(
     holidays: &Option<HashMap<String, String>>,
     lunar: bool,
     mini: bool,
-    paths: &mut Vec<Poly>,
 ) {
     let Some(next) = next_month_first(first) else {
         return;
@@ -243,46 +239,6 @@ pub(crate) fn push_one_month(
             pos / 7 + 2,
             if is_red { MINI_RED } else { MINI_BLACK },
         );
-        // 右上角月相：微缩月历不画
-        if !mini {
-            let rx = rect.x + MINI_PAD + cell_w * ((pos % 7) as f64 + 1.0);
-            let ty = rect.y + MINI_PAD + cell_h * ((pos / 7 + 2) as f64);
-            let (illum, waxing) = moon_illumination(date.and_hms_opt(12, 0, 0).unwrap().and_utc());
-            let cx = rx - PS / 2.0;
-            let cy = ty + PS / 2.0;
-            let radius = PS / 2.0;
-            let tau = std::f64::consts::TAU;
-            let half_pi = std::f64::consts::FRAC_PI_2;
-            let arc = |start: f64, end: f64| {
-                (0..=MOON_STEPS)
-                    .map(|i| {
-                        let phi = start + (end - start) * i as f64 / MOON_STEPS as f64;
-                        (cx + radius * phi.cos(), cy + radius * phi.sin())
-                    })
-                    .collect::<Vec<_>>()
-            };
-            paths.push(Poly {
-                points: arc(0.0, tau),
-                color: "#e5b93f".to_string(),
-                fill: false,
-                arrow: false,
-            });
-            let mut lit = arc(-half_pi, half_pi);
-            for (x, y) in arc(half_pi, -half_pi) {
-                lit.push((cx + (1.0 - 2.0 * illum) * (x - cx), y));
-            }
-            if !waxing {
-                for point in &mut lit {
-                    point.0 = 2.0 * cx - point.0;
-                }
-            }
-            paths.push(Poly {
-                points: lit,
-                color: "#e5b93f".to_string(),
-                fill: true,
-                arrow: false,
-            });
-        }
         // 农历日期与节日名称：同一格内日期下方居中（微缩月历仅染色，不显示文字）
         if !mini {
             if lunar && let Some(lunar_str) = lunar_date(date) {
@@ -378,7 +334,6 @@ pub(crate) fn draw_eight(
             font,
             holidays,
             lunar,
-            &mut paths,
         );
     }
     for (slot, offset) in offsets.into_iter().enumerate() {

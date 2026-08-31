@@ -132,7 +132,6 @@ pub(crate) fn draw_year(
             holidays,
             lunar,
             false,
-            &mut Vec::new(),
         );
     }
     texts

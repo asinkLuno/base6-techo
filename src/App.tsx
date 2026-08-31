@@ -182,6 +182,7 @@ const defaults: Record<PatternKind, Values & { kind: PatternKind }> = {
     line_width: 0.4,
     date_size: 8,
     weekday_lang: "en",
+    two_page: false,
   },
   tracker: {
     kind: "tracker",
@@ -545,6 +546,7 @@ function PatternFields({ section, set }: { section: Section; set: (key: string, 
           options={WEEKDAY_LANG_OPTIONS}
           onChange={(v) => set("weekday_lang", v)}
         />
+        <Field label="双页（周一~三 / 周四~六）" value={p.two_page} type="checkbox" onChange={(v) => set("two_page", v)} />
       </>
     );
   if (p.kind === "tracker")

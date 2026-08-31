@@ -274,11 +274,14 @@ impl Pattern {
         match self {
             Self::Basic(p) => p.pages,
             Self::Eight(p) => p.weeks().len() * 2,
-            Self::Bunkwan(_)
-            | Self::Graph(_)
-            | Self::Midori(_)
-            | Self::Month(_)
-            | Self::Tracker(_) => 1,
+            Self::Bunkwan(_) | Self::Graph(_) | Self::Midori(_) | Self::Tracker(_) => 1,
+            Self::Month(p) => {
+                if p.two_page {
+                    2
+                } else {
+                    1
+                }
+            }
             Self::Timeline(p) => p.pages as usize,
             Self::Year(p) => p.page_count(),
         }
