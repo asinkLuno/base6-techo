@@ -48,13 +48,29 @@ const patternNames: Record<PatternKind, string> = {
   year: "年历",
 };
 
-const PAGE_SIZES: Record<string, [number, number]> = {
+const PAGE_SIZES: Record<string, [number, number, string?]> = {
+  A4: [210, 297],
+  A5S: [110, 210, "A5S/TN 标准"],
+  "TN护照": [88, 125],
   A5: [148, 210],
   A6: [105, 148],
-  A7: [74, 105],
+  A6FC: [108, 171],
+  A6Personal: [95, 171],
+  A6PW: [120, 170],
+  A6Slim: [80, 171],
+  A7: [80, 120],
+  "127A7": [80, 127],
   B5: [176, 250],
   B6: [125, 176],
+  "74m5": [74, 105],
+  "67m5": [67, 105],
+  "62m5": [62, 105],
 };
+
+const PAGE_SIZE_OPTIONS: [string, string][] = [
+  ...Object.entries(PAGE_SIZES).map(([k, [w, h, name]]) => [k, `${name ?? k}（${w} × ${h} mm）`] as [string, string]),
+  ["custom", "自定义"],
+];
 
 const FONT_OPTIONS: [string, string][] = [
   [String.raw`\sffamily`, "无衬线（sans）"],
@@ -1060,14 +1076,7 @@ localStorage.setItem("base6.state", JSON.stringify({ sections, binding, sheetsPe
               <Select
                 label="页面大小"
                 value={pageSize}
-                options={[
-                  ["A5", "A5（148 × 210 mm）"],
-                  ["A6", "A6（105 × 148 mm）"],
-                  ["A7", "A7（74 × 105 mm）"],
-                  ["B5", "B5（176 × 250 mm）"],
-                  ["B6", "B6（125 × 176 mm）"],
-                  ["custom", "自定义"],
-                ]}
+                options={PAGE_SIZE_OPTIONS}
                 onChange={(v) => {
                   setPageSize(v);
                   if (v !== "custom") {
@@ -1080,6 +1089,8 @@ localStorage.setItem("base6.state", JSON.stringify({ sections, binding, sheetsPe
                 <>
                   <Field label="宽度（mm）" value={size.width} min={10} step={0.5} onChange={(v) => applySize(Number(v), size.height)} />
                   <Field label="高度（mm）" value={size.height} min={10} step={0.5} onChange={(v) => applySize(size.width, Number(v))} />
+                </>
+              )}
               <div className="grid gap-3">
                 <div className="flex items-center gap-2">
                   <Button variant="outline" size="sm" onClick={importICS} disabled={running}>
@@ -1099,8 +1110,6 @@ localStorage.setItem("base6.state", JSON.stringify({ sections, binding, sheetsPe
                   </p>
                 )}
               </div>
-                </>
-              )}
               <FontPicker
                 value={String(sections[0]?.document.binding_text_font ?? String.raw`\sffamily`)}
                 options={fontOptions}
