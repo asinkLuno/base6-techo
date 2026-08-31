@@ -9,7 +9,7 @@ pub fn run() {
             backend::write_text_file,
             backend::read_text_file,
             backend::run_pipeline,
-            backend::preview_section,
+            backend::preview_document,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Tauri application");

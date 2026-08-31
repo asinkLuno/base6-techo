@@ -20,7 +20,7 @@ import { parseICS } from "./lib/ics-parser";
 
 type Value = string | number | boolean | null;
 type Values = Record<string, Value>;
-type PatternKind = "basic" | "bunkwan" | "eight" | "midori" | "month" | "timeline" | "tracker" | "year";
+type PatternKind = "basic" | "bunkwan" | "eight" | "graph" | "midori" | "month" | "timeline" | "tracker" | "year";
 type Section = {
   id: string;
   expanded: boolean;
@@ -40,6 +40,7 @@ const patternNames: Record<PatternKind, string> = {
   basic: "基础版式",
   bunkwan: "博文馆当用日历",
   eight: "八分视图",
+  graph: "制图网格",
   midori: "Midori",
   month: "月历",
   timeline: "时间轴",
@@ -164,6 +165,13 @@ const defaults: Record<PatternKind, Values & { kind: PatternKind }> = {
     line_style: "solid",
     center_gap: 2,
     date_size: 10,
+  },
+  graph: {
+    kind: "graph",
+    axis: "right",
+    line_color: "#7a7a7a",
+    line_width: 0.2,
+    date_size: 8,
   },
   month: {
     kind: "month",
@@ -550,6 +558,23 @@ function PatternFields({ section, set }: { section: Section; set: (key: string, 
         <Field label="日期字号（pt）" value={p.date_size} min={1} step={0.5} onChange={(v) => set("date_size", v)} />
       </>
     );
+  if (p.kind === "graph")
+    return (
+      <>
+        <Select
+          label="数字位置"
+          value={p.axis}
+          options={[
+            ["right", "右侧（逆时针转 90° 阅读）"],
+            ["left", "左侧（顺时针转 90° 阅读）"],
+          ]}
+          onChange={(v) => set("axis", v)}
+        />
+        <Field label="线条颜色" value={p.line_color} type="color" onChange={(v) => set("line_color", v)} />
+        <Field label="细线宽（pt，粗线为两倍）" value={p.line_width} min={0.01} step={0.05} onChange={(v) => set("line_width", v)} />
+        <Field label="轴标签字号（pt）" value={p.date_size} min={1} step={0.5} onChange={(v) => set("date_size", v)} />
+      </>
+    );
   return (
     <>
       <Field label="起始小时" value={p.start} min={0} max={29} onChange={(v) => set("start", v)} />
@@ -692,37 +717,8 @@ function sectionRequest(section: Section, holidays: Record<string, string>): Ren
   } as unknown as RenderSectionRequest;
 }
 
-const SortableSection = memo(function SortableSection({ section, index, update, remove, holidays }: { section: Section; index: number; update: (id: string, patch: Partial<Section>) => void; remove: (id: string) => void; holidays: Record<string, string> }) {
+const SortableSection = memo(function SortableSection({ section, index, update, remove }: { section: Section; index: number; update: (id: string, patch: Partial<Section>) => void; remove: (id: string) => void }) {
   const sortable = useSortable({ id: section.id });
-  const [preview, setPreview] = useState("");
-  const [previewOpen, setPreviewOpen] = useState(false);
-  const [previewing, setPreviewing] = useState(false);
-  const [previewError, setPreviewError] = useState("");
-  const previewRequest = previewOpen ? JSON.stringify(sectionRequest(section, holidays)) : "";
-  useEffect(() => {
-    if (!previewOpen) return;
-    let stale = false;
-    const timer = setTimeout(() => {
-      setPreviewing(true);
-      setPreviewError("");
-      invoke<string>("preview_section", { body: JSON.parse(previewRequest) })
-        .then(
-          (pdf) => {
-            if (!stale) setPreview(pdf);
-          },
-          (error) => {
-            if (!stale) setPreviewError(String(error));
-          },
-        )
-        .finally(() => {
-          if (!stale) setPreviewing(false);
-        });
-    }, 400);
-    return () => {
-      stale = true;
-      clearTimeout(timer);
-    };
-  }, [previewOpen, previewRequest]);
   const doc = (key: string, value: Value) =>
     update(section.id, {
       document: {
@@ -753,9 +749,6 @@ const SortableSection = memo(function SortableSection({ section, index, update, 
               {patternNames[section.pattern.kind]} · {effectivePages(section)} 页
             </span>
           </button>
-          <Button variant="ghost" size="icon" aria-label={previewOpen ? "关闭预览" : "预览前 2 页"} onClick={() => setPreviewOpen((open) => !open)}>
-            <Eye />
-          </Button>
           <Button variant="ghost" size="icon" aria-label="展开或收起" onClick={() => update(section.id, { expanded: !section.expanded })}>
             {section.expanded ? <ChevronUp /> : <ChevronDown />}
           </Button>
@@ -763,13 +756,6 @@ const SortableSection = memo(function SortableSection({ section, index, update, 
             <Trash2 className="text-destructive" />
           </Button>
         </div>
-        {previewing && <p className="border-t bg-muted/30 p-3 text-center text-xs text-muted-foreground">正在渲染 2 页预览…</p>}
-        {previewError && <p className="border-t bg-destructive/5 p-3 text-xs text-destructive">预览失败：{previewError}</p>}
-        {preview && !previewing && (
-          <div className="h-96 min-h-48 min-w-64 resize overflow-hidden border-t bg-muted/30">
-            <iframe title={`第 ${index + 1} 个卡片前 2 页预览`} src={`data:application/pdf;base64,${preview}`} className="block h-full w-full" />
-          </div>
-        )}
         {section.expanded && (
           <CardContent className="grid gap-4 border-t bg-muted/30 pt-5 sm:grid-cols-2">
             <Field label="参与页码" value={section.pageNumber} type="checkbox" onChange={(pageNumber) => update(section.id, { pageNumber: Boolean(pageNumber) })} />
@@ -1011,10 +997,41 @@ localStorage.setItem("base6.state", JSON.stringify({ sections, binding, sheetsPe
       setRunning(false);
     }
   }
+
+  const [preview, setPreview] = useState<{ open: boolean; data: string; busy: boolean; error: string }>({ open: false, data: "", busy: false, error: "" });
+  async function previewDocument() {
+    if (preview.open) {
+      setPreview((p) => ({ ...p, open: false }));
+      return;
+    }
+    setPreview({ open: true, data: "", busy: true, error: "" });
+    try {
+      const request = {
+        output: "",
+        sections: sections.map((section) => sectionRequest(section, holidays)),
+        bind: { mode: binding, sheets_per_group: sheetsPerGroup },
+      } as unknown as RunPipelineRequest;
+      const data = await invoke<string>("preview_document", { body: request });
+      setPreview({ open: true, data, busy: false, error: "" });
+    } catch (error) {
+      setPreview({ open: true, data: "", busy: false, error: String(error) });
+    }
+  }
   return (
     <main className="mx-auto max-w-6xl p-5 sm:p-8">
       <div className="grid items-start gap-6 lg:grid-cols-[1fr_320px]">
         <section className="grid gap-3">
+          {preview.open && (
+            <div className="overflow-hidden rounded-xl border bg-muted/30">
+              {preview.busy ? (
+                <p className="p-6 text-center text-sm text-muted-foreground">正在渲染整体预览…</p>
+              ) : preview.error ? (
+                <p className="p-6 text-xs text-destructive">预览失败：{preview.error}</p>
+              ) : (
+                <iframe title="整体预览" src={`data:application/pdf;base64,${preview.data}`} className="block h-[80vh] w-full" />
+              )}
+            </div>
+          )}
           <div className="mb-1 flex items-center justify-between">
             <h2 className="text-lg font-semibold">Sessions</h2>
             <Button variant="outline" onClick={() => setSections((items) => [...items, newSection(size.width, size.height)])}>
@@ -1025,7 +1042,7 @@ localStorage.setItem("base6.state", JSON.stringify({ sections, binding, sheetsPe
           <DndContext sensors={sensors} onDragEnd={dragEnd}>
             <SortableContext items={sections.map(({ id }) => id)} strategy={verticalListSortingStrategy}>
               {sections.map((section, index) => (
-<SortableSection key={section.id} section={section} index={index} update={update} remove={removeSection} holidays={holidays} />
+<SortableSection key={section.id} section={section} index={index} update={update} remove={removeSection} />
               ))}
             </SortableContext>
           </DndContext>
@@ -1135,6 +1152,10 @@ localStorage.setItem("base6.state", JSON.stringify({ sections, binding, sheetsPe
                 导入预设
               </Button>
             </div>
+            <Button variant="outline" size="lg" disabled={running || preview.busy || !sections.length} onClick={previewDocument}>
+              <Eye />
+              {preview.busy ? "渲染中…" : preview.open ? "关闭预览" : "整体预览"}
+            </Button>
             <Button size="lg" disabled={running || !sections.length} onClick={generate}>
               <FileDown />
               {running ? "生成中…" : "选择位置并生成"}

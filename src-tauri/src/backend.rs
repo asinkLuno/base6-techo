@@ -9,6 +9,7 @@ use base64::{Engine, engine::general_purpose::STANDARD};
 mod basic;
 mod bunkwan;
 mod eight;
+mod graph;
 mod midori;
 mod month;
 mod timeline;
@@ -21,6 +22,7 @@ use chrono::{
     format::{Item, StrftimeItems},
 };
 use eight::{EightPattern, draw_eight};
+use graph::{GraphPattern, draw_graph};
 use midori::{MidoriPattern, draw_midori};
 use month::{MonthPattern, TrackerPattern, draw_month, draw_tracker};
 use serde::Deserialize;
@@ -217,6 +219,7 @@ enum Pattern {
     Basic(Box<BasicPattern>),
     Bunkwan(BunkwanPattern),
     Eight(EightPattern),
+    Graph(GraphPattern),
     Midori(MidoriPattern),
     Month(MonthPattern),
     Timeline(TimelinePattern),
@@ -270,8 +273,12 @@ impl Pattern {
     fn page_count(&self) -> usize {
         match self {
             Self::Basic(p) => p.pages,
-            Self::Bunkwan(_) | Self::Midori(_) | Self::Month(_) | Self::Tracker(_) => 1,
             Self::Eight(p) => p.weeks().len() * 2,
+            Self::Bunkwan(_)
+            | Self::Graph(_)
+            | Self::Midori(_)
+            | Self::Month(_)
+            | Self::Tracker(_) => 1,
             Self::Timeline(p) => p.pages as usize,
             Self::Year(p) => p.page_count(),
         }
@@ -282,6 +289,7 @@ impl Pattern {
             Self::Basic(p) => &p.line_color,
             Self::Bunkwan(p) => &p.line_color,
             Self::Eight(p) => &p.line_color,
+            Self::Graph(p) => &p.line_color,
             Self::Midori(p) => &p.line_color,
             Self::Month(p) => &p.line_color,
             Self::Timeline(p) => &p.line_color,
@@ -295,6 +303,7 @@ impl Pattern {
             Self::Basic(p) => p.line_width,
             Self::Bunkwan(p) => p.line_width,
             Self::Eight(p) => p.line_width,
+            Self::Graph(p) => p.line_width,
             Self::Midori(p) => p.line_width,
             Self::Month(p) => p.line_width,
             Self::Timeline(p) => p.line_width,
@@ -307,6 +316,7 @@ impl Pattern {
             Self::Basic(p) => p.validate(),
             Self::Bunkwan(p) => p.validate(),
             Self::Eight(p) => p.validate(),
+            Self::Graph(p) => p.validate(),
             Self::Midori(p) => p.validate(),
             Self::Month(p) => p.validate(),
             Self::Timeline(p) => p.validate(),
@@ -631,6 +641,10 @@ fn render_page(
         Pattern::Month(p) => {
             let (l, pa, t) = draw_month(geo, p, index, &doc.binding_text_font, holidays, lunar);
             (l, vec![], pa, t)
+        }
+        Pattern::Graph(p) => {
+            let (l, t) = draw_graph(geo, p, &doc.binding_text_font);
+            (l, vec![], vec![], t)
         }
         Pattern::Tracker(p) => {
             let (l, pa, t) = draw_tracker(geo, p, index, &doc.binding_text_font, holidays);
@@ -1089,9 +1103,7 @@ fn generate(
     let mut number = 1;
     let mut page_number = 1;
     for section in body.sections {
-        // 预览最多渲 2 页。
         let pages = section.pattern.page_count();
-        let pages = if preview { pages.min(2) } else { pages };
         generated.extend(normal_output(
             &section,
             number,
@@ -1103,9 +1115,6 @@ fn generate(
         number += pages;
         if section.document.page_number {
             page_number += pages;
-        }
-        if preview {
-            break;
         }
     }
     if let Some(mode) = body.bind.mode {
@@ -1182,21 +1191,13 @@ pub(crate) async fn run_pipeline(
 }
 
 #[tauri::command]
-pub(crate) async fn preview_section(
+pub(crate) async fn preview_document(
     app: tauri::AppHandle,
-    body: RenderSectionRequest,
+    body: RunPipelineRequest,
 ) -> Result<String, String> {
-    let request = RunPipelineRequest {
-        output: String::new(),
-        sections: vec![body],
-        bind: BindRequest {
-            mode: None,
-            sheets_per_group: 4,
-        },
-    };
     let resource_dir = app.path().resource_dir().ok();
     tauri::async_runtime::spawn_blocking(move || {
-        generate(request, true, resource_dir.as_deref()).map(|(_, bytes)| STANDARD.encode(bytes))
+        generate(body, true, resource_dir.as_deref()).map(|(_, bytes)| STANDARD.encode(bytes))
     })
     .await
     .map_err(|e| e.to_string())?
