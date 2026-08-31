@@ -19,7 +19,7 @@ import { cn } from "./lib/utils";
 
 type Value = string | number | boolean | null;
 type Values = Record<string, Value>;
-type PatternKind = "basic" | "bunkwan" | "midori" | "timeline";
+type PatternKind = "basic" | "bunkwan" | "eight" | "midori" | "timeline";
 type Section = {
   id: string;
   expanded: boolean;
@@ -37,6 +37,7 @@ type Section = {
 const patternNames: Record<PatternKind, string> = {
   basic: "基础版式",
   bunkwan: "博文馆当用日历",
+  eight: "八分视图",
   midori: "Midori",
   timeline: "时间轴",
 };
@@ -57,6 +58,11 @@ const FONT_OPTIONS: [string, string][] = [
 const LINE_STYLE_OPTIONS: [string, string][] = [["solid", "实线"], ["dashed", "虚线"], ["dotted", "点线"], ["dash-dot", "点虚线"], ["double-solid", "双实线"]];
 
 const TZ_OPTIONS: [string, string][] = [...Array.from({ length: 12 }, (_, i) => [`Etc/GMT-${12 - i}`, `东${12 - i}区（UTC+${12 - i}）`] as [string, string]), ["Etc/GMT", "零时区（UTC）"], ...Array.from({ length: 12 }, (_, i) => [`Etc/GMT+${i + 1}`, `西${i + 1}区（UTC-${i + 1}）`] as [string, string])];
+
+const currentMonday = new Date();
+currentMonday.setDate(currentMonday.getDate() - ((currentMonday.getDay() + 6) % 7));
+const currentSunday = new Date(currentMonday);
+currentSunday.setDate(currentMonday.getDate() + 6);
 
 const defaults: Record<PatternKind, Values & { kind: PatternKind }> = {
   basic: {
@@ -138,6 +144,18 @@ const defaults: Record<PatternKind, Values & { kind: PatternKind }> = {
     footer: false,
     inner: false,
     outer: false,
+  },
+  eight: {
+    kind: "eight",
+    start_date: toISODate(currentMonday),
+    end_date: toISODate(currentSunday),
+    date_format: "%-d",
+    date_locale: "zh-CN",
+    line_color: "#7a7a7a",
+    line_width: 0.4,
+    line_style: "solid",
+    center_gap: 2,
+    date_size: 10,
   },
   timeline: {
     kind: "timeline",
@@ -291,7 +309,7 @@ function Field({ label, value, type = "number", min, max, step, placeholder, onC
     </label>
   );
 }
-function Select({ label, value, options, onChange }: { label: string; value: Value; options: [string | number, string][]; onChange: (value: string) => void }) {
+function Select({ label, value, options, onChange, disabledKeys }: { label: string; value: Value; options: [string | number, string][]; onChange: (value: string) => void; disabledKeys?: (string | number)[] }) {
   return (
     <div className="grid gap-1.5">
       <FieldLabel>{label}</FieldLabel>
@@ -301,7 +319,7 @@ function Select({ label, value, options, onChange }: { label: string; value: Val
         </SelectTrigger>
         <SelectContent>
           {options.map(([key, text]) => (
-            <SelectItem key={key} value={String(key)}>
+            <SelectItem key={key} value={String(key)} disabled={disabledKeys?.includes(key)}>
               {text}
             </SelectItem>
           ))}
@@ -427,6 +445,28 @@ function PatternFields({ section, set }: { section: Section; set: (key: string, 
         <Field label="圆点颜色" value={p.dot_color} type="color" onChange={(v) => set("dot_color", v)} />
       </>
     );
+  if (p.kind === "eight")
+    return (
+      <>
+        <Field label="开始日期" value={p.start_date} type="date" onChange={(v) => set("start_date", v)} />
+        <Field label="结束日期" value={p.end_date} type="date" onChange={(v) => set("end_date", v)} />
+        <Field label="日期格式" value={p.date_format} type="text" placeholder="例如：%-d、%m/%d、%a %cccc（农历）" onChange={(v) => set("date_format", v)} />
+        <Select
+          label="语言"
+          value={p.date_locale}
+          options={[
+            ["zh-CN", "中文"],
+            ["en-US", "English"],
+          ]}
+          onChange={(v) => set("date_locale", v)}
+        />
+        <Field label="线条颜色" value={p.line_color} type="color" onChange={(v) => set("line_color", v)} />
+        <Field label="线宽（pt）" value={p.line_width} min={0.01} step={0.05} onChange={(v) => set("line_width", v)} />
+        <Select label="线样式" value={p.line_style} options={LINE_STYLE_OPTIONS} onChange={(v) => set("line_style", v)} />
+        <Field label="中心点间距（mm）" value={p.center_gap} min={0} step={0.5} onChange={(v) => set("center_gap", v)} />
+        <Field label="日期字号（pt）" value={p.date_size} min={1} step={0.5} onChange={(v) => set("date_size", v)} />
+      </>
+    );
   return (
     <>
       <Field label="起始小时" value={p.start} min={0} max={29} onChange={(v) => set("start", v)} />
@@ -500,7 +540,14 @@ function FontPicker({ value, options, onChange }: { value: string; options: [str
 }
 
 function effectivePages(section: Section): number {
-  const { headerEnabled, headerStyle, pages, document } = section;
+  const { headerEnabled, headerStyle, pages, document, pattern } = section;
+  if (pattern.kind === "eight" && pattern.start_date && pattern.end_date) {
+    const start = parseISODate(String(pattern.start_date));
+    const end = parseISODate(String(pattern.end_date));
+    if (start && end && start <= end) {
+      return (Math.round((end.getTime() - start.getTime()) / 86400000 / 7) + 1) * 2;
+    }
+  }
   if (headerEnabled && headerStyle === "date" && document.header_date && document.header_date_end) {
     const days = Math.round((Date.parse(String(document.header_date_end)) - Date.parse(String(document.header_date))) / 86400000) + 1;
     // 奇数/偶数页模式：每天占一个可见页 + 一个空白对页，页数按 2×天数扩展
@@ -643,6 +690,7 @@ const SortableSection = memo(function SortableSection({ section, index, update, 
                   ["text", "水印文字"],
                   ["none", "无样式（空白）"],
                 ]}
+                disabledKeys={section.pattern.kind === "eight" ? ["date"] : undefined}
                 onChange={(v) => update(section.id, { headerStyle: v as Section["headerStyle"] })}
               />
               {section.headerStyle === "date" && (
@@ -707,7 +755,12 @@ const SortableSection = memo(function SortableSection({ section, index, update, 
                 label="版式"
                 value={section.pattern.kind}
                 options={Object.entries(patternNames)}
-                onChange={(kind) => update(section.id, { pattern: { ...defaults[kind as PatternKind] } })}
+                onChange={(kind) =>
+                  update(section.id, {
+                    pattern: { ...defaults[kind as PatternKind] },
+                    ...(kind === "eight" && section.headerStyle === "date" ? { headerStyle: "none" as const } : {}),
+                  })
+                }
               />
               <div className="grid gap-4 border-t pt-4 sm:grid-cols-2">
                 <PatternFields section={section} set={pattern} />

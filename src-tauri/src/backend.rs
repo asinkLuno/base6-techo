@@ -8,6 +8,7 @@ use std::{
 use base64::{Engine, engine::general_purpose::STANDARD};
 mod basic;
 mod bunkwan;
+mod eight;
 mod midori;
 mod timeline;
 
@@ -17,6 +18,7 @@ use chrono::{
     Duration, Locale, NaiveDate,
     format::{Item, StrftimeItems},
 };
+use eight::{EightPattern, draw_eight};
 use midori::{MidoriPattern, draw_midori};
 use serde::Deserialize;
 use tauri::Manager;
@@ -284,6 +286,7 @@ impl DocumentSettings {
 enum Pattern {
     Basic(Box<BasicPattern>),
     Bunkwan(BunkwanPattern),
+    Eight(EightPattern),
     Midori(MidoriPattern),
     Timeline(TimelinePattern),
 }
@@ -316,6 +319,7 @@ impl Pattern {
         match self {
             Self::Basic(p) => &p.line_color,
             Self::Bunkwan(p) => &p.line_color,
+            Self::Eight(p) => &p.line_color,
             Self::Midori(p) => &p.line_color,
             Self::Timeline(p) => &p.line_color,
         }
@@ -324,6 +328,7 @@ impl Pattern {
         match self {
             Self::Basic(p) => p.line_width,
             Self::Bunkwan(p) => p.line_width,
+            Self::Eight(p) => p.line_width,
             Self::Midori(p) => p.line_width,
             Self::Timeline(p) => p.line_width,
         }
@@ -332,6 +337,7 @@ impl Pattern {
         match self {
             Self::Basic(p) => p.validate(),
             Self::Bunkwan(p) => p.validate(),
+            Self::Eight(p) => p.validate(),
             Self::Midori(p) => p.validate(),
             Self::Timeline(p) => p.validate(),
         }
@@ -630,6 +636,10 @@ fn render_page(
         Pattern::Midori(p) => {
             let (l, d) = draw_midori(geo, p);
             (l, d, vec![])
+        }
+        Pattern::Eight(p) => {
+            let (l, d, t) = draw_eight(geo, p, index, &doc.binding_text_font);
+            (l, d, t)
         }
         Pattern::Timeline(p) => draw_timeline(geo, p, date, &doc.binding_text_font),
     };
@@ -1066,6 +1076,14 @@ fn generate(
         section.page.validate()?;
         section.document.validate(&section.page)?;
         section.pattern.validate()?;
+        if let Pattern::Eight(p) = &section.pattern {
+            if section.document.header_date.is_some() {
+                return Err("八分视图不支持页头日期模式".into());
+            }
+            if section.document.page_count > p.weeks().len() * 2 {
+                return Err("八分视图的页数不能超过整星期数 × 2".into());
+            }
+        }
     }
     let mut generated = Vec::new();
     let mut number = 1;
@@ -1413,6 +1431,7 @@ mod tests {
             "sections": [
                 { "document": { "page_count": 1, "binding_text": "[base-6]" }, "pattern": { "kind": "basic", "draw_hlines": true } },
                 { "document": { "page_count": 31, "header_date": "2026-08-01", "header_date_end": "2026-08-31" }, "pattern": { "kind": "bunkwan" } },
+                { "document": { "page_count": 4 }, "pattern": { "kind": "eight", "start_date": "2026-08-03", "end_date": "2026-08-16" } },
                 { "document": { "page_count": 1 }, "pattern": { "kind": "midori" } },
                 { "document": { "page_count": 1 }, "pattern": { "kind": "timeline", "pages": 1 } }
             ],
