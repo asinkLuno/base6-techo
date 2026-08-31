@@ -4,7 +4,7 @@
 use chrono::{Datelike, Duration, NaiveDate, TimeZone, Utc};
 use serde::Deserialize;
 
-use super::{Geometry, Line, LineStyle, Poly, Text, validate_color};
+use super::{Geometry, Line, LineStyle, Poly, Rect, Text, validate_color};
 
 const COLS: usize = 7;
 const HEAD_H: f64 = 4.0; // mm，星期表头行高
@@ -93,9 +93,16 @@ pub(crate) fn draw_month(
     let weeks = (first_weekday + days).div_ceil(COLS);
 
     let r = geo.content;
-    let gy = r.y + HEAD_H;
-    let cell_w = r.width / f64::from(COLS as u16);
-    let cell_h = (r.height - HEAD_H) / weeks as f64;
+    // 设计坐标系：月历横放（宽沿内容区长边），画完后整体逆时针旋转 90° 落到页面。
+    let land = Rect {
+        x: 0.0,
+        y: 0.0,
+        width: r.height,
+        height: r.width,
+    };
+    let gy = land.y + HEAD_H;
+    let cell_w = land.width / f64::from(COLS as u16);
+    let cell_h = (land.height - HEAD_H) / weeks as f64;
     let grid = |x1, y1, x2, y2| Line {
         x1,
         y1,
@@ -107,7 +114,7 @@ pub(crate) fn draw_month(
     };
     // 竖线按行分段，横线按列分段，交叉处各留 GAP 缺口。
     for i in 0..=COLS {
-        let x = r.x + cell_w * i as f64;
+        let x = land.x + cell_w * i as f64;
         for j in 0..weeks {
             let y1 = gy + cell_h * j as f64 + GAP;
             let y2 = gy + cell_h * (j + 1) as f64 - GAP;
@@ -117,15 +124,15 @@ pub(crate) fn draw_month(
     for j in 0..=weeks {
         let y = gy + cell_h * j as f64;
         for i in 0..COLS {
-            let x1 = r.x + cell_w * i as f64 + GAP;
-            let x2 = r.x + cell_w * (i + 1) as f64 - GAP;
+            let x1 = land.x + cell_w * i as f64 + GAP;
+            let x2 = land.x + cell_w * (i + 1) as f64 - GAP;
             lines.push(grid(x1, y, x2, y));
         }
     }
     for (i, w) in WEEKDAYS.iter().enumerate() {
         texts.push(Text {
-            x: r.x + cell_w * (i as f64 + 0.5),
-            y: r.y + HEAD_H / 2.0,
+            x: land.x + cell_w * (i as f64 + 0.5),
+            y: land.y + HEAD_H / 2.0,
             content: (*w).into(),
             size: p.date_size,
             color: p.line_color.clone(),
@@ -140,7 +147,7 @@ pub(crate) fn draw_month(
         let col = (pos % COLS) as f64;
         let date = first + Duration::days(i64::from(d as u16 - 1));
         texts.push(Text {
-            x: r.x + cell_w * col + PAD,
+            x: land.x + cell_w * col + PAD,
             y: gy + cell_h * row + PAD,
             content: d.to_string(),
             size: p.date_size,
@@ -150,7 +157,7 @@ pub(crate) fn draw_month(
             anchor: "north west",
         });
         // 右上角圆形月相：圆盘描边 + 照面多边形（盈相亮面在右，亏相在左）。
-        let rx = r.x + cell_w * (col + 1.0) - PAD;
+        let rx = land.x + cell_w * (col + 1.0) - PAD;
         let ty = gy + cell_h * row + PAD;
         let (illum, waxing) = moon_illumination(date.and_hms_opt(12, 0, 0).unwrap().and_utc());
         let cx = rx - PS / 2.0;
@@ -188,6 +195,28 @@ pub(crate) fn draw_month(
             fill: true,
         });
     }
+    // 整体逆时针旋转 90°：设计 (x,y) → 页面 (r.x + y, r.y + r.height - x)。
+    let base = r.y + r.height;
+    let left = r.x;
+    for line in &mut lines {
+        let (x1, y1) = (left + line.y1, base - line.x1);
+        let (x2, y2) = (left + line.y2, base - line.x2);
+        line.x1 = x1;
+        line.y1 = y1;
+        line.x2 = x2;
+        line.y2 = y2;
+    }
+    for poly in &mut paths {
+        for point in &mut poly.points {
+            *point = (left + point.1, base - point.0);
+        }
+    }
+    for text in &mut texts {
+        let (x, y) = (left + text.y, base - text.x);
+        text.x = x;
+        text.y = y;
+        text.rotation = 90;
+    }
     (lines, paths, texts)
 }
 
@@ -199,6 +228,7 @@ mod tests {
     #[test]
     fn august_grid_matches_senary_layout() {
         let page = PageSettings::default();
+        let r = geometry_for(&page, 1).content;
         let p = MonthPattern {
             year: 2026,
             month: 8,
@@ -211,7 +241,11 @@ mod tests {
         // 7 个星期表头 + 31 个日期。
         assert_eq!(texts.len(), 38);
         assert_eq!(texts[7].content, "1");
+        // 旋转后：日期仍以 north west 锚在格内左上（盒子伸向页面右上）。
         assert_eq!(texts[7].anchor, "north west");
+        assert_eq!(texts[7].rotation, 90);
+        assert!((texts[7].x - (r.x + 4.2)).abs() < 0.01);
+        assert!((texts[7].y - (r.y + r.height - 135.9)).abs() < 0.1);
     }
 
     #[test]
