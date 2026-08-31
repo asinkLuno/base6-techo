@@ -12,6 +12,7 @@ mod eight;
 mod midori;
 mod month;
 mod timeline;
+mod year;
 
 use basic::{BasicPattern, draw_basic};
 use bunkwan::{BunkwanPattern, draw_bunkwan, lunar_date};
@@ -25,6 +26,7 @@ use month::{MonthPattern, TrackerPattern, draw_month, draw_tracker};
 use serde::Deserialize;
 use tauri::Manager;
 use timeline::{TimelinePattern, draw_timeline};
+use year::{YearPattern, draw_year};
 
 const PAGE_NUMBER_COLOR: &str = "#666666";
 const MM_PER_PT: f64 = 25.4 / 72.27;
@@ -293,6 +295,7 @@ enum Pattern {
     Month(MonthPattern),
     Timeline(TimelinePattern),
     Tracker(TrackerPattern),
+    Year(YearPattern),
 }
 
 /// 迷你月历/月历的星期表头语言。
@@ -346,6 +349,8 @@ impl Pattern {
             Self::Month(p) => &p.line_color,
             Self::Timeline(p) => &p.line_color,
             Self::Tracker(p) => &p.line_color,
+            // 年历只用文字（黑/红固定色），无线条；不会走到该默认值。
+            Self::Year(_) => "#000000",
         }
     }
     fn line_width(&self) -> f64 {
@@ -357,6 +362,7 @@ impl Pattern {
             Self::Month(p) => p.line_width,
             Self::Timeline(p) => p.line_width,
             Self::Tracker(p) => p.line_width,
+            Self::Year(_) => 0.0,
         }
     }
     fn validate(&self) -> Result<(), String> {
@@ -368,6 +374,7 @@ impl Pattern {
             Self::Month(p) => p.validate(),
             Self::Timeline(p) => p.validate(),
             Self::Tracker(p) => p.validate(),
+            Self::Year(p) => p.validate(),
         }
     }
 }
@@ -688,6 +695,10 @@ fn render_page(
         Pattern::Tracker(p) => {
             let (l, pa, t) = draw_tracker(geo, p, index, &doc.binding_text_font);
             (l, vec![], pa, t)
+        }
+        Pattern::Year(p) => {
+            let t = draw_year(geo, p, index, &doc.binding_text_font);
+            (vec![], vec![], vec![], t)
         }
     };
     let visible = doc.header_parity == Parity::Both
@@ -1301,6 +1312,27 @@ mod tests {
         .unwrap();
         let (path, _) = generate(body, false, None).unwrap();
         println!("PDF: {}", path.display());
+        let year: RunPipelineRequest = serde_json::from_str(
+            r#"{
+                "output": "/tmp/year-2026.pdf",
+                "sections": [{
+                    "pattern": {
+                        "kind": "year",
+                        "start": "2026-01",
+                        "end": "2026-12",
+                        "rows": 2,
+                        "cols": 2
+                    },
+                    "document": {
+                        "page_count": 3,
+                        "binding_text_font": "Sarasa UI SC"
+                    }
+                }]
+            }"#,
+        )
+        .unwrap();
+        let (year_path, _) = generate(year, false, None).unwrap();
+        println!("PDF: {}", year_path.display());
     }
 
     #[test]

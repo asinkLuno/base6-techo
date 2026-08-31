@@ -79,9 +79,9 @@ impl EightPattern {
     }
 }
 
-const MINI_PAD: f64 = 2.0; // mm，迷你月历距所在矩形边缘
-const MINI_RED: &str = "#FF0000";
-const MINI_BLACK: &str = "#000000";
+pub(crate) const MINI_PAD: f64 = 2.0; // mm，迷你月历距所在矩形边缘
+pub(crate) const MINI_RED: &str = "#FF0000";
+pub(crate) const MINI_BLACK: &str = "#000000";
 
 /// 次月 1 号。
 fn next_month_first(first: NaiveDate) -> Option<NaiveDate> {
@@ -112,8 +112,9 @@ fn push_mini_calendar(
                 ..quad
             },
             next,
-            week_start,
-            p,
+            p.date_size * 0.7,
+            p.weekday_lang,
+            Some((week_start, week_start + Duration::days(6))),
             font,
         );
     }
@@ -124,20 +125,22 @@ fn push_mini_calendar(
             ..quad
         },
         first,
-        week_start,
-        p,
+        p.date_size * 0.7,
+        p.weekday_lang,
+        Some((week_start, week_start + Duration::days(6))),
         font,
     );
 }
 
 /// 单个月历：月份标题 + 星期表头 + 日期（周一为首的 7 列，仅文字无框线），
-/// 落在 [week_start, week_start+6] 内的日期红色。
-fn push_one_month(
+/// 落在 highlight 区间内的日期红色（年历等无本周概念时传 None）。八分视图与年历共用。
+pub(crate) fn push_one_month(
     texts: &mut Vec<Text>,
     rect: Rect,
     first: NaiveDate,
-    week_start: NaiveDate,
-    p: &EightPattern,
+    size: f64,
+    lang: WeekdayLang,
+    highlight: Option<(NaiveDate, NaiveDate)>,
     font: &str,
 ) {
     let Some(next) = next_month_first(first) else {
@@ -148,11 +151,15 @@ fn push_one_month(
     let rows = (first_wd + days).div_ceil(7);
     let cell_w = (rect.width - 2.0 * MINI_PAD) / 7.0;
     let cell_h = (rect.height - 2.0 * MINI_PAD) / (rows + 2) as f64;
-    let size = p.date_size * 0.7;
-    let zh = p.date_locale.starts_with("zh");
-    let title_format = if zh { "%Y年%-m月" } else { "%b %Y" };
-    let head = weekday_headers(p.weekday_lang);
-    let week_end = week_start + Duration::days(6);
+    let title_format = match lang {
+        WeekdayLang::En => "%b %Y",
+        WeekdayLang::Zh | WeekdayLang::Ja => "%Y年%-m月",
+    };
+    let locale = match lang {
+        WeekdayLang::En => "en-US",
+        WeekdayLang::Zh | WeekdayLang::Ja => "zh-CN",
+    };
+    let head = weekday_headers(lang);
     let mut label = |content: &str, i: f64, j: usize, color: &str| {
         texts.push(Text {
             x: rect.x + MINI_PAD + cell_w * (i + 0.5),
@@ -166,7 +173,7 @@ fn push_one_month(
         });
     };
     label(
-        &format_date(first, title_format, &p.date_locale),
+        &format_date(first, title_format, locale),
         3.0,
         0,
         MINI_BLACK,
@@ -177,15 +184,12 @@ fn push_one_month(
     for d in 1..=days {
         let date = first + Duration::days(d as i64 - 1);
         let pos = first_wd + d - 1;
+        let red = highlight.is_some_and(|(s, e)| (s..=e).contains(&date));
         label(
             &d.to_string(),
             (pos % 7) as f64,
             pos / 7 + 2,
-            if (week_start..=week_end).contains(&date) {
-                MINI_RED
-            } else {
-                MINI_BLACK
-            },
+            if red { MINI_RED } else { MINI_BLACK },
         );
     }
 }

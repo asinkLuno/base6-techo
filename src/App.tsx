@@ -19,7 +19,7 @@ import { cn } from "./lib/utils";
 
 type Value = string | number | boolean | null;
 type Values = Record<string, Value>;
-type PatternKind = "basic" | "bunkwan" | "eight" | "midori" | "month" | "timeline" | "tracker";
+type PatternKind = "basic" | "bunkwan" | "eight" | "midori" | "month" | "timeline" | "tracker" | "year";
 type Section = {
   id: string;
   expanded: boolean;
@@ -42,6 +42,7 @@ const patternNames: Record<PatternKind, string> = {
   month: "月历",
   timeline: "时间轴",
   tracker: "月打卡",
+  year: "年历",
 };
 
 const PAGE_SIZES: Record<string, [number, number]> = {
@@ -179,6 +180,15 @@ const defaults: Record<PatternKind, Values & { kind: PatternKind }> = {
     line_color: "#7a7a7a",
     line_width: 0.4,
     date_size: 8,
+  },
+  year: {
+    kind: "year",
+    start: `${new Date().getFullYear()}-01`,
+    end: `${new Date().getFullYear()}-12`,
+    rows: 1,
+    cols: 2,
+    date_size: 6,
+    weekday_lang: "zh",
   },
   timeline: {
     kind: "timeline",
@@ -487,6 +497,22 @@ function PatternFields({ section, set }: { section: Section; set: (key: string, 
         <Field label="线宽（pt）" value={p.line_width} min={0.01} step={0.05} onChange={(v) => set("line_width", v)} />
         <Select label="线样式" value={p.line_style} options={LINE_STYLE_OPTIONS} onChange={(v) => set("line_style", v)} />
         <Field label="中心点间距（mm）" value={p.center_gap} min={0} step={0.5} onChange={(v) => set("center_gap", v)} />
+        <Field label="日期字号（pt）" value={p.date_size} min={1} step={0.5} onChange={(v) => set("date_size", v)} />
+        <Select
+          label="表头语言"
+          value={p.weekday_lang}
+          options={WEEKDAY_LANG_OPTIONS}
+          onChange={(v) => set("weekday_lang", v)}
+        />
+      </>
+    );
+  if (p.kind === "year")
+    return (
+      <>
+        <Field label="开始月份" value={p.start} type="month" onChange={(v) => set("start", v)} />
+        <Field label="结束月份" value={p.end} type="month" onChange={(v) => set("end", v)} />
+        <Field label="行数" value={p.rows} min={1} max={12} onChange={(v) => set("rows", v)} />
+        <Field label="列数" value={p.cols} min={1} max={12} onChange={(v) => set("cols", v)} />
         <Field label="日期字号（pt）" value={p.date_size} min={1} step={0.5} onChange={(v) => set("date_size", v)} />
         <Select
           label="表头语言"
