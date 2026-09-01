@@ -3,7 +3,6 @@ import { arrayMove, SortableContext, useSortable, verticalListSortingStrategy } 
 import { CSS } from "@dnd-kit/utilities";
 import { open, save } from "@tauri-apps/plugin-dialog";
 import { invoke } from "@tauri-apps/api/core";
-import { PDFViewer, SpreadMode } from "@embedpdf/react-pdf-viewer";
 import { ChevronDown, ChevronUp, Download, Eye, FileDown, GripVertical, Plus, RefreshCw, Trash2, Upload, X } from "lucide-react";
 import { memo, useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import type { RenderSectionRequest, RunPipelineRequest } from "./pipeline-request.generated";
@@ -1095,22 +1094,7 @@ localStorage.setItem("base6.state", JSON.stringify({ sections, binding, sheetsPe
               ) : preview.error ? (
                 <p className="p-6 text-xs text-destructive">预览失败：{preview.error}</p>
               ) : (
-                <PDFViewer
-                  className="block h-[80vh] w-full"
-                  config={{
-                    src: `data:application/pdf;base64,${preview.data}`,
-                    spread: { defaultSpreadMode: binding === null ? SpreadMode.Odd : SpreadMode.None },
-                    zoom: {
-                      defaultZoomLevel: 0.75,
-                      presets: [0.5, 0.75, 1, 1.25, 1.5, 2].map((value) => ({ name: `${value * 100}%`, value })),
-                    },
-                    i18n: { defaultLocale: "zh-CN", fallbackLocale: "en" },
-                    disabledCategories: ["annotation", "redaction", "form", "insert", "document-print", "document-export"],
-                    tabBar: "never",
-                    fonts: { ui: null, signature: null },
-                    fontFallback: null,
-                  }}
-                />
+                <iframe title="整体预览" src={`data:application/pdf;base64,${preview.data}`} className="block h-[80vh] w-full" />
               )}
             </div>
           )}
