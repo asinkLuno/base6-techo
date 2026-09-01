@@ -96,6 +96,9 @@ const FONT_OPTIONS: [string, string][] = [
 ];
 const LINE_STYLE_OPTIONS: [string, string][] = [["solid", "实线"], ["dashed", "虚线"], ["dotted", "点线"], ["dash-dot", "点虚线"], ["double-solid", "双实线"]];
 const WEEKDAY_LANG_OPTIONS: [string, string][] = [["zh", "中文"], ["en", "English"], ["ja", "日本語"]];
+const WEEKDAY_PRESETS: string[] = ["一,二,三,四,五,六,日", "Mo,Tu,We,Th,Fr,Sa,Su", "月,火,水,木,金,土,日"];
+const WEEKDAY_HEADER_OPTIONS: [string, string][] = [...WEEKDAY_PRESETS.map((h) => [h, h] as [string, string]), ["自定义", "自定义"]];
+const DATE_LOCALE_OPTIONS: [string, string][] = [["zh-CN", "中文"], ["en-US", "English"]];
 
 const TZ_OPTIONS: [string, string][] = [...Array.from({ length: 12 }, (_, i) => [`Etc/GMT-${12 - i}`, `东${12 - i}区（UTC+${12 - i}）`] as [string, string]), ["Etc/GMT", "零时区（UTC）"], ...Array.from({ length: 12 }, (_, i) => [`Etc/GMT+${i + 1}`, `西${i + 1}区（UTC-${i + 1}）`] as [string, string])];
 
@@ -209,7 +212,8 @@ const defaults: Record<PatternKind, Values & { kind: PatternKind }> = {
     line_color: COLORS.gray,
     line_width: 0.4,
     date_size: 8,
-    weekday_lang: "en",
+    weekday_headers: "Mo,Tu,We,Th,Fr,Sa,Su",
+    title_format: "%Y年%-m月",
     two_page: false,
   },
   tracker: {
@@ -396,6 +400,27 @@ function Select({ label, value, options, onChange, disabledKeys }: { label: stri
     </div>
   );
 }
+
+function WeekdayHeaderField({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const [custom, setCustom] = useState(false);
+  const showCustom = custom || !WEEKDAY_PRESETS.includes(value);
+  return (
+    <>
+      <Select
+        label="星期表头"
+        value={showCustom ? "自定义" : value}
+        options={WEEKDAY_HEADER_OPTIONS}
+        onChange={(v) => {
+          setCustom(v === "自定义");
+          if (v !== "自定义") onChange(v);
+        }}
+      />
+      {showCustom && (
+        <Field label="自定义表头（英文逗号分隔 7 项）" value={value} type="text" onChange={(v) => onChange(String(v))} />
+      )}
+    </>
+  );
+}
 function Group({ title, enabled, onEnabled, children }: { title: string; enabled: boolean; onEnabled: (enabled: boolean) => void; children: ReactNode }) {
   return (
     <section className="grid gap-4 rounded-lg border bg-background p-4 sm:col-span-2">
@@ -520,10 +545,7 @@ function PatternFields({ section, set }: { section: Section; set: (key: string, 
         <Select
           label="语言"
           value={p.date_locale}
-          options={[
-            ["zh-CN", "中文"],
-            ["en-US", "English"],
-          ]}
+          options={DATE_LOCALE_OPTIONS}
           onChange={(v) => set("date_locale", v)}
         />
         <Field label="线条颜色" value={p.line_color} type="color" onChange={(v) => set("line_color", v)} />
@@ -564,13 +586,15 @@ function PatternFields({ section, set }: { section: Section; set: (key: string, 
         <Field label="线条颜色" value={p.line_color} type="color" onChange={(v) => set("line_color", v)} />
         <Field label="线宽（pt）" value={p.line_width} min={0.01} step={0.05} onChange={(v) => set("line_width", v)} />
         <Field label="日期字号（pt）" value={p.date_size} min={1} step={0.5} onChange={(v) => set("date_size", v)} />
-        <Select
-          label="表头语言"
-          value={p.weekday_lang}
-          options={WEEKDAY_LANG_OPTIONS}
-          onChange={(v) => set("weekday_lang", v)}
-        />
+        <WeekdayHeaderField value={String(p.weekday_headers ?? "")} onChange={(v) => set("weekday_headers", v)} />
         <Field label="双页（周一~三 / 周四~日）" value={p.two_page} type="checkbox" onChange={(v) => set("two_page", v)} />
+        <Field
+          label="标题格式"
+          value={p.title_format}
+          type="text"
+          placeholder="%Y年%-m月"
+          onChange={(v) => set("title_format", v)}
+        />
       </>
     );
   if (p.kind === "tracker")

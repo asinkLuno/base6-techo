@@ -2,12 +2,12 @@
 //! （交叉处留 0.2mm 缺口）、左上角日期、右上角照面比例月相方块。
 
 use super::colors::{GRAY, HOLIDAY_RED, PHASE_GOLD};
+use chrono::format::{Item, StrftimeItems};
 use chrono::{Datelike, Duration, NaiveDate, TimeZone, Utc, Weekday};
 use serde::Deserialize;
 
 use super::{
-    Geometry, HashMap, Line, LineStyle, Poly, Rect, Text, WeekdayLang, lunar_date, validate_color,
-    weekday_headers,
+    Geometry, HashMap, Line, LineStyle, Poly, Rect, Text, chrono_format, lunar_date, validate_color,
 };
 
 const COLS: usize = 7;
@@ -27,8 +27,11 @@ pub(crate) struct MonthPattern {
     pub(crate) line_color: String,
     pub(crate) line_width: f64,
     pub(crate) date_size: f64,
-    pub(crate) weekday_lang: WeekdayLang,
+    /// 星期表头，英文逗号分隔的 7 项（如 "Mo,Tu,We,Th,Fr,Sa,Su"）。
+    pub(crate) weekday_headers: String,
     pub(crate) two_page: bool,
+    /// 双页标题（仅第一页标题带），日期格式串，如 "%Y年%-m月"、"%m/%Y"。
+    pub(crate) title_format: String,
     pub(crate) lunar: bool,
 }
 impl Default for MonthPattern {
@@ -41,8 +44,9 @@ impl Default for MonthPattern {
             line_color: GRAY.into(),
             line_width: 0.4,
             date_size: 8.0,
-            weekday_lang: WeekdayLang::En,
+            weekday_headers: "Mo,Tu,We,Th,Fr,Sa,Su".into(),
             two_page: false,
+            title_format: "%Y年%-m月".into(),
             lunar: false,
         }
     }
@@ -56,6 +60,18 @@ impl MonthPattern {
             return Err("line_width and date_size must be > 0".into());
         }
         validate_color(&self.line_color)?;
+        let headers = self
+            .weekday_headers
+            .split(',')
+            .map(str::trim)
+            .collect::<Vec<_>>();
+        if headers.len() != 7 || headers.iter().any(|s| s.is_empty()) {
+            return Err("weekday_headers must be 7 comma-separated values".into());
+        }
+        let fmt = chrono_format(&self.title_format);
+        if fmt.contains('\u{e000}') || StrftimeItems::new(&fmt).any(|item| item == Item::Error) {
+            return Err(format!("invalid title_format: {}", self.title_format));
+        }
         validate_color(&self.phase_color)
     }
 }
@@ -114,8 +130,9 @@ pub(crate) fn draw_month(
     let weeks = (first_weekday + days).div_ceil(COLS);
 
     let r = geo.content;
-    // 单页：横放设计（宽沿内容区长边），画完后整体逆时针旋转 90° 落到页面。
-    // 双页第一页左侧留一格宽标题带，使两页的星期列始终同宽。
+    // 单页：横放设计（宽沿内容区长边），画完后整体逆时针旋转 90° 落到页面；
+    // 双页第一页左侧留一格宽标题带，使两页的星期列始终同宽；
+    // 单页也在左侧留 1/8 页宽的标题带。
     let land = if p.two_page {
         if index == 0 {
             let title_w = r.width / 4.0;
@@ -128,11 +145,12 @@ pub(crate) fn draw_month(
             r
         }
     } else {
+        let title_w = r.width / 8.0;
         Rect {
             x: 0.0,
-            y: 0.0,
+            y: title_w,
             width: r.height,
-            height: r.width,
+            height: r.width - title_w,
         }
     };
     let gy = land.y + HEAD_H;
@@ -164,10 +182,8 @@ pub(crate) fn draw_month(
             lines.push(grid(x1, y, x2, y));
         }
     }
-    for (i, w) in weekday_headers(p.weekday_lang)[off..off + cols]
-        .iter()
-        .enumerate()
-    {
+    let headers: Vec<&str> = p.weekday_headers.split(',').map(str::trim).collect();
+    for (i, w) in headers[off..off + cols].iter().enumerate() {
         texts.push(Text {
             x: land.x + cell_w * (i as f64 + 0.5),
             y: land.y + HEAD_H / 2.0,
@@ -284,19 +300,25 @@ pub(crate) fn draw_month(
             arrow: false,
         });
     }
-    if p.two_page && index == 0 {
+    if !p.two_page || index == 0 {
+        // 双页：页面坐标，旋转 90°；单页：设计坐标（x=页面竖直中线，y=标题带中线），
+        // 随末尾整体旋转落到页面左缘竖排。
+        let (x, y, rotation) = if p.two_page {
+            (r.x + r.width / 8.0, r.y + r.height / 2.0, 90)
+        } else {
+            (r.height / 2.0, r.width / 16.0, 0)
+        };
         texts.push(Text {
-            x: r.x + r.width / 8.0,
-            y: r.y + r.height / 2.0,
-            content: format!("{year}年{month}月"),
+            x,
+            y,
+            content: first.format(&chrono_format(&p.title_format)).to_string(),
             size: p.date_size * 1.5,
             color: p.line_color.clone(),
-            rotation: 90,
+            rotation,
             font: font.into(),
             anchor: "center",
         });
     }
-    // 整体逆时针旋转 90°：设计 (x,y) → 页面 (r.x + y, r.y + r.height - x)。
     // 单页整体逆时针旋转 90°：设计 (x,y) → 页面 (r.x + y, r.y + r.height - x)。
     if !p.two_page {
         let base = r.y + r.height;
@@ -578,14 +600,19 @@ mod tests {
         // 2026-08：周六起，31 天，6 行 → 竖线 8×6 + 横线 7×7，月相圆盘 + 照面多边形 31×2。
         assert_eq!(lines.len(), 8 * 6 + 7 * 7);
         assert_eq!(paths.len(), 62);
-        // 7 个星期表头 + 31 个日期。
-        assert_eq!(texts.len(), 38);
+        // 7 个星期表头 + 31 个日期 + 标题。
+        assert_eq!(texts.len(), 39);
         assert_eq!(texts[7].content, "1");
         // 旋转后：日期仍以 north west 锚在格内左上（盒子伸向页面右上）。
         assert_eq!(texts[7].anchor, "north west");
         assert_eq!(texts[7].rotation, 90);
-        assert!((texts[7].x - (r.x + 4.2)).abs() < 0.01);
+        assert!((texts[7].x - (r.x + r.width / 8.0 + 4.2)).abs() < 0.01);
         assert!((texts[7].y - (r.y + r.height - 135.9)).abs() < 0.1);
+        // 标题在左侧标题带内，随整体旋转成竖排。
+        let title = texts.iter().find(|t| t.content == "2026年8月").unwrap();
+        assert_eq!(title.rotation, 90);
+        assert!((title.x - (r.x + r.width / 16.0)).abs() < 0.01);
+        assert!((title.y - (r.y + r.height / 2.0)).abs() < 0.01);
     }
 
     #[test]
@@ -644,27 +671,75 @@ mod tests {
         assert!(p.validate().is_ok());
         let p = MonthPattern { month: 13, ..p };
         assert!(p.validate().is_err());
+        let p = MonthPattern {
+            weekday_headers: "一,二,三,四,五,六".into(),
+            ..p
+        };
+        assert!(p.validate().is_err());
     }
 
     #[test]
-    fn weekday_headers_follow_language() {
+    fn weekday_headers_from_string() {
         let page = PageSettings::default();
         let p = MonthPattern {
             year: 2026,
             month: 8,
             ..Default::default()
         };
-        // 默认英文表头（与旧版一致）。
+        // 默认英文表头（与旧版一致），自定义字符串按逗号拆分（允许空格）。
         let (_, _, texts) = draw_month(geometry_for(&page, 1), &p, 0, r"\sffamily", &None);
         assert_eq!(texts[0].content, "Mo");
-        for (lang, first) in [(WeekdayLang::Zh, "一"), (WeekdayLang::Ja, "月")] {
+        for (headers, first) in [
+            ("一,二,三,四,五,六,日", "一"),
+            ("月, 火, 水, 木, 金, 土, 日", "月"),
+        ] {
             let p = MonthPattern {
-                weekday_lang: lang,
+                weekday_headers: headers.into(),
                 ..p.clone()
             };
             let (_, _, texts) = draw_month(geometry_for(&page, 1), &p, 0, r"\sffamily", &None);
             assert_eq!(texts[0].content, first);
         }
+    }
+
+    #[test]
+    fn title_format_renders_month_title() {
+        let page = PageSettings::default();
+        // 默认 "%Y年%-m月"。
+        let p = MonthPattern {
+            year: 2026,
+            month: 8,
+            two_page: true,
+            ..Default::default()
+        };
+        assert!(p.validate().is_ok());
+        let (_, _, texts) = draw_month(geometry_for(&page, 1), &p, 0, r"\sffamily", &None);
+        assert!(texts.iter().any(|t| t.content == "2026年8月"));
+        // 自定义格式串。
+        let p = MonthPattern {
+            title_format: "%m/%Y".into(),
+            ..p.clone()
+        };
+        let (_, _, texts) = draw_month(geometry_for(&page, 1), &p, 0, r"\sffamily", &None);
+        assert!(texts.iter().any(|t| t.content == "08/2026"));
+        // 非法格式串报错。
+        assert!(
+            MonthPattern {
+                title_format: "%Q".into(),
+                ..p.clone()
+            }
+            .validate()
+            .is_err()
+        );
+        // %cccc（农历）不适用于标题。
+        assert!(
+            MonthPattern {
+                title_format: "%cccc".into(),
+                ..p.clone()
+            }
+            .validate()
+            .is_err()
+        );
     }
     #[test]
     fn two_page_splits_weekday_columns() {
