@@ -3,6 +3,7 @@ import { arrayMove, SortableContext, useSortable, verticalListSortingStrategy } 
 import { CSS } from "@dnd-kit/utilities";
 import { open, save } from "@tauri-apps/plugin-dialog";
 import { invoke } from "@tauri-apps/api/core";
+import { PDFViewer, SpreadMode } from "@embedpdf/react-pdf-viewer";
 import { ChevronDown, ChevronUp, Download, Eye, FileDown, GripVertical, Plus, RefreshCw, Trash2, Upload, X } from "lucide-react";
 import { memo, useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import type { RenderSectionRequest, RunPipelineRequest } from "./pipeline-request.generated";
@@ -291,7 +292,6 @@ function newSection(width = 148, height = 210): Section {
       non_binding_text_spacing: 5,
       non_binding_text_edge: null,
       non_binding_text_color: COLORS.gray,
-    lunar: false,
     },
     watermarkEnabled: false,
     nonBindingEnabled: false,
@@ -571,7 +571,7 @@ function PatternFields({ section, set }: { section: Section; set: (key: string, 
           options={WEEKDAY_LANG_OPTIONS}
           onChange={(v) => set("weekday_lang", v)}
         />
-        <Field label="双页（周一~三 / 周四~六）" value={p.two_page} type="checkbox" onChange={(v) => set("two_page", v)} />
+        <Field label="双页（周一~三 / 周四~日）" value={p.two_page} type="checkbox" onChange={(v) => set("two_page", v)} />
       </>
     );
   if (p.kind === "tracker")
@@ -738,7 +738,6 @@ function sectionRequest(section: Section, holidays: Record<string, string>): Ren
       non_binding_text_spacing: section.document.non_binding_text_spacing,
       non_binding_text_edge: section.document.non_binding_text_edge,
       non_binding_text_color: section.document.non_binding_text_color,
-      lunar: section.document.lunar,
   },
   title: patternNames[section.pattern.kind],
   pattern: cleanPattern(section.pattern),
@@ -821,7 +820,6 @@ const SortableSection = memo(function SortableSection({ section, index, update, 
               <Field label="离边缘距离（mm，留空居中）" value={section.document.binding_text_edge} type="number" min={0} step={0.5} onChange={(v) => doc("binding_text_edge", Number(v) || null)} />
               <TextFields values={section.document} prefix="binding_text" set={doc} />
               <Field label="水印颜色" value={section.document.binding_text_color} type="color" onChange={(v) => doc("binding_text_color", v)} />
-              <Field label="显示农历" value={section.document.lunar} type="checkbox" onChange={(v) => doc("lunar", v)} />
             </Group>
             <Group title="非装订侧水印" enabled={section.nonBindingEnabled} onEnabled={(nonBindingEnabled) => update(section.id, { nonBindingEnabled })}>
               <Field label="非装订侧宽度（mm）" value={section.page.non_binding} min={0} step={0.5} onChange={(v) => page("non_binding", v)} />
@@ -1097,7 +1095,22 @@ localStorage.setItem("base6.state", JSON.stringify({ sections, binding, sheetsPe
               ) : preview.error ? (
                 <p className="p-6 text-xs text-destructive">预览失败：{preview.error}</p>
               ) : (
-                <iframe title="整体预览" src={`data:application/pdf;base64,${preview.data}`} className="block h-[80vh] w-full" />
+                <PDFViewer
+                  className="block h-[80vh] w-full"
+                  config={{
+                    src: `data:application/pdf;base64,${preview.data}`,
+                    spread: { defaultSpreadMode: binding === null ? SpreadMode.Odd : SpreadMode.None },
+                    zoom: {
+                      defaultZoomLevel: 0.75,
+                      presets: [0.5, 0.75, 1, 1.25, 1.5, 2].map((value) => ({ name: `${value * 100}%`, value })),
+                    },
+                    i18n: { defaultLocale: "zh-CN", fallbackLocale: "en" },
+                    disabledCategories: ["annotation", "redaction", "form", "insert", "document-print", "document-export"],
+                    tabBar: "never",
+                    fonts: { ui: null, signature: null },
+                    fontFallback: null,
+                  }}
+                />
               )}
             </div>
           )}

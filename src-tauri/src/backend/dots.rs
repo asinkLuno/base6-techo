@@ -1,7 +1,7 @@
 use serde::Deserialize;
 
 use super::colors::GRAY;
-use super::{Dot, Geometry, Line, LineStyle, centered, validate_color};
+use super::{Dot, Geometry, Line, centered, validate_color};
 
 /// 点阵：内容区内等距点阵（行距 spacing、列距 column_spacing）。
 #[derive(Clone, Deserialize)]

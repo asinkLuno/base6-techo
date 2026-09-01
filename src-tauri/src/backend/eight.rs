@@ -3,7 +3,7 @@ use chrono::{Datelike, Duration, NaiveDate, Utc, Weekday};
 use serde::Deserialize;
 
 use super::colors::{BLACK, GRAY, HOLIDAY_RED, PHASE_GOLD};
-use super::month::{MOON_STEPS, PS, moon_illumination};
+use super::month::{MOON_STEPS, moon_illumination};
 use super::{
     Dot, Geometry, HashMap, Line, LineStyle, Poly, Rect, Text, WeekdayLang, chrono_format,
     format_date, lunar_date, validate_color, validate_date_format, weekday_headers,
@@ -22,6 +22,7 @@ pub(crate) struct EightPattern {
     pub(crate) line_style: LineStyle,
     pub(crate) center_gap: f64,
     pub(crate) date_size: f64,
+    pub(crate) lunar: bool,
 }
 impl Default for EightPattern {
     fn default() -> Self {
@@ -38,6 +39,7 @@ impl Default for EightPattern {
             line_style: LineStyle::Solid,
             center_gap: 2.0,
             date_size: 10.0,
+            lunar: false,
         }
     }
 }
@@ -102,7 +104,6 @@ fn push_mini_calendar(
     p: &EightPattern,
     font: &str,
     holidays: &Option<HashMap<String, String>>,
-    lunar: bool,
 ) {
     let first = NaiveDate::from_ymd_opt(week_start.year(), week_start.month(), 1)
         .expect("month of an existing date is valid");
@@ -120,7 +121,7 @@ fn push_mini_calendar(
             Some((week_start, week_start + Duration::days(6))),
             font,
             holidays,
-            lunar,
+            p.lunar,
             true,
             true,
         );
@@ -137,7 +138,7 @@ fn push_mini_calendar(
         Some((week_start, week_start + Duration::days(6))),
         font,
         holidays,
-        lunar,
+        p.lunar,
         false,
         true,
     );
@@ -278,7 +279,6 @@ pub(crate) fn draw_eight(
     index: usize,
     font: &str,
     holidays: &Option<HashMap<String, String>>,
-    lunar: bool,
 ) -> (Vec<Line>, Vec<Dot>, Vec<Poly>, Vec<Text>) {
     let r = geo.content;
     let cx = r.x + r.width / 2.0;
@@ -332,7 +332,6 @@ pub(crate) fn draw_eight(
             p,
             font,
             holidays,
-            lunar,
         );
     }
     for (slot, offset) in offsets.into_iter().enumerate() {
@@ -458,15 +457,7 @@ mod tests {
     }
 
     fn draw(page: &PageSettings, p: &EightPattern, index: usize) -> Vec<Text> {
-        draw_eight(
-            geometry_for(page, index + 1),
-            p,
-            index,
-            r"\sffamily",
-            &None,
-            false,
-        )
-        .3
+        draw_eight(geometry_for(page, index + 1), p, index, r"\sffamily", &None).3
     }
 
     #[test]
@@ -564,7 +555,7 @@ mod tests {
         let page = PageSettings::default();
         let p = pattern("2026-08-03", "2026-08-09");
         let (lines, dots, _paths, texts) =
-            draw_eight(geometry_for(&page, 5), &p, 4, r"\sffamily", &None, false);
+            draw_eight(geometry_for(&page, 5), &p, 4, r"\sffamily", &None);
         assert_eq!(lines.len(), 4);
         assert_eq!(dots.len(), 1);
         assert!(texts.is_empty());

@@ -1,7 +1,7 @@
 use serde::Deserialize;
 
 use super::colors::GRAY;
-use super::{Dot, Geometry, Line, LineStyle, centered, validate_color};
+use super::{Dot, Geometry, Line, LineStyle, validate_color};
 
 /// 网格：内容区内等距方格，四周封闭边框（锁边）。
 #[derive(Clone, Deserialize)]

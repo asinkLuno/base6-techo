@@ -18,6 +18,7 @@ pub(crate) struct YearPattern {
     pub(crate) cols: usize,
     pub(crate) date_size: f64,
     pub(crate) weekday_lang: WeekdayLang,
+    pub(crate) lunar: bool,
 }
 impl Default for YearPattern {
     fn default() -> Self {
@@ -29,6 +30,7 @@ impl Default for YearPattern {
             cols: 2,
             date_size: 6.0,
             weekday_lang: WeekdayLang::Zh,
+            lunar: false,
         }
     }
 }
@@ -101,7 +103,6 @@ pub(crate) fn draw_year(
     index: usize,
     font: &str,
     holidays: &Option<HashMap<String, String>>,
-    lunar: bool,
 ) -> Vec<Text> {
     let mut texts = Vec::new();
     let r = geo.content;
@@ -130,7 +131,7 @@ pub(crate) fn draw_year(
             None,
             font,
             holidays,
-            lunar,
+            p.lunar,
             false,
             false,
         );
@@ -221,7 +222,7 @@ mod tests {
     fn page_draws_two_month_calendars() {
         let page = PageSettings::default();
         let p = year("2026-01", "2026-12");
-        let texts = draw_year(geometry_for(&page, 1), &p, 0, r"\sffamily", &None, false);
+        let texts = draw_year(geometry_for(&page, 1), &p, 0, r"\sffamily", &None);
         assert!(texts.iter().any(|t| t.content == "2026.01"));
         assert!(texts.iter().any(|t| t.content == "2026.02"));
         // 2026-01-01 是周四（黑色），2026-02-01 是周日（红色，周末）

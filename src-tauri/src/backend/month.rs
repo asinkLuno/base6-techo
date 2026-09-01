@@ -29,6 +29,7 @@ pub(crate) struct MonthPattern {
     pub(crate) date_size: f64,
     pub(crate) weekday_lang: WeekdayLang,
     pub(crate) two_page: bool,
+    pub(crate) lunar: bool,
 }
 impl Default for MonthPattern {
     fn default() -> Self {
@@ -42,6 +43,7 @@ impl Default for MonthPattern {
             date_size: 8.0,
             weekday_lang: WeekdayLang::En,
             two_page: false,
+            lunar: false,
         }
     }
 }
@@ -80,14 +82,17 @@ pub(crate) fn draw_month(
     index: usize,
     font: &str,
     holidays: &Option<HashMap<String, String>>,
-    lunar: bool,
 ) -> (Vec<Line>, Vec<Poly>, Vec<Text>) {
     let mut lines = Vec::new();
     let mut paths = Vec::new();
     let mut texts = Vec::new();
     // 双页模式：同一月拆两页，页 0 显示周一~周三列，页 1 显示周四~周六列（周日不显示）。
-    let cols = if p.two_page { 3 } else { COLS };
-    let off = if p.two_page { 3 * index } else { 0 };
+    // 双页模式：同一月拆两页，页 0 显示周一~周三 3 列，页 1 显示周四~周日 4 列。
+    let (cols, off) = if p.two_page {
+        if index == 0 { (3, 0) } else { (4, 3) }
+    } else {
+        (COLS, 0)
+    };
     let (year, month) = if p.two_page {
         (p.year, p.month)
     } else {
@@ -109,12 +114,26 @@ pub(crate) fn draw_month(
     let weeks = (first_weekday + days).div_ceil(COLS);
 
     let r = geo.content;
-    // 设计坐标系：月历横放（宽沿内容区长边），画完后整体逆时针旋转 90° 落到页面。
-    let land = Rect {
-        x: 0.0,
-        y: 0.0,
-        width: r.height,
-        height: r.width,
+    // 单页：横放设计（宽沿内容区长边），画完后整体逆时针旋转 90° 落到页面。
+    // 双页第一页左侧留一格宽标题带，使两页的星期列始终同宽。
+    let land = if p.two_page {
+        if index == 0 {
+            let title_w = r.width / 4.0;
+            Rect {
+                x: r.x + title_w,
+                width: r.width - title_w,
+                ..r
+            }
+        } else {
+            r
+        }
+    } else {
+        Rect {
+            x: 0.0,
+            y: 0.0,
+            width: r.height,
+            height: r.width,
+        }
     };
     let gy = land.y + HEAD_H;
     let cell_h = (land.height - HEAD_H) / weeks as f64;
@@ -186,7 +205,9 @@ pub(crate) fn draw_month(
             anchor: "north west",
         });
         // 农历日期：日期数字正下方
-        if lunar && let Some(lunar_str) = lunar_date(date) {
+        if p.lunar
+            && let Some(lunar_str) = lunar_date(date)
+        {
             texts.push(Text {
                 x: land.x + cell_w * col + PAD,
                 y: gy + cell_h * row + PAD + p.date_size - 0.15,
@@ -208,7 +229,11 @@ pub(crate) fn draw_month(
                     + cell_h * row
                     + PAD
                     + p.date_size
-                    + (if lunar { p.date_size * 0.5 - 0.05 } else { 0.0 })
+                    + (if p.lunar {
+                        p.date_size * 0.5 - 0.05
+                    } else {
+                        0.0
+                    })
                     - 0.15,
                 content: name.clone(),
                 size: p.date_size * 0.55,
@@ -259,27 +284,42 @@ pub(crate) fn draw_month(
             arrow: false,
         });
     }
+    if p.two_page && index == 0 {
+        texts.push(Text {
+            x: r.x + r.width / 8.0,
+            y: r.y + r.height / 2.0,
+            content: format!("{year}年{month}月"),
+            size: p.date_size * 1.5,
+            color: p.line_color.clone(),
+            rotation: 90,
+            font: font.into(),
+            anchor: "center",
+        });
+    }
     // 整体逆时针旋转 90°：设计 (x,y) → 页面 (r.x + y, r.y + r.height - x)。
-    let base = r.y + r.height;
-    let left = r.x;
-    for line in &mut lines {
-        let (x1, y1) = (left + line.y1, base - line.x1);
-        let (x2, y2) = (left + line.y2, base - line.x2);
-        line.x1 = x1;
-        line.y1 = y1;
-        line.x2 = x2;
-        line.y2 = y2;
-    }
-    for poly in &mut paths {
-        for point in &mut poly.points {
-            *point = (left + point.1, base - point.0);
+    // 单页整体逆时针旋转 90°：设计 (x,y) → 页面 (r.x + y, r.y + r.height - x)。
+    if !p.two_page {
+        let base = r.y + r.height;
+        let left = r.x;
+        for line in &mut lines {
+            let (x1, y1) = (left + line.y1, base - line.x1);
+            let (x2, y2) = (left + line.y2, base - line.x2);
+            line.x1 = x1;
+            line.y1 = y1;
+            line.x2 = x2;
+            line.y2 = y2;
         }
-    }
-    for text in &mut texts {
-        let (x, y) = (left + text.y, base - text.x);
-        text.x = x;
-        text.y = y;
-        text.rotation = 90;
+        for poly in &mut paths {
+            for point in &mut poly.points {
+                *point = (left + point.1, base - point.0);
+            }
+        }
+        for text in &mut texts {
+            let (x, y) = (left + text.y, base - text.x);
+            text.x = x;
+            text.y = y;
+            text.rotation = 90;
+        }
     }
     (lines, paths, texts)
 }
@@ -534,8 +574,7 @@ mod tests {
             month: 8,
             ..Default::default()
         };
-        let (lines, paths, texts) =
-            draw_month(geometry_for(&page, 1), &p, 0, r"\sffamily", &None, false);
+        let (lines, paths, texts) = draw_month(geometry_for(&page, 1), &p, 0, r"\sffamily", &None);
         // 2026-08：周六起，31 天，6 行 → 竖线 8×6 + 横线 7×7，月相圆盘 + 照面多边形 31×2。
         assert_eq!(lines.len(), 8 * 6 + 7 * 7);
         assert_eq!(paths.len(), 62);
@@ -557,7 +596,7 @@ mod tests {
             month: 12,
             ..Default::default()
         };
-        let (_, _, texts) = draw_month(geometry_for(&page, 2), &p, 1, r"\sffamily", &None, false);
+        let (_, _, texts) = draw_month(geometry_for(&page, 2), &p, 1, r"\sffamily", &None);
         // 2027-01 共 31 天。
         assert!(texts.iter().any(|t| t.content == "31"));
         assert_eq!(texts[7].content, "1");
@@ -616,15 +655,14 @@ mod tests {
             ..Default::default()
         };
         // 默认英文表头（与旧版一致）。
-        let (_, _, texts) = draw_month(geometry_for(&page, 1), &p, 0, r"\sffamily", &None, false);
+        let (_, _, texts) = draw_month(geometry_for(&page, 1), &p, 0, r"\sffamily", &None);
         assert_eq!(texts[0].content, "Mo");
         for (lang, first) in [(WeekdayLang::Zh, "一"), (WeekdayLang::Ja, "月")] {
             let p = MonthPattern {
                 weekday_lang: lang,
                 ..p.clone()
             };
-            let (_, _, texts) =
-                draw_month(geometry_for(&page, 1), &p, 0, r"\sffamily", &None, false);
+            let (_, _, texts) = draw_month(geometry_for(&page, 1), &p, 0, r"\sffamily", &None);
             assert_eq!(texts[0].content, first);
         }
     }
@@ -637,21 +675,31 @@ mod tests {
             two_page: true,
             ..Default::default()
         };
-        // 2026-08：周六起，31 天，6 行；每页 3 列：竖线 4×6 + 横线 7×3，各 13 天落格。
-        let (lines, paths, texts) =
-            draw_month(geometry_for(&page, 1), &p, 0, r"\sffamily", &None, false);
+        // 2026-08：周六起，31 天，6 行；页 0 周一~三 3 列：竖线 4×6 + 横线 7×3，13 天落格。
+        let first_r = geometry_for(&page, 1).content;
+        let (lines, paths, texts) = draw_month(geometry_for(&page, 1), &p, 0, r"\sffamily", &None);
         assert_eq!(lines.len(), 4 * 6 + 7 * 3);
         assert_eq!(paths.len(), 26);
-        assert_eq!(texts.len(), 16);
+        assert_eq!(texts.len(), 17);
         assert_eq!(texts[0].content, "Mo");
         assert_eq!(texts[3].content, "3");
         assert!(!texts.iter().any(|t| t.content == "1"));
+        let title = texts.iter().find(|t| t.content == "2026年8月").unwrap();
+        assert_eq!(title.rotation, 90);
+        assert!((title.x - (first_r.x + first_r.width / 8.0)).abs() < 0.01);
+        let first_cell_w = texts[1].x - texts[0].x;
 
-        let (_, paths, texts) =
-            draw_month(geometry_for(&page, 2), &p, 1, r"\sffamily", &None, false);
+        // 页 1 周四~日 4 列：竖线 5×6 + 横线 7×4，18 天落格（含 8/1 周六与 8/2 周日）。
+        let (_, paths, texts) = draw_month(geometry_for(&page, 2), &p, 1, r"\sffamily", &None);
+        // 双页竖放：文字不旋转，落在内容区内。
+        let r = geometry_for(&page, 2).content;
+        assert!(texts.iter().all(|t| t.rotation == 0));
+        assert!(texts.iter().all(|t| t.x > r.x && t.x < r.x + r.width));
         assert_eq!(texts[0].content, "Th");
-        assert_eq!(texts[3].content, "1");
-        assert!(!texts.iter().any(|t| t.content == "2")); // 周日不显示
-        assert_eq!(paths.len(), 26);
+        assert_eq!(texts[4].content, "1");
+        assert!(texts.iter().any(|t| t.content == "2")); // 周日也显示
+        assert_eq!(texts.len(), 22); // 4 表头 + 18 日期
+        assert_eq!(paths.len(), 36);
+        assert!((first_cell_w - (texts[1].x - texts[0].x)).abs() < 0.01);
     }
 }

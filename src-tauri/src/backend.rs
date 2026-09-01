@@ -165,7 +165,6 @@ struct DocumentSettings {
     binding_text_edge: Option<f64>,
     binding_text_font: String,
     binding_text_color: String,
-    pub(crate) lunar: bool,
     non_binding_text: Option<String>,
     non_binding_text_2: Option<String>,
     non_binding_text_size: f64,
@@ -189,7 +188,6 @@ impl Default for DocumentSettings {
             binding_text_edge: None,
             binding_text_font: r"\sffamily".into(),
             binding_text_color: GRAY.into(),
-            lunar: false,
             non_binding_text: None,
             non_binding_text_2: None,
             non_binding_text_size: 8.0,
@@ -579,18 +577,6 @@ fn region(geo: Geometry, header: bool, footer: bool, inner: bool, outer: bool) -
         height: bottom - top,
     }
 }
-
-fn inset(rect: Rect, top: f64, bottom: f64, left: f64, right: f64) -> Rect {
-    let left = left.min(rect.width);
-    let top = top.min(rect.height);
-    Rect {
-        x: rect.x + left,
-        y: rect.y + top,
-        width: (rect.width - left - right).max(0.0),
-        height: (rect.height - top - bottom).max(0.0),
-    }
-}
-
 #[allow(clippy::too_many_arguments)]
 fn add_text_block(
     out: &mut Vec<Text>,
@@ -685,7 +671,6 @@ fn render_page(
     index: usize,
     shown_number: Option<usize>,
     holidays: &Option<HashMap<String, String>>,
-    lunar: bool,
 ) -> PageDraw {
     let geo = geometry_for(page, number);
     let (mut lines, dots, paths, mut texts) = match pattern {
@@ -719,7 +704,7 @@ fn render_page(
             (l, d, vec![], vec![])
         }
         Pattern::Eight(p) => {
-            let (l, d, pa, t) = draw_eight(geo, p, index, &doc.binding_text_font, holidays, lunar);
+            let (l, d, pa, t) = draw_eight(geo, p, index, &doc.binding_text_font, holidays);
             (l, d, pa, t)
         }
         Pattern::Timeline(p) => {
@@ -727,7 +712,7 @@ fn render_page(
             (l, d, vec![], t)
         }
         Pattern::Month(p) => {
-            let (l, pa, t) = draw_month(geo, p, index, &doc.binding_text_font, holidays, lunar);
+            let (l, pa, t) = draw_month(geo, p, index, &doc.binding_text_font, holidays);
             (l, vec![], pa, t)
         }
         Pattern::Graph(p) => {
@@ -739,7 +724,7 @@ fn render_page(
             (l, vec![], pa, t)
         }
         Pattern::Year(p) => {
-            let t = draw_year(geo, p, index, &doc.binding_text_font, holidays, lunar);
+            let t = draw_year(geo, p, index, &doc.binding_text_font, holidays);
             (vec![], vec![], vec![], t)
         }
     };
@@ -905,7 +890,6 @@ fn normal_output(
     pages: usize,
     number_start: usize,
     holidays: &Option<HashMap<String, String>>,
-    lunar: bool,
 ) -> Vec<OutputPage> {
     (0..pages)
         .map(|i| {
@@ -918,7 +902,6 @@ fn normal_output(
                 i,
                 shown,
                 holidays,
-                lunar,
             );
             for line in &mut draw.lines {
                 line.color
@@ -1285,7 +1268,6 @@ pub(crate) fn generate(
             pages,
             page_number,
             &section.holidays,
-            section.document.lunar,
         ));
         number += pages;
         if section.document.page_number {
@@ -1510,11 +1492,11 @@ mod tests {
                         "start": "2026-01",
                         "end": "2026-12",
                         "rows": 2,
-                        "cols": 2
+                        "cols": 2,
+                        "lunar": true
                     },
                     "document": {
-                        "binding_text_font": "Sarasa UI SC",
-                        "lunar": true
+                        "binding_text_font": "Sarasa UI SC"
                     },
                     "holidays": {
                         "2026-01-01": "元旦",
@@ -1573,11 +1555,11 @@ mod tests {
                         "start": "2026-01",
                         "end": "2026-12",
                         "rows": 2,
-                        "cols": 2
+                        "cols": 2,
+                        "lunar": true
                     },
                     "document": {
-                        "binding_text_font": "Sarasa UI SC",
-                        "lunar": true
+                        "binding_text_font": "Sarasa UI SC"
                     }
                 }]
             }"#,
@@ -1595,11 +1577,11 @@ mod tests {
                     "pattern": {
                         "kind": "month",
                         "year": 2026,
-                        "month": 1
+                        "month": 1,
+                        "lunar": true
                     },
                     "document": {
-                        "binding_text_font": "Sarasa UI SC",
-                        "lunar": true
+                        "binding_text_font": "Sarasa UI SC"
                     },
                     "holidays": {
                         "2026-01-01": "元旦",
@@ -1625,11 +1607,11 @@ mod tests {
                         "kind": "eight",
                         "start_date": "2026-01-05",
                         "end_date": "2026-01-11",
-                        "weekday_lang": "zh"
+                        "weekday_lang": "zh",
+                        "lunar": true
                     },
                     "document": {
-                        "binding_text_font": "Sarasa UI SC",
-                        "lunar": true
+                        "binding_text_font": "Sarasa UI SC"
                     },
                     "holidays": {
                         "2026-01-01": "元旦",
@@ -1827,7 +1809,7 @@ mod tests {
         };
         let pattern = Pattern::Ruled(RuledPattern::default());
         for (number, expected_x) in [(1, 77.5), (2, 70.5)] {
-            let draw = render_page(&page, &pattern, number, &document, 0, None, &None, false);
+            let draw = render_page(&page, &pattern, number, &document, 0, None, &None);
             assert!(draw.texts.iter().all(|text| text.x == expected_x));
         }
     }
@@ -1848,7 +1830,7 @@ mod tests {
         };
         let pattern = Pattern::Ruled(RuledPattern::default());
         // 参与页码：页码显示在页头/页脚中心，用各自的颜色。
-        let draw = render_page(&page, &pattern, 1, &document, 0, Some(7), &None, false);
+        let draw = render_page(&page, &pattern, 1, &document, 0, Some(7), &None);
         let number = |y: f64, color: &str| {
             draw.texts
                 .iter()
@@ -1860,7 +1842,7 @@ mod tests {
             &document.footer.text_color
         ));
         // 不参与页码：不显示。
-        let draw = render_page(&page, &pattern, 1, &document, 0, None, &None, false);
+        let draw = render_page(&page, &pattern, 1, &document, 0, None, &None);
         assert!(draw.texts.iter().all(|t| t.content != "7"));
     }
 
@@ -1875,7 +1857,7 @@ mod tests {
             ..Default::default()
         };
         let pattern = Pattern::Bunkwan(BunkwanPattern::default());
-        let draw = render_page(&page, &pattern, 1, &document, 0, None, &None, false);
+        let draw = render_page(&page, &pattern, 1, &document, 0, None, &None);
         let content = geometry_for(&page, 1).content;
         assert_eq!((draw.lines[0].x1, draw.lines[0].y1), (content.x, content.y));
         assert!(draw.texts.iter().any(|text| text.content == "header"));
@@ -1925,14 +1907,7 @@ mod tests {
             "bind": { "mode": null, "sheets_per_group": 4 }
         }))
         .unwrap();
-        let pages = normal_output(
-            &request.sections[0],
-            1,
-            2,
-            1,
-            &request.sections[0].holidays,
-            false,
-        );
+        let pages = normal_output(&request.sections[0], 1, 2, 1, &request.sections[0].holidays);
         assert_eq!(pages[0].bookmark.as_deref(), Some("月历"));
         assert_eq!(pages[1].bookmark, None);
     }
@@ -1976,7 +1951,7 @@ mod tests {
         document.non_binding_text = Some("base-6".into());
         document.non_binding_text_2 = Some("since 2026".into());
         // 奇数页：装订边在左，外侧水印必须在右半页。
-        let draw = render_page(&page, &pattern, 1, &document, 0, None, &None, false);
+        let draw = render_page(&page, &pattern, 1, &document, 0, None, &None);
         assert!(
             draw.texts.iter().all(|t| t.x > page.width / 2.0),
             "odd page outer texts: {:?}",
@@ -1986,7 +1961,7 @@ mod tests {
                 .collect::<Vec<_>>()
         );
         // 偶数页：装订边在右，外侧水印必须在左半页。
-        let draw = render_page(&page, &pattern, 2, &document, 0, None, &None, false);
+        let draw = render_page(&page, &pattern, 2, &document, 0, None, &None);
         assert!(
             draw.texts.iter().all(|t| t.x < page.width / 2.0),
             "even page outer texts: {:?}",
