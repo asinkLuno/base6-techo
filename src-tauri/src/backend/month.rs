@@ -14,7 +14,7 @@ const COLS: usize = 7;
 const HEAD_H: f64 = 4.0; // mm，星期表头行高
 const PAD: f64 = 0.2; // mm，日期距格边
 const GAP: f64 = 0.2; // mm，网格交叉处留白
-pub(crate) const PS: f64 = 2.0; // mm，月相圆盘直径
+const MOON_INSET: f64 = 1.0; // mm，月相圆盘离格右上角的留白
 pub(crate) const MOON_STEPS: usize = 24; // 圆弧采样数
 const SYNODIC: f64 = 29.53058867; // 朔望月（天）
 
@@ -32,6 +32,11 @@ pub(crate) struct MonthPattern {
     pub(crate) two_page: bool,
     /// 双页标题（仅第一页标题带），日期格式串，如 "%Y年%-m月"、"%m/%Y"。
     pub(crate) title_format: String,
+    /// 显示节假日：关闭后不画节日名、节日与周末都不染红。
+    pub(crate) show_holidays: bool,
+    /// 农历/节日字号（pt）。
+    pub(crate) sub_size: f64,
+    pub(crate) sub_gap: f64,
     pub(crate) lunar: bool,
 }
 impl Default for MonthPattern {
@@ -47,6 +52,9 @@ impl Default for MonthPattern {
             weekday_headers: "Mo,Tu,We,Th,Fr,Sa,Su".into(),
             two_page: false,
             title_format: "%Y年%-m月".into(),
+            show_holidays: true,
+            sub_size: 4.2,
+            sub_gap: 0.0,
             lunar: false,
         }
     }
@@ -56,8 +64,8 @@ impl MonthPattern {
         if !(1..=12).contains(&self.month) {
             return Err("month must be in 1..12".into());
         }
-        if self.line_width <= 0.0 || self.date_size <= 0.0 {
-            return Err("line_width and date_size must be > 0".into());
+        if self.line_width <= 0.0 || self.date_size <= 0.0 || self.sub_size <= 0.0 {
+            return Err("line_width, date_size and sub_size must be > 0".into());
         }
         validate_color(&self.line_color)?;
         let headers = self
@@ -102,7 +110,8 @@ pub(crate) fn draw_month(
     let mut lines = Vec::new();
     let mut paths = Vec::new();
     let mut texts = Vec::new();
-    // 双页模式：同一月拆两页，页 0 显示周一~周三列，页 1 显示周四~周六列（周日不显示）。
+    // 未勾选显示节假日时视为无节日表：不画节日名，节日与周末都不染红。
+    let holidays = if p.show_holidays { holidays } else { &None };
     // 双页模式：同一月拆两页，页 0 显示周一~周三 3 列，页 1 显示周四~周日 4 列。
     let (cols, off) = if p.two_page {
         if index == 0 { (3, 0) } else { (4, 3) }
@@ -208,7 +217,10 @@ pub(crate) fn draw_month(
         let is_weekend = date.weekday() == Weekday::Sat || date.weekday() == Weekday::Sun;
         let holiday_name = holidays.as_ref().and_then(|h| h.get(&date_key));
         let is_compensatory = holiday_name.is_some_and(|n| n.starts_with("上班"));
-        let is_red = holiday_name.is_some() && !is_compensatory || is_weekend && !is_compensatory;
+        // 未导入 ICS（holidays 为空）时周末不染红。
+        let has_holidays = holidays.as_ref().is_some_and(|h| !h.is_empty());
+        let is_red = holiday_name.is_some() && !is_compensatory
+            || is_weekend && has_holidays && !is_compensatory;
         let text_color = if is_red { HOLIDAY_RED } else { &p.line_color };
         texts.push(Text {
             x: land.x + cell_w * col + PAD,
@@ -220,15 +232,19 @@ pub(crate) fn draw_month(
             font: font.into(),
             anchor: "north west",
         });
+        // 副标签（农历/节日）紧贴数字字面下方：偏移是 mm 坐标而字号是 pt，
+        // 实测标定：锚点下移 0.30×字号(mm) 时字面间距 ≈0.3mm（节点内边距+字体
+        // ascent 会吃掉约 2mm）；节日行距随农历实际字号伸缩，sub_gap 可再微调。
+        let sub_top = gy + cell_h * row + PAD + p.date_size * 0.30 + p.sub_gap;
         // 农历日期：日期数字正下方
         if p.lunar
             && let Some(lunar_str) = lunar_date(date)
         {
             texts.push(Text {
                 x: land.x + cell_w * col + PAD,
-                y: gy + cell_h * row + PAD + p.date_size - 0.15,
+                y: sub_top,
                 content: lunar_str,
-                size: p.date_size * 0.5,
+                size: p.sub_size,
                 color: p.line_color.clone(),
                 rotation: 0,
                 font: font.into(),
@@ -239,20 +255,17 @@ pub(crate) fn draw_month(
         if let Some(name) = holiday_name
             && !is_compensatory
         {
+            let holiday_y = sub_top
+                + if p.lunar {
+                    p.sub_size * 0.36 + p.sub_gap
+                } else {
+                    0.0
+                };
             texts.push(Text {
                 x: land.x + cell_w * col + PAD,
-                y: gy
-                    + cell_h * row
-                    + PAD
-                    + p.date_size
-                    + (if p.lunar {
-                        p.date_size * 0.5 - 0.05
-                    } else {
-                        0.0
-                    })
-                    - 0.15,
+                y: holiday_y,
                 content: name.clone(),
-                size: p.date_size * 0.55,
+                size: p.sub_size,
                 color: HOLIDAY_RED.to_string(),
                 rotation: 0,
                 font: font.into(),
@@ -263,9 +276,11 @@ pub(crate) fn draw_month(
         let rx = land.x + cell_w * (col + 1.0) - PAD;
         let ty = gy + cell_h * row + PAD;
         let (illum, waxing) = moon_illumination(date.and_hms_opt(12, 0, 0).unwrap().and_utc());
-        let cx = rx - PS / 2.0;
-        let cy = ty + PS / 2.0;
-        let radius = PS / 2.0;
+        // 直径与日期数字同大：字号为 pt，1pt = 25.4/72 mm；圆心离格角收 MOON_INSET。
+        let ps = p.date_size * 25.4 / 72.0;
+        let cx = rx - ps / 2.0 - MOON_INSET;
+        let cy = ty + ps / 2.0 + MOON_INSET;
+        let radius = ps / 2.0;
         // 圆弧采样（弧度 start→end）。
         let arc = |start: f64, end: f64| {
             (0..=MOON_STEPS)
@@ -449,7 +464,10 @@ fn push_table(
             date.is_some_and(|d| d.weekday() == Weekday::Sat || d.weekday() == Weekday::Sun);
         let holiday_name = holidays.as_ref().and_then(|h| h.get(&date_key));
         let is_compensatory = holiday_name.is_some_and(|n| n.starts_with("上班"));
-        let is_red = holiday_name.is_some() && !is_compensatory || is_weekend && !is_compensatory;
+        // 未导入 ICS（holidays 为空）时周末不染红。
+        let has_holidays = holidays.as_ref().is_some_and(|h| !h.is_empty());
+        let is_red = holiday_name.is_some() && !is_compensatory
+            || is_weekend && has_holidays && !is_compensatory;
         let text_color = if is_red { HOLIDAY_RED } else { &p.line_color };
         texts.push(Text {
             x: xs[off + i + 1],
@@ -627,6 +645,59 @@ mod tests {
         // 2027-01 共 31 天。
         assert!(texts.iter().any(|t| t.content == "31"));
         assert_eq!(texts[7].content, "1");
+    }
+
+    #[test]
+    fn weekend_red_requires_holidays() {
+        let page = PageSettings::default();
+        let p = MonthPattern {
+            year: 2026,
+            month: 8,
+            ..Default::default()
+        };
+        // 2026-08-01 是周六：无 ICS 时不染色。
+        let (_, _, texts) = draw_month(geometry_for(&page, 1), &p, 0, r"\sffamily", &None);
+        let sat = texts.iter().find(|t| t.content == "1").unwrap();
+        assert_eq!(sat.color, GRAY);
+        // 有 ICS 节日表时周末染红（节日名放在别的日期，专测周末分支）。
+        let mut holidays = HashMap::new();
+        holidays.insert("2026-08-04".into(), "收获节".into());
+        let (_, _, texts) =
+            draw_month(geometry_for(&page, 1), &p, 0, r"\sffamily", &Some(holidays));
+        let sat = texts.iter().find(|t| t.content == "1").unwrap();
+        assert_eq!(sat.color, HOLIDAY_RED);
+    }
+
+    #[test]
+    fn show_holidays_gate() {
+        let page = PageSettings::default();
+        let mut holidays = HashMap::new();
+        holidays.insert("2026-08-01".into(), "建军节".into());
+        let p = MonthPattern {
+            year: 2026,
+            month: 8,
+            show_holidays: false,
+            ..Default::default()
+        };
+        // 关闭显示节假日：不画节日名，周六也不染红。
+        let (_, _, texts) = draw_month(
+            geometry_for(&page, 1),
+            &p,
+            0,
+            r"\sffamily",
+            &Some(holidays.clone()),
+        );
+        assert!(!texts.iter().any(|t| t.content == "建军节"));
+        let sat = texts.iter().find(|t| t.content == "1").unwrap();
+        assert_eq!(sat.color, GRAY);
+        // 打开后恢复。
+        let p = MonthPattern {
+            show_holidays: true,
+            ..p
+        };
+        let (_, _, texts) =
+            draw_month(geometry_for(&page, 1), &p, 0, r"\sffamily", &Some(holidays));
+        assert!(texts.iter().any(|t| t.content == "建军节"));
     }
 
     #[test]

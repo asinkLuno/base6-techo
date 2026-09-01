@@ -215,6 +215,10 @@ const defaults: Record<PatternKind, Values & { kind: PatternKind }> = {
     weekday_headers: "Mo,Tu,We,Th,Fr,Sa,Su",
     title_format: "%Y年%-m月",
     two_page: false,
+    show_holidays: true,
+    sub_size: 4.2,
+    sub_gap: 0,
+    lunar: false,
   },
   tracker: {
     kind: "tracker",
@@ -595,6 +599,10 @@ function PatternFields({ section, set }: { section: Section; set: (key: string, 
           placeholder="%Y年%-m月"
           onChange={(v) => set("title_format", v)}
         />
+        <Field label="显示节假日" value={Boolean(p.show_holidays ?? true)} type="checkbox" onChange={(v) => set("show_holidays", Boolean(v))} />
+        <Field label="显示农历" value={Boolean(p.lunar)} type="checkbox" onChange={(v) => set("lunar", Boolean(v))} />
+        <Field label="农历/节日字号（pt）" value={p.sub_size} min={1} step={0.5} onChange={(v) => set("sub_size", v)} />
+        <Field label="标签间隔（mm）" value={p.sub_gap} step={0.1} onChange={(v) => set("sub_gap", v)} />
       </>
     );
   if (p.kind === "tracker")
@@ -881,6 +889,14 @@ function migrateSection(s: Section): Section {
     );
     delete pattern.margin_x;
   }
+  if (pattern.kind === "month") {
+    // 旧版农历/节日字号已合并为 sub_size。
+    if (pattern.lunar_size != null || pattern.holiday_size != null) {
+      pattern.sub_size = Number(pattern.lunar_size ?? pattern.holiday_size) || pattern.sub_size;
+      delete pattern.lunar_size;
+      delete pattern.holiday_size;
+    }
+  }
   if (pattern.kind === "basic") {
     if (pattern.draw_dots) {
       return {
@@ -961,7 +977,7 @@ export default function App() {
   const [sections, setSections] = useState<Section[]>(() =>
     (saved?.sections ?? [newSection()]).map(migrateSection),
   );
-  const [binding, setBinding] = useState<"booklet" | "thread" | null>(saved?.binding ?? "booklet");
+  const [binding, setBinding] = useState<"booklet" | "thread" | null>(saved?.binding ?? null);
   const [size, setSize] = useState(saved?.size ?? { width: 148, height: 210 });
 const [pageSize, setPageSize] = useState(saved?.pageSize ?? "A5");
 const [holidays, setHolidays] = useState<Record<string, string>>(saved?.holidays ?? {});
