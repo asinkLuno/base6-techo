@@ -65,15 +65,23 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
       build-essential curl file libappindicator3-dev librsvg2-dev \
       libssl-dev libwebkit2gtk-4.1-dev patchelf rpm \
     && curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal \
-    && corepack enable \
-    && for attempt in 1 2 3; do corepack prepare yarn@4.18.0 --activate && exit 0; sleep 5; done; exit 1
+    && npm install -g --force @yarnpkg/cli-dist@4.18.0 --registry=https://registry.npmmirror.com
 ENV PATH="/root/.cargo/bin:${PATH}"
 EOF
   docker run --rm --platform linux/amd64 \
     -v "$repo_dir:/app" \
     -v base6-techo-linux-node-modules:/app/node_modules \
     -v base6-techo-linux-cargo-registry:/root/.cargo/registry \
-    -w /app base6-techo-linux-builder bash scripts/package-linux.sh
+    -w /app base6-techo-linux-builder bash -euxo pipefail -c '
+      target=x86_64-unknown-linux-gnu
+      version=0.17.0
+      curl -fL "https://github.com/tectonic-typesetting/tectonic/releases/download/tectonic%40$version/tectonic-$version-$target.tar.gz" -o /tmp/tectonic.tar.gz
+      tar -xzf /tmp/tectonic.tar.gz -C /tmp
+      install -m 755 /tmp/tectonic "src-tauri/binaries/tectonic-$target"
+      yarn install --immutable
+      export CARGO_TARGET_DIR=/app/target/bundle
+      yarn tauri build --config src-tauri/tauri.bundle.json --bundles deb rpm
+    '
 fi
 
 echo "macOS:  target/bundle/macos/release/bundle"

@@ -5,6 +5,9 @@ description = "Printable notebook desktop application"
 authors = ["guozr"]
 edition = "2024"
 
+# tauri dev 的 cargo run 在多 bin 时需要指定默认二进制（另一个是 techo-pipeline CLI）。
+default-run = "base6-techo"
+
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [lib]

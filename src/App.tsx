@@ -3,7 +3,7 @@ import { arrayMove, SortableContext, useSortable, verticalListSortingStrategy } 
 import { CSS } from "@dnd-kit/utilities";
 import { open, save } from "@tauri-apps/plugin-dialog";
 import { invoke } from "@tauri-apps/api/core";
-import { ChevronDown, ChevronUp, Download, Eye, FileDown, GripVertical, Plus, Trash2, Upload } from "lucide-react";
+import { ChevronDown, ChevronUp, Download, Eye, FileDown, GripVertical, Plus, RefreshCw, Trash2, Upload, X } from "lucide-react";
 import { memo, useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import type { RenderSectionRequest, RunPipelineRequest } from "./pipeline-request.generated";
 import { Button } from "./components/ui/button";
@@ -20,7 +20,7 @@ import { parseICS } from "./lib/ics-parser";
 
 type Value = string | number | boolean | null;
 type Values = Record<string, Value>;
-type PatternKind = "basic" | "bunkwan" | "eight" | "graph" | "midori" | "month" | "timeline" | "tracker" | "year";
+type PatternKind = "bunkwan" | "dots" | "eight" | "graph" | "grid" | "midori" | "month" | "ruled" | "timeline" | "seyes" | "tracker" | "us-ruled" | "year";
 type Section = {
   id: string;
   expanded: boolean;
@@ -37,7 +37,11 @@ type Section = {
 };
 
 const patternNames: Record<PatternKind, string> = {
-  basic: "基础版式",
+  dots: "点阵",
+  grid: "网格",
+  ruled: "横线",
+  seyes: "法文格",
+  "us-ruled": "美式横线",
   bunkwan: "博文馆当用日历",
   eight: "八分视图",
   graph: "制图网格",
@@ -48,9 +52,20 @@ const patternNames: Record<PatternKind, string> = {
   year: "年历",
 };
 
-const PAGE_SIZES: Record<string, [number, number, string?]> = {
+
+// 默认颜色，须与后端 src-tauri/src/backend/colors.rs 一一对应。
+const COLORS = {
+  gray: "#7a7a7a",
+  phaseGold: "#e5b93f",
+  timelineNight: "#496a9f",
+  holidayRed: "#b83b38",
+  bunkwanGreen: "#31584a",
+  bunkwanFaint: "#82968e",
+  midoriGreen: "#a9d1ae",
+};
+const PAGE_SIZES: Record<string, [number, number]> = {
   A4: [210, 297],
-  A5S: [110, 210, "A5S/TN 标准"],
+  "A5S/TN 标准": [110, 210],
   "TN护照": [88, 125],
   A5: [148, 210],
   A6: [105, 148],
@@ -62,13 +77,14 @@ const PAGE_SIZES: Record<string, [number, number, string?]> = {
   "127A7": [80, 127],
   B5: [176, 250],
   B6: [125, 176],
+  B6Slim: [98, 176],
   "74m5": [74, 105],
   "67m5": [67, 105],
   "62m5": [62, 105],
 };
 
 const PAGE_SIZE_OPTIONS: [string, string][] = [
-  ...Object.entries(PAGE_SIZES).map(([k, [w, h, name]]) => [k, `${name ?? k}（${w} × ${h} mm）`] as [string, string]),
+  ...Object.entries(PAGE_SIZES).map(([k, [w, h]]) => [k, `${k}（${w} × ${h} mm）`] as [string, string]),
   ["custom", "自定义"],
 ];
 
@@ -88,70 +104,56 @@ const currentSunday = new Date(currentMonday);
 currentSunday.setDate(currentMonday.getDate() + 6);
 
 const defaults: Record<PatternKind, Values & { kind: PatternKind }> = {
-  basic: {
-    kind: "basic",
+  ruled: {
+    kind: "ruled",
     pages: 32,
     spacing: 8,
-    line_width: 0.2,
-    line_color: "#b0b0b0",
-    line_style: "solid",
-    draw_hlines: true,
-    draw_vlines: false,
-    draw_dots: false,
-    hline_top_color: "#b0b0b0",
-    hline_top_width: 0.2,
-    hline_top_style: "solid",
-    hline_bottom_color: "#b0b0b0",
-    hline_bottom_width: 0.2,
-    hline_bottom_style: "solid",
-    hline_center_color: "#b0b0b0",
-    hline_center_width: 0.2,
-    hline_center_style: "solid",
-    vline_left_color: "#b0b0b0",
-    vline_left_width: 0.2,
-    vline_left_style: "solid",
-    vline_right_color: "#b0b0b0",
-    vline_right_width: 0.2,
-    vline_right_style: "solid",
-    vline_center_color: "#b0b0b0",
-    vline_center_width: 0.2,
-    vline_center_style: "solid",
-    dot_center_color: "#b0b0b0",
-    hline_header: false,
-    hline_footer: false,
-    hline_inner: false,
-    hline_outer: false,
-    vline_header: false,
-    vline_footer: false,
-    vline_inner: false,
-    vline_outer: false,
-    dot_header: false,
-    dot_footer: false,
-    dot_inner: false,
-    dot_outer: false,
-    dot_spacing: 8,
-    dot_radius: 0.3,
-    vline_spacing: 8,
-    vline_width: 0.2,
-    vline_color: "#b0b0b0",
-    vline_style: "solid",
-    hline_top: 0,
-    hline_bottom: 0,
-    hline_left: 0,
-    hline_right: 0,
-    vline_top: 0,
-    vline_bottom: 0,
-    vline_left: 0,
-    vline_right: 0,
-    dot_top: 0,
-    dot_bottom: 0,
-    dot_left: 0,
-    dot_right: 0,
+    color: COLORS.gray,
+    width: 0.2,
+  },
+  dots: {
+    kind: "dots",
+    pages: 1,
+    spacing: 5,
+    column_spacing: 5,
+    radius: 0.3,
+    color: COLORS.gray,
+  },
+  grid: {
+    kind: "grid",
+    pages: 1,
+    spacing: 5,
+    color: COLORS.gray,
+    width: 0.2,
+  },
+  seyes: {
+    kind: "seyes",
+    pages: 1,
+    spacing: 8,
+    margin_line: 7,
+    main_color: "#9db0cf",
+    main_width: 0.2,
+    fine_color: "#c5d0e4",
+    fine_width: 0.1,
+    vline_color: "#c5d0e4",
+    vline_width: 0.1,
+    margin_color: "#d96a6a",
+    margin_width: 0.4,
+  },
+  "us-ruled": {
+    kind: "us-ruled",
+    pages: 1,
+    spacing: 8.7,
+    rule_color: "#8fb0d8",
+    rule_width: 0.2,
+    margin_x: 25,
+    margin_color: "#d96a6a",
+    margin_width: 0.4,
   },
   bunkwan: {
     kind: "bunkwan",
-    line_color: "#31584a",
-    faint_color: "#82968e",
+    line_color: COLORS.bunkwanGreen,
+    faint_color: COLORS.bunkwanFaint,
     line_width: 0.4,
   },
   midori: {
@@ -162,8 +164,8 @@ const defaults: Record<PatternKind, Values & { kind: PatternKind }> = {
     dot_frequency: 10,
     dot_radius: 0.4,
     line_width: 0.7,
-    line_color: "#a9d1ae",
-    dot_color: "#a9d1ae",
+    line_color: COLORS.midoriGreen,
+    dot_color: COLORS.midoriGreen,
     header: false,
     footer: false,
     inner: false,
@@ -176,7 +178,7 @@ const defaults: Record<PatternKind, Values & { kind: PatternKind }> = {
     date_format: "%-d",
     date_locale: "zh-CN",
     weekday_lang: "zh",
-    line_color: "#7a7a7a",
+    line_color: COLORS.gray,
     line_width: 0.4,
     line_style: "solid",
     center_gap: 2,
@@ -185,7 +187,7 @@ const defaults: Record<PatternKind, Values & { kind: PatternKind }> = {
   graph: {
     kind: "graph",
     axis: "right",
-    line_color: "#7a7a7a",
+    line_color: COLORS.gray,
     line_width: 0.2,
     date_size: 8,
   },
@@ -193,8 +195,8 @@ const defaults: Record<PatternKind, Values & { kind: PatternKind }> = {
     kind: "month",
     year: new Date().getFullYear(),
     month: new Date().getMonth() + 1,
-    phase_color: "#e5b93f",
-    line_color: "#7a7a7a",
+    phase_color: COLORS.phaseGold,
+    line_color: COLORS.gray,
     line_width: 0.4,
     date_size: 8,
     weekday_lang: "en",
@@ -205,7 +207,7 @@ const defaults: Record<PatternKind, Values & { kind: PatternKind }> = {
     year: new Date().getFullYear(),
     month: new Date().getMonth() + 1,
     items: 4,
-    line_color: "#7a7a7a",
+    line_color: COLORS.gray,
     line_width: 0.4,
     date_size: 8,
   },
@@ -224,14 +226,14 @@ const defaults: Record<PatternKind, Values & { kind: PatternKind }> = {
     end: 26,
     pages: 1,
     date: "",
-    line_color: "#7a7a7a",
+    line_color: COLORS.gray,
     line_width: 1.138,
     label_size: 10.2,
     latitude: "",
     longitude: "",
     timezone: "Etc/GMT-8",
-    daylight_color: "#e5b93f",
-    night_color: "#496a9f",
+    daylight_color: COLORS.phaseGold,
+    night_color: COLORS.timelineNight,
   },
 };
 
@@ -259,31 +261,31 @@ function newSection(width = 148, height = 210): Section {
       binding_text_2_size: 8,
       binding_text_spacing: 5,
       binding_text_edge: null,
-      binding_text_color: "#7a7a7a",
+      binding_text_color: COLORS.gray,
       header_text: "",
       header_text_2: "",
       header_text_size: 8,
       header_text_2_size: 8,
       header_text_spacing: 5,
-      header_text_color: "#7a7a7a",
+      header_text_color: COLORS.gray,
       footer_text: "",
       footer_text_2: "",
       footer_text_size: 8,
       footer_text_2_size: 8,
       footer_text_spacing: 5,
-      footer_text_color: "#7a7a7a",
+      footer_text_color: COLORS.gray,
       non_binding_text: "",
       non_binding_text_2: "",
       non_binding_text_size: 8,
       non_binding_text_2_size: 8,
       non_binding_text_spacing: 5,
       non_binding_text_edge: null,
-      non_binding_text_color: "#7a7a7a",
+      non_binding_text_color: COLORS.gray,
     lunar: false,
     },
     watermarkEnabled: false,
     nonBindingEnabled: false,
-    pattern: { ...defaults.basic },
+    pattern: { ...defaults.ruled },
   };
 }
 
@@ -414,72 +416,58 @@ function TextFields({ values, prefix, set }: { values: Values; prefix: string; s
   );
 }
 
-function EdgeDistanceFields({ values, prefix, set }: { values: Values; prefix: string; set: (key: string, value: Value) => void }) {
-  return (
-    <div className="grid gap-1.5">
-      <FieldLabel>距边缘（mm）</FieldLabel>
-      <div className="grid grid-cols-4 gap-2">
-        {(["top", "bottom", "left", "right"] as const).map((edge, i) => (
-          <Field key={edge} label={["上", "下", "左", "右"][i]} value={values[`${prefix}_${edge}`]} min={0} step={0.5} onChange={(value) => set(`${prefix}_${edge}`, value)} />
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function LineStyleFields({ title, values, prefix, set }: { title: string; values: Values; prefix: string; set: (key: string, value: Value) => void }) {
-  return (
-    <div className="grid gap-3 rounded-lg border bg-muted/30 p-3 sm:col-span-2 sm:grid-cols-3">
-      <h4 className="flex items-center gap-2 text-sm font-semibold sm:col-span-3"><span aria-hidden className="h-4 w-0.5 rounded bg-primary" />{title}</h4>
-      <Field label="线宽" value={values[`${prefix}_width`] ?? 0.2} min={0.01} step={0.05} onChange={(value) => set(`${prefix}_width`, value)} />
-      <Field label="颜色" value={values[`${prefix}_color`] ?? "#b0b0b0"} type="color" onChange={(value) => set(`${prefix}_color`, value)} />
-      <Select label="样式" value={values[`${prefix}_style`] ?? "solid"} options={LINE_STYLE_OPTIONS} onChange={(value) => set(`${prefix}_style`, value)} />
-    </div>
-  );
-}
-
 function PatternFields({ section, set }: { section: Section; set: (key: string, value: Value) => void }) {
   const p = section.pattern;
-  if (p.kind === "basic")
+  if (p.kind === "ruled")
     return (
       <>
-        <div className="flex flex-wrap items-end gap-4 sm:col-span-2">
-          <Field label="页数" value={p.pages} min={1} max={500} onChange={(v) => set("pages", v)} />
-          <Field label="横线" value={p.draw_hlines} type="checkbox" onChange={(v) => set("draw_hlines", v)} />
-          <Field label="竖线" value={p.draw_vlines} type="checkbox" onChange={(v) => set("draw_vlines", v)} />
-          <Field label="点阵" value={p.draw_dots} type="checkbox" onChange={(v) => set("draw_dots", v)} />
-        </div>
-        {p.draw_hlines && (
-          <div className="grid gap-4 border-t pt-4 sm:col-span-2 sm:grid-cols-2">
-            <h3 className="text-sm font-medium sm:col-span-2">横线参数</h3>
-            <Field label="横线间距（mm）" value={p.spacing} min={0.1} step={0.1} onChange={(v) => set("spacing", v)} />
-            <EdgeDistanceFields values={p} prefix="hline" set={set} />
-            <LineStyleFields title="最上侧横线" values={p} prefix="hline_top" set={set} />
-            <LineStyleFields title="最下侧横线" values={p} prefix="hline_bottom" set={set} />
-            <LineStyleFields title="中心横线" values={p} prefix="hline_center" set={set} />
-            <LineStyleFields title="其余横线" values={p} prefix="line" set={set} />
-          </div>
-        )}
-        {p.draw_vlines && (
-          <div className="grid gap-4 border-t pt-4 sm:col-span-2 sm:grid-cols-2">
-            <h3 className="text-sm font-medium sm:col-span-2">竖线参数</h3>
-            <Field label="竖线间距（mm）" value={p.vline_spacing} min={0.1} step={0.1} onChange={(v) => set("vline_spacing", v)} />
-            <EdgeDistanceFields values={p} prefix="vline" set={set} />
-            <LineStyleFields title="最左侧竖线" values={p} prefix="vline_left" set={set} />
-            <LineStyleFields title="最右侧竖线" values={p} prefix="vline_right" set={set} />
-            <LineStyleFields title="中心竖线" values={p} prefix="vline_center" set={set} />
-            <LineStyleFields title="其余竖线" values={p} prefix="vline" set={set} />
-          </div>
-        )}
-        {p.draw_dots && (
-          <div className="grid gap-4 border-t pt-4 sm:col-span-2 sm:grid-cols-2">
-            <h3 className="text-sm font-medium sm:col-span-2">点阵参数</h3>
-            <Field label="点阵间距（mm）" value={p.dot_spacing} min={0.1} step={0.1} onChange={(v) => set("dot_spacing", v)} />
-            <Field label="点半径（mm）" value={p.dot_radius} min={0.01} step={0.05} onChange={(v) => set("dot_radius", v)} />
-            <Field label="中心点颜色" value={p.dot_center_color} type="color" onChange={(v) => set("dot_center_color", v)} />
-            <EdgeDistanceFields values={p} prefix="dot" set={set} />
-          </div>
-        )}
+        <Field label="页数" value={p.pages} min={1} max={500} onChange={(v) => set("pages", v)} />
+        <Field label="行距（mm）" value={p.spacing} min={0.1} step={0.1} onChange={(v) => set("spacing", v)} />
+        <Field label="线宽（mm）" value={p.width} min={0.01} step={0.05} onChange={(v) => set("width", v)} />
+        <Field label="颜色" value={p.color} type="color" onChange={(v) => set("color", v)} />
+      </>
+    );
+  if (p.kind === "dots")
+    return (
+      <>
+        <Field label="页数" value={p.pages} min={1} max={500} onChange={(v) => set("pages", v)} />
+        <Field label="行距（mm）" value={p.spacing} min={0.1} step={0.1} onChange={(v) => set("spacing", v)} />
+        <Field label="列距（mm）" value={p.column_spacing} min={0.1} step={0.1} onChange={(v) => set("column_spacing", v)} />
+        <Field label="点径（mm）" value={p.radius} min={0.01} step={0.05} onChange={(v) => set("radius", v)} />
+        <Field label="颜色" value={p.color} type="color" onChange={(v) => set("color", v)} />
+      </>
+    );
+  if (p.kind === "grid")
+    return (
+      <>
+        <Field label="页数" value={p.pages} min={1} max={500} onChange={(v) => set("pages", v)} />
+        <Field label="间距（mm）" value={p.spacing} min={0.1} step={0.1} onChange={(v) => set("spacing", v)} />
+        <Field label="线宽（mm）" value={p.width} min={0.01} step={0.05} onChange={(v) => set("width", v)} />
+        <Field label="颜色" value={p.color} type="color" onChange={(v) => set("color", v)} />
+      </>
+    );
+  if (p.kind === "seyes")
+    return (
+      <>
+        <Field label="页数" value={p.pages} min={1} max={500} onChange={(v) => set("pages", v)} />
+        <Field label="格距（mm）" value={p.spacing} min={0.1} step={0.1} onChange={(v) => set("spacing", v)} />
+        <Field label="红线（第几根竖线，0 为无）" value={p.margin_line} min={0} step={1} onChange={(v) => set("margin_line", v)} />
+        <Field label="主线色" value={p.main_color} type="color" onChange={(v) => set("main_color", v)} />
+        <Field label="细线色" value={p.fine_color} type="color" onChange={(v) => set("fine_color", v)} />
+        <Field label="竖线色" value={p.vline_color} type="color" onChange={(v) => set("vline_color", v)} />
+        <Field label="边线色" value={p.margin_color} type="color" onChange={(v) => set("margin_color", v)} />
+      </>
+    );
+  if (p.kind === "us-ruled")
+    return (
+      <>
+        <Field label="页数" value={p.pages} min={1} max={500} onChange={(v) => set("pages", v)} />
+        <Field label="行距（mm）" value={p.spacing} min={0.1} step={0.1} onChange={(v) => set("spacing", v)} />
+        <Field label="线宽（mm）" value={p.rule_width} min={0.01} step={0.05} onChange={(v) => set("rule_width", v)} />
+        <Field label="线色" value={p.rule_color} type="color" onChange={(v) => set("rule_color", v)} />
+        <Field label="红线位置（mm）" value={p.margin_x} min={0} step={0.5} onChange={(v) => set("margin_x", v)} />
+        <Field label="红线宽（mm）" value={p.margin_width} min={0.01} step={0.05} onChange={(v) => set("margin_width", v)} />
+        <Field label="红线色" value={p.margin_color} type="color" onChange={(v) => set("margin_color", v)} />
       </>
     );
   if (p.kind === "bunkwan")
@@ -669,7 +657,8 @@ function FontPicker({ value, options, onChange }: { value: string; options: [str
 // 页数由版式真实参数决定：是多少页就算多少页。
 function effectivePages(section: Section): number {
   const p = section.pattern;
-  if (p.kind === "basic" || p.kind === "timeline") return Math.max(1, Number(p.pages) || 1);
+  if (p.kind === "ruled" || p.kind === "dots" || p.kind === "grid" || p.kind === "us-ruled" || p.kind === "seyes" || p.kind === "timeline")
+    return Math.max(1, Number(p.pages) || 1);
   if (p.kind === "eight") {
     const start = parseISODate(String(p.start_date));
     const end = parseISODate(String(p.end_date));
@@ -837,6 +826,59 @@ const SortableSection = memo(function SortableSection({ section, index, update, 
   );
 });
 
+/// localStorage 里可能存着旧版式字段：迁移到当前模板结构，避免后端 deny_unknown_fields 拒绝。
+function migrateSection(s: Section): Section {
+  const pattern = { ...s.pattern } as Values & { kind: string };
+  if (pattern.kind === "seyes" && pattern.margin_x != null) {
+    const spacing = Number(pattern.spacing) || 8;
+    const w = Number(s.page?.width ?? 148) - Number(s.page?.binding ?? 0) - Number(s.page?.non_binding ?? 0);
+    const offset = (((w % spacing) + spacing) % spacing) / 2;
+    pattern.margin_line = Math.max(
+      0,
+      Math.round((Number(pattern.margin_x) - Number(s.page?.binding ?? 0) - offset) / spacing) + 1,
+    );
+    delete pattern.margin_x;
+  }
+  if (pattern.kind === "basic") {
+    if (pattern.draw_dots) {
+      return {
+        ...s,
+        pattern: {
+          kind: "dots",
+          pages: pattern.pages,
+          spacing: pattern.spacing,
+          column_spacing: pattern.dot_spacing ?? pattern.spacing,
+          radius: pattern.dot_radius,
+          color: pattern.dot_color ?? pattern.line_color,
+        },
+      } as Section;
+    }
+    if (pattern.draw_vlines && !pattern.draw_hlines) {
+      return {
+        ...s,
+        pattern: {
+          kind: "grid",
+          pages: pattern.pages,
+          spacing: pattern.vline_spacing ?? pattern.spacing,
+          color: pattern.vline_color,
+          width: pattern.vline_width,
+        },
+      } as Section;
+    }
+    return {
+      ...s,
+      pattern: {
+        kind: "ruled",
+        pages: pattern.pages,
+        spacing: pattern.spacing,
+        color: pattern.line_color,
+        width: pattern.line_width,
+      },
+    } as Section;
+  }
+  return { ...s, pattern } as Section;
+}
+
 function loadJSON<T>(key: string, fallback: T): T {
   try {
     const raw = localStorage.getItem(key);
@@ -847,14 +889,6 @@ function loadJSON<T>(key: string, fallback: T): T {
 }
 
 function cleanPattern(pattern: Section["pattern"]) {
-  if (pattern.kind === "basic") {
-    const cleaned = { ...pattern };
-    delete cleaned.hline_edge_color;
-    delete cleaned.hline_edge_width;
-    delete cleaned.vline_edge_color;
-    delete cleaned.vline_edge_width;
-    return cleaned;
-  }
   if (pattern.kind === "bunkwan") {
     const cleaned = { ...pattern };
     delete cleaned.date_size;
@@ -883,12 +917,7 @@ export default function App() {
     } | null>("base6.state", null),
   );
   const [sections, setSections] = useState<Section[]>(() =>
-    (saved?.sections ?? [newSection()]).map((s) => ({
-      ...s,
-      pageNumber: s.pageNumber ?? true,
-      headerMode: s.headerMode ?? "text",
-      footerMode: s.footerMode ?? "text",
-    })),
+    (saved?.sections ?? [newSection()]).map(migrateSection),
   );
   const [binding, setBinding] = useState<"booklet" | "thread" | null>(saved?.binding ?? "booklet");
   const [size, setSize] = useState(saved?.size ?? { width: 148, height: 210 });
@@ -1018,8 +1047,8 @@ localStorage.setItem("base6.state", JSON.stringify({ sections, binding, sheetsPe
   }
 
   const [preview, setPreview] = useState<{ open: boolean; data: string; busy: boolean; error: string }>({ open: false, data: "", busy: false, error: "" });
-  async function previewDocument() {
-    if (preview.open) {
+  async function previewDocument(rerender = false) {
+    if (preview.open && !rerender) {
       setPreview((p) => ({ ...p, open: false }));
       return;
     }
@@ -1164,10 +1193,16 @@ localStorage.setItem("base6.state", JSON.stringify({ sections, binding, sheetsPe
                 导入预设
               </Button>
             </div>
-            <Button variant="outline" size="lg" disabled={running || preview.busy || !sections.length} onClick={previewDocument}>
-              <Eye />
-              {preview.busy ? "渲染中…" : preview.open ? "关闭预览" : "整体预览"}
+            <Button variant="outline" size="lg" disabled={running || preview.busy || !sections.length} onClick={() => previewDocument(true)}>
+              {preview.open ? <RefreshCw /> : <Eye />}
+              {preview.busy ? "渲染中…" : preview.open ? "重新渲染" : "整体预览"}
             </Button>
+            {preview.open && (
+              <Button variant="ghost" size="lg" disabled={preview.busy} onClick={() => setPreview((p) => ({ ...p, open: false }))}>
+                <X />
+                关闭预览
+              </Button>
+            )}
             <Button size="lg" disabled={running || !sections.length} onClick={generate}>
               <FileDown />
               {running ? "生成中…" : "选择位置并生成"}

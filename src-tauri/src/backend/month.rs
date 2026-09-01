@@ -1,6 +1,7 @@
 //! 月历 — 移植自 lunar techo 的 senary 月历正面：7 列周一为首的网格
 //! （交叉处留 0.2mm 缺口）、左上角日期、右上角照面比例月相方块。
 
+use super::colors::{GRAY, HOLIDAY_RED, PHASE_GOLD};
 use chrono::{Datelike, Duration, NaiveDate, TimeZone, Utc, Weekday};
 use serde::Deserialize;
 
@@ -35,8 +36,8 @@ impl Default for MonthPattern {
         Self {
             year: now.year(),
             month: now.month(),
-            phase_color: "#e5b93f".into(),
-            line_color: "#7a7a7a".into(),
+            phase_color: PHASE_GOLD.into(),
+            line_color: GRAY.into(),
             line_width: 0.4,
             date_size: 8.0,
             weekday_lang: WeekdayLang::En,
@@ -173,7 +174,7 @@ pub(crate) fn draw_month(
         let holiday_name = holidays.as_ref().and_then(|h| h.get(&date_key));
         let is_compensatory = holiday_name.is_some_and(|n| n.starts_with("上班"));
         let is_red = holiday_name.is_some() && !is_compensatory || is_weekend && !is_compensatory;
-        let text_color = if is_red { "#FF0000" } else { &p.line_color };
+        let text_color = if is_red { HOLIDAY_RED } else { &p.line_color };
         texts.push(Text {
             x: land.x + cell_w * col + PAD,
             y: gy + cell_h * row + PAD,
@@ -211,7 +212,7 @@ pub(crate) fn draw_month(
                     - 0.15,
                 content: name.clone(),
                 size: p.date_size * 0.55,
-                color: "#FF0000".to_string(),
+                color: HOLIDAY_RED.to_string(),
                 rotation: 0,
                 font: font.into(),
                 anchor: "north west",
@@ -284,7 +285,7 @@ pub(crate) fn draw_month(
 }
 
 const A: f64 = 5.5; // mm，打卡单元格边长
-const ITEM_W: f64 = 3.0; // 打卡项列宽 = ITEM_W × A
+const ITEM_W: f64 = 5.0; // 打卡项列宽 = ITEM_W × A
 const TRACKER_GAP: f64 = 2.0; // mm，上下两表间距
 const TRACKER_UP: f64 = 3.0; // mm，整体上移
 
@@ -305,7 +306,7 @@ impl Default for TrackerPattern {
             year: now.year(),
             month: now.month(),
             items: 4,
-            line_color: "#7a7a7a".into(),
+            line_color: GRAY.into(),
             line_width: 0.4,
             date_size: 8.0,
         }
@@ -387,7 +388,7 @@ fn push_table(
         let holiday_name = holidays.as_ref().and_then(|h| h.get(&date_key));
         let is_compensatory = holiday_name.is_some_and(|n| n.starts_with("上班"));
         let is_red = holiday_name.is_some() && !is_compensatory || is_weekend && !is_compensatory;
-        let text_color = if is_red { "#FF0000" } else { &p.line_color };
+        let text_color = if is_red { HOLIDAY_RED } else { &p.line_color };
         texts.push(Text {
             x: xs[off + i + 1],
             y: top + A - 0.2,

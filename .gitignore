@@ -1,25 +1,14 @@
-# Python-generated files
-__pycache__/
-*.py[oc]
-build/
-dist/
-wheels/
-*.egg-info
-
-# Virtual environments
-.venv
 node_modules/
 .yarn/
 target/
+dist/
 
 # LaTeX build output
 out.*
-examples/*.pdf
-examples/*.tex
 
 # Test font assets
 0xProto.zip
-LICENSE
+京華老宋体v3.0.ttf
 
 # Editor session files
 Session.vim

@@ -132,6 +132,7 @@ pub(crate) fn draw_year(
             holidays,
             lunar,
             false,
+            false,
         );
     }
     texts
@@ -139,7 +140,7 @@ pub(crate) fn draw_year(
 
 #[cfg(test)]
 mod tests {
-    use super::super::eight::{MINI_BLACK, MINI_RED};
+    use super::super::colors::{BLACK, HOLIDAY_RED};
     use super::super::{PageSettings, geometry_for};
     use super::*;
 
@@ -221,13 +222,13 @@ mod tests {
         let page = PageSettings::default();
         let p = year("2026-01", "2026-12");
         let texts = draw_year(geometry_for(&page, 1), &p, 0, r"\sffamily", &None, false);
-        assert!(texts.iter().any(|t| t.content == "2026年1月"));
-        assert!(texts.iter().any(|t| t.content == "2026年2月"));
+        assert!(texts.iter().any(|t| t.content == "2026.01"));
+        assert!(texts.iter().any(|t| t.content == "2026.02"));
         // 2026-01-01 是周四（黑色），2026-02-01 是周日（红色，周末）
         assert_eq!(
             texts
                 .iter()
-                .filter(|t| t.content == "1" && t.color == MINI_BLACK)
+                .filter(|t| t.content == "1" && t.color == BLACK)
                 .count(),
             1,
             "只有 1 月 1 号是黑色"
@@ -235,7 +236,7 @@ mod tests {
         assert!(
             texts
                 .iter()
-                .any(|t| t.content == "1" && t.color == MINI_RED),
+                .any(|t| t.content == "1" && t.color == HOLIDAY_RED),
             "2 月 1 号是红色（周末）"
         );
     }

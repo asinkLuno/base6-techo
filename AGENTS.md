@@ -18,4 +18,3 @@
 - Inspect the existing code and callers before editing.
 - Prefer the smallest idiomatic change; do not add abstractions or dependencies without a concrete need.
 - After Rust changes, run at least `cargo fmt -- --check` and `cargo check`; run Clippy when practical.
-- After Python changes, run `uv run ruff check` and the project's pytest suite when present.

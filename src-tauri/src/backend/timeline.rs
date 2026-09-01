@@ -3,6 +3,7 @@ use chrono_tz::Tz;
 
 use serde::Deserialize;
 
+use super::colors::{GRAY, PHASE_GOLD, TIMELINE_NIGHT};
 use super::{Dot, Geometry, Line, LineStyle, MM_PER_PT, Side, Text, validate_color};
 
 #[derive(Clone, Deserialize)]
@@ -27,14 +28,14 @@ impl Default for TimelinePattern {
             start: 0,
             end: 26,
             pages: 1,
-            line_color: "#7A7A7A".into(),
+            line_color: GRAY.into(),
             line_width: 0.4 / MM_PER_PT,
             label_size: 10.2,
             latitude: None,
             longitude: None,
             timezone: None,
-            daylight_color: "#ffd700".into(),
-            night_color: "#0047ab".into(),
+            daylight_color: PHASE_GOLD.into(),
+            night_color: TIMELINE_NIGHT.into(),
             date: None,
         }
     }

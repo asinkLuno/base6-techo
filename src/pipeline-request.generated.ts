@@ -25,8 +25,8 @@ export type NonBindingText2Size = number;
 export type NonBindingTextSpacing = number;
 export type NonBindingTextEdge = number | null;
 export type NonBindingTextColor = string;
-export type Pattern = BasicPatternRequest | BunkwanPatternRequest | MidoriPatternRequest | TimelinePatternRequest;
-export type Kind = "basic";
+export type Pattern = DotsPatternRequest | GridPatternRequest | RuledPatternRequest | SeyesPatternRequest | UsRuledPatternRequest | BunkwanPatternRequest | MidoriPatternRequest | TimelinePatternRequest;
+export type Kind = "dots" | "grid" | "ruled" | "seyes" | "us-ruled";
 export type Spacing = number;
 export type LineWidth = number;
 export type LineColor = string;
@@ -101,7 +101,10 @@ export type Outer = boolean;
 export type Kind2 = "timeline";
 export type Start = number;
 export type End = number;
-export type Pages = 1 | 2;
+export type Pages = number;
+export type ColumnSpacing = number;
+export type Radius = number;
+export type Color = string;
 export type LineColor2 = string;
 export type LineWidth2 = number;
 export type LabelSize = number;
@@ -163,65 +166,50 @@ export interface BandRequest {
   text_color?: BindingTextColor;
   page_number?: PageNumber;
 }
-export interface BasicPatternRequest {
+export interface DotsPatternRequest {
   kind?: Kind;
-  pages?: number;
+  pages?: Pages;
   spacing?: Spacing;
-  line_width?: LineWidth;
-  line_color?: LineColor;
-  line_style?: LineStyle;
-  draw_hlines?: DrawHlines;
-  draw_vlines?: DrawVlines;
-  draw_dots?: DrawDots;
-  hline_top_color?: HlineTopColor;
-  hline_top_width?: HlineTopWidth;
-  hline_top_style?: HlineTopStyle;
-  hline_bottom_color?: HlineBottomColor;
-  hline_bottom_width?: HlineBottomWidth;
-  hline_bottom_style?: HlineBottomStyle;
-  hline_center_color?: HlineCenterColor;
-  hline_center_width?: HlineCenterWidth;
-  hline_center_style?: HlineCenterStyle;
-  vline_left_color?: VlineLeftColor;
-  vline_left_width?: VlineLeftWidth;
-  vline_left_style?: VlineLeftStyle;
-  vline_right_color?: VlineRightColor;
-  vline_right_width?: VlineRightWidth;
-  vline_right_style?: VlineRightStyle;
-  vline_center_color?: VlineCenterColor;
-  vline_center_width?: VlineCenterWidth;
-  vline_center_style?: VlineCenterStyle;
-  dot_center_color?: DotCenterColor;
-  hline_header?: HlineHeader;
-  hline_footer?: HlineFooter;
-  hline_inner?: HlineInner;
-  hline_outer?: HlineOuter;
-  vline_header?: VlineHeader;
-  vline_footer?: VlineFooter;
-  vline_inner?: VlineInner;
-  vline_outer?: VlineOuter;
-  dot_header?: DotHeader;
-  dot_footer?: DotFooter;
-  dot_inner?: DotInner;
-  dot_outer?: DotOuter;
-  dot_spacing?: DotSpacing;
-  dot_radius?: DotRadius;
-  vline_spacing?: VlineSpacing;
-  vline_width?: VlineWidth;
-  vline_color?: VlineColor;
-  vline_style?: VlineStyle;
-  hline_top?: HlineTop;
-  hline_bottom?: HlineBottom;
-  hline_left?: HlineLeft;
-  hline_right?: HlineRight;
-  vline_top?: VlineTop;
-  vline_bottom?: VlineBottom;
-  vline_left?: VlineLeft;
-  vline_right?: VlineRight;
-  dot_top?: DotTop;
-  dot_bottom?: DotBottom;
-  dot_left?: DotLeft;
-  dot_right?: DotRight;
+  column_spacing?: ColumnSpacing;
+  radius?: Radius;
+  color?: Color;
+}
+export interface GridPatternRequest {
+  kind?: Kind;
+  pages?: Pages;
+  spacing?: Spacing;
+  color?: Color;
+  width?: Width;
+}
+export interface RuledPatternRequest {
+  kind?: Kind;
+  pages?: Pages;
+  spacing?: Spacing;
+  color?: Color;
+  width?: Width;
+}export interface SeyesPatternRequest {
+  kind?: Kind;
+  pages?: Pages;
+  spacing?: Spacing;
+  margin_line?: number;
+  main_color?: Color;
+  main_width?: Width;
+  fine_color?: Color;
+  fine_width?: Width;
+  vline_color?: Color;
+  vline_width?: Width;
+  margin_color?: Color;
+  margin_width?: Width;
+}
+export interface UsRuledPatternRequest {
+  kind?: Kind;
+  pages?: Pages;
+  spacing?: Spacing;
+  rule_color?: Color;
+  rule_width?: Width;
+  margin_x?: number;
+  margin_color?: Color;
+  margin_width?: Width;
 }
 export interface MidoriPatternRequest {
   kind?: Kind1;

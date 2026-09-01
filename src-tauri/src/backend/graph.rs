@@ -4,6 +4,7 @@
 
 use serde::Deserialize;
 
+use super::colors::GRAY;
 use super::{Geometry, Line, LineStyle, Rect, Text, validate_color};
 
 const DAYS: usize = 31; // 横轴格数：一个月三十一天
@@ -31,7 +32,7 @@ impl Default for GraphPattern {
     fn default() -> Self {
         Self {
             axis: AxisSide::default(),
-            line_color: "#7a7a7a".into(),
+            line_color: GRAY.into(),
             line_width: 0.2,
             date_size: 8.0,
         }

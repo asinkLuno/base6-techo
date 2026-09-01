@@ -5,32 +5,41 @@ use std::{
     process::Command,
 };
 
-use base64::{Engine, engine::general_purpose::STANDARD};
-mod basic;
 mod bunkwan;
+mod colors;
+mod dots;
 mod eight;
 mod graph;
+mod grid;
 mod midori;
 mod month;
+mod ruled;
+mod seyes;
 mod timeline;
+mod us_ruled;
 mod year;
 
-use basic::{BasicPattern, draw_basic};
+use base64::{Engine, engine::general_purpose::STANDARD};
 use bunkwan::{BunkwanPattern, draw_bunkwan, lunar_date};
 use chrono::{
     Locale, NaiveDate,
     format::{Item, StrftimeItems},
 };
+use dots::{DotsPattern, draw_dots};
 use eight::{EightPattern, draw_eight};
 use graph::{GraphPattern, draw_graph};
+use grid::{GridPattern, draw_grid};
 use midori::{MidoriPattern, draw_midori};
 use month::{MonthPattern, TrackerPattern, draw_month, draw_tracker};
+use ruled::{RuledPattern, draw_ruled};
 use serde::Deserialize;
+use seyes::{SeyesPattern, draw_seyes};
 use tauri::Manager;
 use timeline::{TimelinePattern, draw_timeline};
+use us_ruled::{UsRuledPattern, draw_us_ruled};
 use year::{YearPattern, draw_year};
 
-const PAGE_NUMBER_COLOR: &str = "#666666";
+use colors::{BLACK, GRAY, PAGE_NUMBER};
 const MM_PER_PT: f64 = 25.4 / 72.27;
 
 #[derive(Clone, Deserialize)]
@@ -78,6 +87,25 @@ impl PageSettings {
     }
 }
 
+/// 页眉/页脚文字块的水平对齐：居中、靠装订外侧、靠装订内侧。
+#[derive(Clone, Copy, Deserialize, Default)]
+#[serde(rename_all = "lowercase")]
+enum BandAlign {
+    #[default]
+    Center,
+    Outer,
+    Inner,
+}
+
+/// 页眉/页脚模式：text 用文字块，date 是固定的“Date:/No.”横线填写位。
+#[derive(Clone, Copy, Deserialize, Default, PartialEq)]
+#[serde(rename_all = "lowercase")]
+enum BandMode {
+    #[default]
+    Text,
+    Date,
+}
+
 /// 页头/页脚共用的带状区域参数（文字或页码）。
 #[derive(Clone, Deserialize)]
 #[serde(default, deny_unknown_fields)]
@@ -89,6 +117,8 @@ struct BandSettings {
     text_spacing: f64,
     text_color: String,
     page_number: bool,
+    align: BandAlign,
+    mode: BandMode,
 }
 
 impl Default for BandSettings {
@@ -99,8 +129,10 @@ impl Default for BandSettings {
             text_size: 8.0,
             text_2_size: 8.0,
             text_spacing: 5.0,
-            text_color: "#7a7a7a".into(),
+            text_color: GRAY.into(),
             page_number: false,
+            align: BandAlign::Center,
+            mode: BandMode::Text,
         }
     }
 }
@@ -154,7 +186,7 @@ impl Default for DocumentSettings {
             binding_text_spacing: 5.0,
             binding_text_edge: None,
             binding_text_font: r"\sffamily".into(),
-            binding_text_color: "#7a7a7a".into(),
+            binding_text_color: GRAY.into(),
             lunar: false,
             non_binding_text: None,
             non_binding_text_2: None,
@@ -162,7 +194,7 @@ impl Default for DocumentSettings {
             non_binding_text_2_size: 8.0,
             non_binding_text_spacing: 5.0,
             non_binding_text_edge: None,
-            non_binding_text_color: "#7a7a7a".into(),
+            non_binding_text_color: GRAY.into(),
         }
     }
 }
@@ -216,11 +248,16 @@ impl DocumentSettings {
 #[derive(Clone, Deserialize)]
 #[serde(tag = "kind", rename_all = "lowercase")]
 enum Pattern {
-    Basic(Box<BasicPattern>),
+    Dots(DotsPattern),
+    Grid(GridPattern),
+    Ruled(RuledPattern),
+    #[serde(rename = "us-ruled")]
+    UsRuled(UsRuledPattern),
     Bunkwan(BunkwanPattern),
     Eight(EightPattern),
     Graph(GraphPattern),
     Midori(MidoriPattern),
+    Seyes(SeyesPattern),
     Month(MonthPattern),
     Timeline(TimelinePattern),
     Tracker(TrackerPattern),
@@ -272,9 +309,13 @@ impl Pattern {
     /// section 的页数由版式自身参数决定：是多少页就是多少页。
     fn page_count(&self) -> usize {
         match self {
-            Self::Basic(p) => p.pages,
+            Self::Dots(p) => p.pages,
+            Self::Grid(p) => p.pages,
+            Self::Ruled(p) => p.pages,
+            Self::UsRuled(p) => p.pages,
             Self::Eight(p) => p.weeks().len() * 2,
             Self::Bunkwan(_) | Self::Graph(_) | Self::Midori(_) | Self::Tracker(_) => 1,
+            Self::Seyes(p) => p.pages,
             Self::Month(p) => {
                 if p.two_page {
                     2
@@ -289,25 +330,33 @@ impl Pattern {
 
     fn line_color(&self) -> &str {
         match self {
-            Self::Basic(p) => &p.line_color,
+            Self::Dots(p) => &p.color,
+            Self::Grid(p) => &p.color,
+            Self::Ruled(p) => &p.color,
+            Self::UsRuled(p) => &p.rule_color,
             Self::Bunkwan(p) => &p.line_color,
             Self::Eight(p) => &p.line_color,
             Self::Graph(p) => &p.line_color,
             Self::Midori(p) => &p.line_color,
+            Self::Seyes(p) => &p.main_color,
             Self::Month(p) => &p.line_color,
             Self::Timeline(p) => &p.line_color,
             Self::Tracker(p) => &p.line_color,
             // 年历只用文字（黑/红固定色），无线条；不会走到该默认值。
-            Self::Year(_) => "#000000",
+            Self::Year(_) => BLACK,
         }
     }
     fn line_width(&self) -> f64 {
         match self {
-            Self::Basic(p) => p.line_width,
+            Self::Dots(_) => 0.0,
+            Self::Grid(p) => p.width,
+            Self::Ruled(p) => p.width,
+            Self::UsRuled(p) => p.rule_width,
             Self::Bunkwan(p) => p.line_width,
             Self::Eight(p) => p.line_width,
             Self::Graph(p) => p.line_width,
             Self::Midori(p) => p.line_width,
+            Self::Seyes(p) => p.main_width,
             Self::Month(p) => p.line_width,
             Self::Timeline(p) => p.line_width,
             Self::Tracker(p) => p.line_width,
@@ -316,11 +365,15 @@ impl Pattern {
     }
     fn validate(&self) -> Result<(), String> {
         match self {
-            Self::Basic(p) => p.validate(),
+            Self::Dots(p) => p.validate(),
+            Self::Grid(p) => p.validate(),
+            Self::Ruled(p) => p.validate(),
+            Self::UsRuled(p) => p.validate(),
             Self::Bunkwan(p) => p.validate(),
             Self::Eight(p) => p.validate(),
             Self::Graph(p) => p.validate(),
             Self::Midori(p) => p.validate(),
+            Self::Seyes(p) => p.validate(),
             Self::Month(p) => p.validate(),
             Self::Timeline(p) => p.validate(),
             Self::Tracker(p) => p.validate(),
@@ -367,7 +420,7 @@ impl Default for BindRequest {
 
 #[derive(Clone, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub(crate) struct RunPipelineRequest {
+pub struct RunPipelineRequest {
     output: String,
     sections: Vec<RenderSectionRequest>,
     #[serde(default)]
@@ -543,6 +596,7 @@ fn add_text_block(
     rotation: i32,
     direction: f64,
     stack_x: bool,
+    anchor: &'static str,
 ) {
     let visible: Vec<_> = values
         .into_iter()
@@ -559,7 +613,7 @@ fn add_text_block(
             color: color.into(),
             rotation,
             font: font.into(),
-            anchor: "center",
+            anchor,
         });
     }
 }
@@ -627,14 +681,30 @@ fn render_page(
     lunar: bool,
 ) -> PageDraw {
     let geo = geometry_for(page, number);
-    let (lines, dots, paths, mut texts) = match pattern {
-        Pattern::Basic(p) => {
-            let (l, d) = draw_basic(geo, p);
+    let (mut lines, dots, paths, mut texts) = match pattern {
+        Pattern::Dots(p) => {
+            let (l, d) = draw_dots(geo, p);
+            (l, d, vec![], vec![])
+        }
+        Pattern::Grid(p) => {
+            let (l, d) = draw_grid(geo, p);
+            (l, d, vec![], vec![])
+        }
+        Pattern::Ruled(p) => {
+            let (l, d) = draw_ruled(geo, p);
+            (l, d, vec![], vec![])
+        }
+        Pattern::UsRuled(p) => {
+            let (l, d) = draw_us_ruled(geo, p);
             (l, d, vec![], vec![])
         }
         Pattern::Bunkwan(p) => (draw_bunkwan(geo, p), vec![], vec![], vec![]),
         Pattern::Midori(p) => {
             let (l, d) = draw_midori(geo, p);
+            (l, d, vec![], vec![])
+        }
+        Pattern::Seyes(p) => {
+            let (l, d) = draw_seyes(geo, p);
             (l, d, vec![], vec![])
         }
         Pattern::Eight(p) => {
@@ -685,11 +755,13 @@ fn render_page(
             -1.0
         },
         true,
+        "center",
     );
+    // 外侧与装订边镜像：奇数页装订边在左，外侧在右；偶数页相反。
     let outer_x = if geo.binding_side == Side::Left {
-        doc.non_binding_text_edge.unwrap_or(page.non_binding / 2.0)
-    } else {
         page.width - doc.non_binding_text_edge.unwrap_or(page.non_binding / 2.0)
+    } else {
+        doc.non_binding_text_edge.unwrap_or(page.non_binding / 2.0)
     };
     add_text_block(
         &mut texts,
@@ -709,6 +781,7 @@ fn render_page(
             1.0
         },
         true,
+        "center",
     );
     let shown = shown_number.map(|n| n.to_string());
     // 页头/页脚参数完全一致，同一循环处理：文字 + 页码，都居中在内容区。
@@ -716,21 +789,82 @@ fn render_page(
         (&doc.header, page.header / 2.0),
         (&doc.footer, page.height - page.footer / 2.0),
     ] {
-        add_text_block(
-            &mut texts,
-            &doc.binding_text_font,
-            [
-                (&band.text, band.text_size),
-                (&band.text_2, band.text_2_size),
-            ],
-            band.text_spacing,
-            geo.content.x + geo.content.width / 2.0,
-            y,
-            &band.text_color,
-            0,
-            1.0,
-            false,
-        );
+        if band.mode == BandMode::Date {
+            // 固定“Date:/No.”填写位：外侧 40mm 横线，标签右对齐在横线起点左侧。
+            let right = geo.content.x + geo.content.width;
+            let start = (right - 40.0).max(geo.content.x);
+            for (label, dy) in [("Date:", -0.5), ("No.", 0.5)] {
+                let ly = y + band.text_spacing * dy;
+                texts.push(Text {
+                    x: start - 2.0,
+                    y: ly,
+                    content: label.into(),
+                    size: band.text_size,
+                    color: band.text_color.clone(),
+                    rotation: 0,
+                    font: doc.binding_text_font.clone(),
+                    anchor: "east",
+                });
+                lines.push(Line {
+                    x1: start,
+                    y1: ly,
+                    x2: right,
+                    y2: ly,
+                    color: Some(band.text_color.clone()),
+                    width: Some(0.2),
+                    style: LineStyle::Solid,
+                });
+            }
+        } else {
+            add_text_block(
+                &mut texts,
+                &doc.binding_text_font,
+                [
+                    (&band.text, band.text_size),
+                    (&band.text_2, band.text_2_size),
+                ],
+                band.text_spacing,
+                match band.align {
+                    BandAlign::Center => geo.content.x + geo.content.width / 2.0,
+                    BandAlign::Outer => {
+                        if geo.binding_side == Side::Left {
+                            geo.content.x + geo.content.width
+                        } else {
+                            geo.content.x
+                        }
+                    }
+                    BandAlign::Inner => {
+                        if geo.binding_side == Side::Left {
+                            geo.content.x
+                        } else {
+                            geo.content.x + geo.content.width
+                        }
+                    }
+                },
+                y,
+                &band.text_color,
+                0,
+                1.0,
+                false,
+                match band.align {
+                    BandAlign::Center => "center",
+                    BandAlign::Outer => {
+                        if geo.binding_side == Side::Left {
+                            "east"
+                        } else {
+                            "west"
+                        }
+                    }
+                    BandAlign::Inner => {
+                        if geo.binding_side == Side::Left {
+                            "west"
+                        } else {
+                            "east"
+                        }
+                    }
+                },
+            );
+        }
         if band.page_number
             && let Some(content) = &shown
         {
@@ -897,7 +1031,7 @@ fn font_command(font: &str) -> String {
 }
 
 fn render_latex(pages: &[OutputPage]) -> String {
-    let mut colors = BTreeMap::from([("pnumcolor".to_string(), PAGE_NUMBER_COLOR.to_string())]);
+    let mut colors = BTreeMap::from([("pnumcolor".to_string(), PAGE_NUMBER.to_string())]);
     let mut bodies = Vec::new();
     let mut uses_font = false;
     for page in pages {
@@ -910,7 +1044,7 @@ fn render_latex(pages: &[OutputPage]) -> String {
         let mut path_groups: BTreeMap<(String, bool, bool), Vec<String>> = BTreeMap::new();
         for placement in &page.placements {
             for line in &placement.draw.lines {
-                let raw = line.color.as_deref().unwrap_or("#000000");
+                let raw = line.color.as_deref().unwrap_or(BLACK);
                 let color = color_name(raw);
                 colors.insert(color.clone(), raw.into());
                 line_groups
@@ -946,7 +1080,7 @@ fn render_latex(pages: &[OutputPage]) -> String {
                     .push(format!("  \\{cmd} {points}{tail};"));
             }
             for dot in &placement.draw.dots {
-                let raw = dot.color.as_deref().unwrap_or("#000000");
+                let raw = dot.color.as_deref().unwrap_or(BLACK);
                 let color = color_name(raw);
                 colors.insert(color.clone(), raw.into());
                 dot_groups.entry(color).or_default().push(if dot.square {
@@ -988,7 +1122,7 @@ fn render_latex(pages: &[OutputPage]) -> String {
         }
         for placement in &page.placements {
             for text in &placement.draw.texts {
-                let color = if text.color == PAGE_NUMBER_COLOR {
+                let color = if text.color == PAGE_NUMBER {
                     "pnumcolor".into()
                 } else {
                     let name = color_name(&text.color);
@@ -1113,7 +1247,7 @@ fn which(name: &str) -> Option<PathBuf> {
     })
 }
 
-fn generate(
+pub(crate) fn generate(
     body: RunPipelineRequest,
     preview: bool,
     resource_dir: Option<&Path>,
@@ -1247,7 +1381,7 @@ mod tests {
             r#"{
                 "output": "/tmp/bookmark-sample.pdf",
                 "sections": [
-                    { "title": "月历", "pattern": { "kind": "basic", "pages": 2 } },
+                    { "title": "月历", "pattern": { "kind": "ruled", "pages": 2 } },
                     { "title": "八分视图", "pattern": { "kind": "eight", "start_date": "2026-08-31", "end_date": "2026-09-06" } },
                     { "title": "Midori", "pattern": { "kind": "midori" } }
                 ]
@@ -1514,7 +1648,7 @@ mod tests {
                             y: 0.0,
                             content: n.to_string(),
                             size: 8.0,
-                            color: PAGE_NUMBER_COLOR.into(),
+                            color: PAGE_NUMBER.into(),
                             rotation: 0,
                             font: r"\sffamily".into(),
                             anchor: "center",
@@ -1541,102 +1675,94 @@ mod tests {
     }
 
     #[test]
-    fn layout_and_line_styles_match_existing_geometry() {
+    fn ruled_lines_span_content_width_on_locked_rows() {
         let page = PageSettings::default();
-        assert_eq!(geometry_for(&page, 1).content.x, 15.0);
-        assert_eq!(geometry_for(&page, 2).content.x, 8.0);
-        let pattern = BasicPattern {
-            draw_hlines: true,
-            line_width: 0.3,
-            line_color: "#333333".into(),
-            line_style: LineStyle::DoubleSolid,
-            hline_top_width: 0.5,
-            hline_top_color: "#111111".into(),
-            hline_top_style: LineStyle::Dashed,
-            hline_bottom_width: 0.6,
-            hline_bottom_color: "#121212".into(),
-            hline_bottom_style: LineStyle::Dotted,
-            hline_center_width: 0.7,
-            hline_center_color: "#222222".into(),
-            hline_center_style: LineStyle::DashDot,
-            vline_spacing: Some(8.0),
-            vline_width: 0.4,
-            vline_color: "#123456".into(),
-            vline_style: LineStyle::DoubleSolid,
-            vline_left_width: 0.6,
-            vline_left_color: "#345678".into(),
-            vline_left_style: LineStyle::Dashed,
-            vline_right_width: 0.7,
-            vline_right_color: "#456789".into(),
-            vline_right_style: LineStyle::Dotted,
-            vline_center_width: 0.8,
-            vline_center_color: "#567890".into(),
-            vline_center_style: LineStyle::DashDot,
-            draw_vlines: true,
+        let pattern = RuledPattern {
+            spacing: 8.0,
+            width: 0.3,
+            color: "#333333".into(),
             ..Default::default()
         };
-        let (lines, _) = draw_basic(geometry_for(&page, 1), &pattern);
-        let hlines = lines
-            .iter()
-            .filter(|line| line.y1 == line.y2)
-            .collect::<Vec<_>>();
-        let vlines = lines
-            .iter()
-            .filter(|line| line.x1 == line.x2)
-            .collect::<Vec<_>>();
-        assert_eq!(
-            vlines
-                .iter()
-                .take(4)
-                .map(|line| line.x1)
-                .collect::<Vec<_>>(),
-            [21.5, 29.5, 37.5, 45.5]
-        );
-        let assert_line = |line: &Line, color, width, style| {
-            assert_eq!(line.color.as_deref(), Some(color));
-            assert_eq!(line.width, Some(width));
-            assert_eq!(line.style, style);
-        };
-        assert_line(hlines[0], "#111111", 0.5, LineStyle::Dashed);
-        assert_line(hlines[1], "#333333", 0.3, LineStyle::DoubleSolid);
-        assert_line(hlines[hlines.len() / 2], "#222222", 0.7, LineStyle::DashDot);
-        assert_line(hlines.last().unwrap(), "#121212", 0.6, LineStyle::Dotted);
-        assert_line(vlines[0], "#345678", 0.6, LineStyle::Dashed);
-        assert_line(vlines[1], "#123456", 0.4, LineStyle::DoubleSolid);
-        assert_line(vlines[vlines.len() / 2], "#567890", 0.8, LineStyle::DashDot);
-        assert_line(vlines.last().unwrap(), "#456789", 0.7, LineStyle::Dotted);
+        let geo = geometry_for(&page, 1);
+        let (lines, dots) = draw_ruled(geo, &pattern);
+        assert!(dots.is_empty());
+        assert!(!lines.is_empty());
+        let cy = geo.content.y + geo.content.height / 2.0;
+        for line in &lines {
+            assert_eq!(
+                (line.x1, line.x2),
+                (geo.content.x, geo.content.x + geo.content.width)
+            );
+            assert_eq!(line.color.as_deref(), Some("#333333"));
+            assert_eq!(line.width, Some(0.3));
+            assert_eq!(line.style, LineStyle::Solid);
+            assert!((geo.content.y..=geo.content.y + geo.content.height).contains(&line.y1));
+            assert!(((line.y1 - cy) / 8.0).fract().abs() < 1e-9);
+        }
     }
 
     #[test]
-    fn basic_patterns_apply_independent_edge_distances() {
+    fn dots_fill_content_area_on_locked_rows_and_columns() {
         let page = PageSettings::default();
-        let pattern = BasicPattern {
-            draw_hlines: true,
-            draw_vlines: true,
-            draw_dots: true,
-            vline_spacing: Some(8.0),
-            dot_spacing: Some(8.0),
-            hline_top: 2.0,
-            hline_bottom: 3.0,
-            hline_left: 4.0,
-            hline_right: 5.0,
-            vline_top: 6.0,
-            vline_bottom: 7.0,
-            vline_left: 8.0,
-            vline_right: 9.0,
-            dot_top: 10.0,
-            dot_bottom: 11.0,
-            dot_left: 12.0,
-            dot_right: 13.0,
+        let pattern = DotsPattern {
+            spacing: 8.0,
+            column_spacing: 8.0,
             ..Default::default()
         };
-        let (lines, dots) = draw_basic(geometry_for(&page, 1), &pattern);
-        let hline = lines.iter().find(|line| line.y1 == line.y2).unwrap();
-        let vline = lines.iter().find(|line| line.x1 == line.x2).unwrap();
-        assert_eq!((hline.x1, hline.x2), (19.0, 135.0));
-        assert_eq!((vline.y1, vline.y2), (16.0, 193.0));
-        assert!(dots.iter().all(|dot| (27.0..=127.0).contains(&dot.x)));
-        assert!(dots.iter().all(|dot| (20.0..=189.0).contains(&dot.y)));
+        let geo = geometry_for(&page, 1);
+        let (lines, dots) = draw_dots(geo, &pattern);
+        assert!(lines.is_empty());
+        assert!(!dots.is_empty());
+        let cx = geo.content.x + geo.content.width / 2.0;
+        let cy = geo.content.y + geo.content.height / 2.0;
+        for dot in &dots {
+            assert!((geo.content.x..=geo.content.x + geo.content.width).contains(&dot.x));
+            assert!((geo.content.y..=geo.content.y + geo.content.height).contains(&dot.y));
+            assert!(((dot.x - cx) / 8.0).fract().abs() < 1e-9);
+            assert!(((dot.y - cy) / 8.0).fract().abs() < 1e-9);
+        }
+    }
+
+    #[test]
+    fn us_ruled_spans_page_with_margin_line() {
+        let page = PageSettings::default();
+        let pattern = UsRuledPattern {
+            spacing: 8.7,
+            margin_x: 25.0,
+            ..Default::default()
+        };
+        let geo = geometry_for(&page, 1);
+        let (lines, dots) = draw_us_ruled(geo, &pattern);
+        assert!(dots.is_empty());
+        let rules = lines
+            .iter()
+            .filter(|line| line.y1 == line.y2)
+            .collect::<Vec<_>>();
+        assert!(!rules.is_empty());
+        for line in &rules {
+            assert_eq!((line.x1, line.x2), (0.0, geo.page.width));
+        }
+        let margin = lines
+            .iter()
+            .find(|line| line.x1 == line.x2)
+            .expect("margin line");
+        assert_eq!(
+            (margin.x1, margin.y1, margin.y2),
+            (25.0, 0.0, geo.page.height)
+        );
+    }
+
+    #[test]
+    fn grid_draws_both_directions() {
+        let page = PageSettings::default();
+        let pattern = GridPattern {
+            spacing: 8.0,
+            ..Default::default()
+        };
+        let (lines, dots) = draw_grid(geometry_for(&page, 1), &pattern);
+        assert!(dots.is_empty());
+        assert!(lines.iter().any(|line| line.y1 == line.y2));
+        assert!(lines.iter().any(|line| line.x1 == line.x2));
     }
 
     #[test]
@@ -1649,7 +1775,7 @@ mod tests {
             },
             ..Default::default()
         };
-        let pattern = Pattern::Basic(Box::default());
+        let pattern = Pattern::Ruled(RuledPattern::default());
         for (number, expected_x) in [(1, 77.5), (2, 70.5)] {
             let draw = render_page(&page, &pattern, number, &document, 0, None, &None, false);
             assert!(draw.texts.iter().all(|text| text.x == expected_x));
@@ -1670,7 +1796,7 @@ mod tests {
             },
             ..Default::default()
         };
-        let pattern = Pattern::Basic(Box::default());
+        let pattern = Pattern::Ruled(RuledPattern::default());
         // 参与页码：页码显示在页头/页脚中心，用各自的颜色。
         let draw = render_page(&page, &pattern, 1, &document, 0, Some(7), &None, false);
         let number = |y: f64, color: &str| {
@@ -1729,11 +1855,11 @@ mod tests {
         let date = NaiveDate::from_ymd_opt(2025, 6, 21).unwrap();
         assert_eq!(
             timeline_color(&p, Some(date), 28 * 60).as_deref(),
-            Some("#0047ab")
+            Some(colors::TIMELINE_NIGHT)
         );
         assert_eq!(
             timeline_color(&p, Some(date), 29 * 60).as_deref(),
-            Some("#ffd700")
+            Some(colors::PHASE_GOLD)
         );
     }
 
@@ -1742,9 +1868,9 @@ mod tests {
         let request: RunPipelineRequest = serde_json::from_value(serde_json::json!({
             "output": "/tmp/bookmark.pdf",
             "sections": [
-                { "title": "月历", "pattern": { "kind": "basic", "pages": 2 } },
-                { "pattern": { "kind": "basic", "pages": 1 } },
-                { "title": "时间轴", "pattern": { "kind": "basic", "pages": 1 } }
+                { "title": "月历", "pattern": { "kind": "ruled", "pages": 2 } },
+                { "pattern": { "kind": "grid", "pages": 1 } },
+                { "title": "时间轴", "pattern": { "kind": "ruled", "pages": 1 } }
             ],
             "bind": { "mode": null, "sheets_per_group": 4 }
         }))
@@ -1771,7 +1897,7 @@ mod tests {
         let request: RunPipelineRequest = serde_json::from_value(serde_json::json!({
             "output": output,
             "sections": [
-                { "document": { "binding_text": "[base-6]" }, "pattern": { "kind": "basic", "pages": 1, "draw_hlines": true } },
+                { "document": { "binding_text": "[base-6]" }, "pattern": { "kind": "ruled", "pages": 1 } },
                 { "pattern": { "kind": "bunkwan" } },
                 { "pattern": { "kind": "eight", "start_date": "2026-08-03", "end_date": "2026-08-16" } },
                 { "pattern": { "kind": "midori" } },
@@ -1786,5 +1912,38 @@ mod tests {
         assert_eq!(&bytes[..4], b"%PDF");
         assert_eq!(fs::read(&path).unwrap(), bytes);
         fs::remove_file(path).unwrap();
+    }
+
+    #[test]
+    fn outer_watermark_stays_on_the_outer_side() {
+        let page = PageSettings {
+            non_binding: 15.0,
+            ..Default::default()
+        };
+        let pattern = Pattern::Ruled(RuledPattern::default());
+        let mut document = DocumentSettings::default();
+        document.page_number = false;
+        document.non_binding_text = Some("base-6".into());
+        document.non_binding_text_2 = Some("since 2026".into());
+        // 奇数页：装订边在左，外侧水印必须在右半页。
+        let draw = render_page(&page, &pattern, 1, &document, 0, None, &None, false);
+        assert!(
+            draw.texts.iter().all(|t| t.x > page.width / 2.0),
+            "odd page outer texts: {:?}",
+            draw.texts
+                .iter()
+                .map(|t| (t.content.clone(), t.x))
+                .collect::<Vec<_>>()
+        );
+        // 偶数页：装订边在右，外侧水印必须在左半页。
+        let draw = render_page(&page, &pattern, 2, &document, 0, None, &None, false);
+        assert!(
+            draw.texts.iter().all(|t| t.x < page.width / 2.0),
+            "even page outer texts: {:?}",
+            draw.texts
+                .iter()
+                .map(|t| (t.content.clone(), t.x))
+                .collect::<Vec<_>>()
+        );
     }
 }
