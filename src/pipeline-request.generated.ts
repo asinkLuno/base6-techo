@@ -25,8 +25,8 @@ export type NonBindingText2Size = number;
 export type NonBindingTextSpacing = number;
 export type NonBindingTextEdge = number | null;
 export type NonBindingTextColor = string;
-export type Pattern = DotsPatternRequest | GridPatternRequest | RuledPatternRequest | SeyesPatternRequest | UsRuledPatternRequest | BunkwanPatternRequest | MidoriPatternRequest | TimelinePatternRequest;
-export type Kind = "dots" | "grid" | "ruled" | "seyes" | "us-ruled";
+export type Pattern = DotsPatternRequest | GridPatternRequest | RuledPatternRequest | SeyesPatternRequest | UsRuledPatternRequest | VerticalPatternRequest | BunkwanPatternRequest | MidoriPatternRequest | TimelinePatternRequest;
+export type Kind = "dots" | "grid" | "ruled" | "seyes" | "us-ruled" | "vertical";
 export type Spacing = number;
 export type LineWidth = number;
 export type LineColor = string;
@@ -200,6 +200,15 @@ export interface RuledPatternRequest {
   vline_width?: Width;
   margin_color?: Color;
   margin_width?: Width;
+}
+export interface VerticalPatternRequest {
+  kind?: Kind;
+  pages?: Pages;
+  spacing?: Spacing;
+  color?: Color;
+  frame_outer_width?: number;
+  frame_inner_width?: number;
+  frame_gap?: number;
 }
 export interface UsRuledPatternRequest {
   kind?: Kind;

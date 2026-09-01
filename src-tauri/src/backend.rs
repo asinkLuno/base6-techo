@@ -17,6 +17,7 @@ mod ruled;
 mod seyes;
 mod timeline;
 mod us_ruled;
+mod vertical;
 mod year;
 
 use base64::{Engine, engine::general_purpose::STANDARD};
@@ -37,6 +38,7 @@ use seyes::{SeyesPattern, draw_seyes};
 use tauri::Manager;
 use timeline::{TimelinePattern, draw_timeline};
 use us_ruled::{UsRuledPattern, draw_us_ruled};
+use vertical::{VerticalPattern, draw_vertical};
 use year::{YearPattern, draw_year};
 
 use colors::{BLACK, GRAY, PAGE_NUMBER};
@@ -253,6 +255,7 @@ enum Pattern {
     Ruled(RuledPattern),
     #[serde(rename = "us-ruled")]
     UsRuled(UsRuledPattern),
+    Vertical(VerticalPattern),
     Bunkwan(BunkwanPattern),
     Eight(EightPattern),
     Graph(GraphPattern),
@@ -313,6 +316,7 @@ impl Pattern {
             Self::Grid(p) => p.pages,
             Self::Ruled(p) => p.pages,
             Self::UsRuled(p) => p.pages,
+            Self::Vertical(p) => p.pages,
             Self::Eight(p) => p.weeks().len() * 2,
             Self::Bunkwan(_) | Self::Graph(_) | Self::Midori(_) | Self::Tracker(_) => 1,
             Self::Seyes(p) => p.pages,
@@ -334,6 +338,7 @@ impl Pattern {
             Self::Grid(p) => &p.color,
             Self::Ruled(p) => &p.color,
             Self::UsRuled(p) => &p.rule_color,
+            Self::Vertical(p) => &p.color,
             Self::Bunkwan(p) => &p.line_color,
             Self::Eight(p) => &p.line_color,
             Self::Graph(p) => &p.line_color,
@@ -352,6 +357,7 @@ impl Pattern {
             Self::Grid(p) => p.width,
             Self::Ruled(p) => p.width,
             Self::UsRuled(p) => p.rule_width,
+            Self::Vertical(p) => p.frame_inner_width,
             Self::Bunkwan(p) => p.line_width,
             Self::Eight(p) => p.line_width,
             Self::Graph(p) => p.line_width,
@@ -369,6 +375,7 @@ impl Pattern {
             Self::Grid(p) => p.validate(),
             Self::Ruled(p) => p.validate(),
             Self::UsRuled(p) => p.validate(),
+            Self::Vertical(p) => p.validate(),
             Self::Bunkwan(p) => p.validate(),
             Self::Eight(p) => p.validate(),
             Self::Graph(p) => p.validate(),
@@ -696,6 +703,10 @@ fn render_page(
         }
         Pattern::UsRuled(p) => {
             let (l, d) = draw_us_ruled(geo, p);
+            (l, d, vec![], vec![])
+        }
+        Pattern::Vertical(p) => {
+            let (l, d) = draw_vertical(geo, p);
             (l, d, vec![], vec![])
         }
         Pattern::Bunkwan(p) => (draw_bunkwan(geo, p), vec![], vec![], vec![]),
@@ -1753,16 +1764,55 @@ mod tests {
     }
 
     #[test]
+    fn vertical_draws_double_frame_and_columns() {
+        let page = PageSettings::default();
+        let pattern = VerticalPattern {
+            spacing: 10.0,
+            ..Default::default()
+        };
+        let geo = geometry_for(&page, 1);
+        let (lines, dots) = draw_vertical(geo, &pattern);
+        assert!(dots.is_empty());
+        // 外框粗线、内框细线各 4 条。
+        assert_eq!(lines.iter().filter(|l| l.width == Some(0.5)).count(), 4);
+        // 界栏数 = floor((宽-2*gap)/10) - 1 条内部竖线 + 内框本身。
+        let iw = geo.content.width - 2.4;
+        let inner = (iw / 10.0).floor();
+        assert_eq!(
+            lines.iter().filter(|l| l.width == Some(0.18)).count(),
+            4 + inner as usize - 1
+        );
+    }
+
+    #[test]
     fn grid_draws_both_directions() {
         let page = PageSettings::default();
         let pattern = GridPattern {
             spacing: 8.0,
             ..Default::default()
         };
-        let (lines, dots) = draw_grid(geometry_for(&page, 1), &pattern);
+        let geo = geometry_for(&page, 1);
+        let (lines, dots) = draw_grid(geo, &pattern);
         assert!(dots.is_empty());
         assert!(lines.iter().any(|line| line.y1 == line.y2));
         assert!(lines.iter().any(|line| line.x1 == line.x2));
+        // 锁边：四条边框恰好围出居中的整数格区域。
+        let has = |x1: f64, y1: f64, x2: f64, y2: f64| {
+            lines.iter().any(|l| {
+                (l.x1 - x1).abs() < 1e-9
+                    && (l.y1 - y1).abs() < 1e-9
+                    && (l.x2 - x2).abs() < 1e-9
+                    && (l.y2 - y2).abs() < 1e-9
+            })
+        };
+        let w = (geo.content.width / 8.0).floor() * 8.0;
+        let h = (geo.content.height / 8.0).floor() * 8.0;
+        let sx = geo.content.x + (geo.content.width - w) / 2.0;
+        let sy = geo.content.y + (geo.content.height - h) / 2.0;
+        assert!(has(sx, sy, sx + w, sy));
+        assert!(has(sx, sy + h, sx + w, sy + h));
+        assert!(has(sx, sy, sx, sy + h));
+        assert!(has(sx + w, sy, sx + w, sy + h));
     }
 
     #[test]

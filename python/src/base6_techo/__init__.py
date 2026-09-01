@@ -166,6 +166,18 @@ class SeyesPattern(BaseModel):
     margin_width: float = Field(default=0.4, gt=0)
 
 
+class VerticalPattern(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    kind: Literal["vertical"] = "vertical"
+    pages: int = Field(default=1, ge=1, le=500)
+    spacing: float = Field(default=10.0, gt=0)
+    color: Color = "#000000"
+    frame_outer_width: float = Field(default=0.5, gt=0)
+    frame_inner_width: float = Field(default=0.18, gt=0)
+    frame_gap: float = Field(default=1.2, gt=0)
+
+
 class UsRuledPattern(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -371,6 +383,7 @@ Pattern = Annotated[
         RuledPattern,
         SeyesPattern,
         UsRuledPattern,
+        VerticalPattern,
         TimelinePattern,
         TrackerPattern,
         YearPattern,

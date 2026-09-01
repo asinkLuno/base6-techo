@@ -3,7 +3,7 @@ use serde::Deserialize;
 use super::colors::GRAY;
 use super::{Dot, Geometry, Line, LineStyle, centered, validate_color};
 
-/// 网格：内容区内等距方格。
+/// 网格：内容区内等距方格，四周封闭边框（锁边）。
 #[derive(Clone, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub(crate) struct GridPattern {
@@ -37,6 +37,15 @@ impl GridPattern {
 }
 
 pub(crate) fn draw_grid(geo: Geometry, p: &GridPattern) -> (Vec<Line>, Vec<Dot>) {
+    let nx = (geo.content.width / p.spacing).floor().max(0.0);
+    let ny = (geo.content.height / p.spacing).floor().max(0.0);
+    if nx < 1.0 || ny < 1.0 {
+        return (vec![], vec![]);
+    }
+    let w = nx * p.spacing;
+    let h = ny * p.spacing;
+    let sx = geo.content.x + (geo.content.width - w) / 2.0;
+    let sy = geo.content.y + (geo.content.height - h) / 2.0;
     let line = |x1, y1, x2, y2| Line {
         x1,
         y1,
@@ -46,14 +55,20 @@ pub(crate) fn draw_grid(geo: Geometry, p: &GridPattern) -> (Vec<Line>, Vec<Dot>)
         width: Some(p.width),
         style: LineStyle::Solid,
     };
-    let mut lines: Vec<Line> = centered(geo.content.y, geo.content.height, p.spacing)
-        .into_iter()
-        .map(|y| line(geo.content.x, y, geo.content.x + geo.content.width, y))
-        .collect();
-    lines.extend(
-        centered(geo.content.x, geo.content.width, p.spacing)
-            .into_iter()
-            .map(|x| line(x, geo.content.y, x, geo.content.y + geo.content.height)),
-    );
+    let mut lines = Vec::new();
+    // 锁边：四条边框。
+    lines.push(line(sx, sy, sx + w, sy));
+    lines.push(line(sx, sy + h, sx + w, sy + h));
+    lines.push(line(sx, sy, sx, sy + h));
+    lines.push(line(sx + w, sy, sx + w, sy + h));
+    // 内部横线与竖线。
+    for row in 1..ny as usize {
+        let y = sy + row as f64 * p.spacing;
+        lines.push(line(sx, y, sx + w, y));
+    }
+    for col in 1..nx as usize {
+        let x = sx + col as f64 * p.spacing;
+        lines.push(line(x, sy, x, sy + h));
+    }
     (lines, vec![])
 }

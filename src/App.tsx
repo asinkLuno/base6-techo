@@ -20,7 +20,7 @@ import { parseICS } from "./lib/ics-parser";
 
 type Value = string | number | boolean | null;
 type Values = Record<string, Value>;
-type PatternKind = "bunkwan" | "dots" | "eight" | "graph" | "grid" | "midori" | "month" | "ruled" | "timeline" | "seyes" | "tracker" | "us-ruled" | "year";
+type PatternKind = "bunkwan" | "dots" | "eight" | "graph" | "grid" | "midori" | "month" | "ruled" | "timeline" | "seyes" | "tracker" | "us-ruled" | "vertical" | "year";
 type Section = {
   id: string;
   expanded: boolean;
@@ -41,6 +41,7 @@ const patternNames: Record<PatternKind, string> = {
   grid: "网格",
   ruled: "横线",
   seyes: "法文格",
+  vertical: "古文竖排",
   "us-ruled": "美式横线",
   bunkwan: "博文馆当用日历",
   eight: "八分视图",
@@ -139,6 +140,15 @@ const defaults: Record<PatternKind, Values & { kind: PatternKind }> = {
     vline_width: 0.1,
     margin_color: "#d96a6a",
     margin_width: 0.4,
+  },
+  vertical: {
+    kind: "vertical",
+    pages: 1,
+    spacing: 10,
+    color: "#000000",
+    frame_outer_width: 0.5,
+    frame_inner_width: 0.18,
+    frame_gap: 1.2,
   },
   "us-ruled": {
     kind: "us-ruled",
@@ -458,6 +468,17 @@ function PatternFields({ section, set }: { section: Section; set: (key: string, 
         <Field label="边线色" value={p.margin_color} type="color" onChange={(v) => set("margin_color", v)} />
       </>
     );
+  if (p.kind === "vertical")
+    return (
+      <>
+        <Field label="页数" value={p.pages} min={1} max={500} onChange={(v) => set("pages", v)} />
+        <Field label="列距（mm）" value={p.spacing} min={0.1} step={0.1} onChange={(v) => set("spacing", v)} />
+        <Field label="颜色" value={p.color} type="color" onChange={(v) => set("color", v)} />
+        <Field label="外框宽（mm）" value={p.frame_outer_width} min={0.01} step={0.05} onChange={(v) => set("frame_outer_width", v)} />
+        <Field label="内框宽（mm）" value={p.frame_inner_width} min={0.01} step={0.05} onChange={(v) => set("frame_inner_width", v)} />
+        <Field label="框间距（mm）" value={p.frame_gap} min={0.1} step={0.1} onChange={(v) => set("frame_gap", v)} />
+      </>
+    );
   if (p.kind === "us-ruled")
     return (
       <>
@@ -657,7 +678,7 @@ function FontPicker({ value, options, onChange }: { value: string; options: [str
 // 页数由版式真实参数决定：是多少页就算多少页。
 function effectivePages(section: Section): number {
   const p = section.pattern;
-  if (p.kind === "ruled" || p.kind === "dots" || p.kind === "grid" || p.kind === "us-ruled" || p.kind === "seyes" || p.kind === "timeline")
+  if (p.kind === "ruled" || p.kind === "dots" || p.kind === "grid" || p.kind === "us-ruled" || p.kind === "seyes" || p.kind === "timeline" || p.kind === "vertical")
     return Math.max(1, Number(p.pages) || 1);
   if (p.kind === "eight") {
     const start = parseISODate(String(p.start_date));
