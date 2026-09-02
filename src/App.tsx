@@ -3,6 +3,7 @@ import { arrayMove, SortableContext, useSortable, verticalListSortingStrategy } 
 import { CSS } from "@dnd-kit/utilities";
 import { open, save } from "@tauri-apps/plugin-dialog";
 import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 import { ChevronDown, ChevronUp, Download, Eye, FileDown, GripVertical, LoaderCircle, Plus, RefreshCw, Trash2, Upload, X } from "lucide-react";
 import { memo, startTransition, useCallback, useEffect, useMemo, useState, ViewTransition, type ReactNode } from "react";
 import type { RenderSectionRequest, RunPipelineRequest } from "./pipeline-request.generated";
@@ -29,7 +30,7 @@ import { parseICS } from "./lib/ics-parser";
 
 type Value = string | number | boolean | null;
 type Values = Record<string, Value>;
-type PatternKind = "bunkwan" | "dots" | "eight" | "graph" | "grid" | "huaizhong" | "midori" | "month" | "ruled" | "timeline" | "seyes" | "tracker" | "us-ruled" | "vertical" | "year";
+type PatternKind = "dots" | "eight" | "graph" | "grid" | "hakubunkan-kaichu-nikki" | "hakubunkan-toyo-nikki" | "midori" | "month" | "ruled" | "timeline" | "seyes" | "tracker" | "us-ruled" | "vertical" | "year";
 type Section = {
   id: string;
   expanded: boolean;
@@ -52,10 +53,10 @@ const patternNames: Record<PatternKind, string> = {
   seyes: "法文格",
   vertical: "古文竖排",
   "us-ruled": "美式横线",
-  bunkwan: "博文馆当用日历",
+  "hakubunkan-toyo-nikki": "博文館・當用日記",
   eight: "八分视图",
   graph: "制图网格",
-  huaizhong: "怀中日记",
+  "hakubunkan-kaichu-nikki": "博文館・懐中日記",
   midori: "Midori",
   month: "月历",
   timeline: "时间轴",
@@ -66,7 +67,7 @@ const patternNames: Record<PatternKind, string> = {
 // 版式分类：多级菜单里按大类归组。
 const PATTERN_GROUPS: [string, PatternKind[]][] = [
   ["基础", ["dots", "grid", "ruled", "seyes", "us-ruled", "vertical"]],
-  ["复刻", ["midori", "bunkwan", "huaizhong"]],
+  ["复刻", ["midori", "hakubunkan-toyo-nikki", "hakubunkan-kaichu-nikki"]],
   ["日程", ["month", "tracker", "eight", "timeline", "graph", "year"]],
 ];
 
@@ -87,8 +88,7 @@ const COLORS = {
   phaseGold: "#e5b93f",
   timelineNight: "#496a9f",
   holidayRed: "#8b0000",
-  bunkwanGreen: "#39ff14",
-  midoriGreen: "#a9d1ae",
+  paleJade: "#a9d1ae",
   black: "#000000",
 };
 const PAGE_SIZES: Record<string, [number, number]> = {
@@ -191,10 +191,13 @@ const defaults: Record<PatternKind, Values & { kind: PatternKind }> = {
     margin_color: "#d96a6a",
     margin_width: 0.4,
   },
-  bunkwan: {
-    kind: "bunkwan",
-    line_color: COLORS.bunkwanGreen,
-    faint_color: COLORS.midoriGreen,
+  "hakubunkan-toyo-nikki": {
+    kind: "hakubunkan-toyo-nikki",
+    start_date: toISODate(new Date()),
+    end_date: toISODate(new Date()),
+    date_format: "%-m月%-d日",
+    line_color: COLORS.paleJade,
+    faint_color: COLORS.paleJade,
     line_width: 0.4,
   },
   midori: {
@@ -205,8 +208,8 @@ const defaults: Record<PatternKind, Values & { kind: PatternKind }> = {
     dot_frequency: 10,
     dot_radius: 0.4,
     line_width: 0.7,
-    line_color: COLORS.midoriGreen,
-    dot_color: COLORS.midoriGreen,
+    line_color: COLORS.paleJade,
+    dot_color: COLORS.paleJade,
     header: false,
     footer: false,
     inner: false,
@@ -227,8 +230,8 @@ const defaults: Record<PatternKind, Values & { kind: PatternKind }> = {
     center_gap: 2,
     date_size: 10,
   },
-  huaizhong: {
-    kind: "huaizhong",
+  "hakubunkan-kaichu-nikki": {
+    kind: "hakubunkan-kaichu-nikki",
     start_date: toISODate(new Date()),
     end_date: toISODate(new Date(Date.now() + 86400000)),
     date_format: "%-m 月  %-d 日",
@@ -586,9 +589,12 @@ function PatternFields({ section, set }: { section: Section; set: (key: string, 
         <Field label="红线色" value={p.margin_color} type="color" onChange={(v) => set("margin_color", v)} />
       </>
     );
-  if (p.kind === "bunkwan")
+  if (p.kind === "hakubunkan-toyo-nikki")
     return (
       <>
+        <Field label="开始日期" value={p.start_date} type="date" onChange={(v) => set("start_date", v)} />
+        <Field label="结束日期" value={p.end_date} type="date" onChange={(v) => set("end_date", v)} />
+        <Field label="日期格式" value={p.date_format} type="text" placeholder="%-m月%-d日" onChange={(v) => set("date_format", v)} />
         <Field label="主线颜色" value={p.line_color} type="color" onChange={(v) => set("line_color", v)} />
         <Field label="点线颜色" value={p.faint_color} type="color" onChange={(v) => set("faint_color", v)} />
         <Field label="线宽（pt）" value={p.line_width} min={0.01} step={0.05} onChange={(v) => set("line_width", v)} />
@@ -634,7 +640,7 @@ function PatternFields({ section, set }: { section: Section; set: (key: string, 
         <Field label="月历标题格式" value={p.title_format} type="text" placeholder="%Y.%m" onChange={(v) => set("title_format", v)} />
       </>
     );
-  if (p.kind === "huaizhong")
+  if (p.kind === "hakubunkan-kaichu-nikki")
     return (
       <>
         <Field label="开始日期" value={p.start_date} type="date" onChange={(v) => set("start_date", v)} />
@@ -803,7 +809,12 @@ function effectivePages(section: Section): number {
     const end = parseISODate(String(p.end_date));
     if (start && end && start <= end) return (Math.floor((end.getTime() - start.getTime()) / 86400000 / 7) + 1) * 2;
   }
-  if (p.kind === "huaizhong") {
+  if (p.kind === "hakubunkan-toyo-nikki") {
+    const start = parseISODate(String(p.start_date));
+    const end = parseISODate(String(p.end_date));
+    if (start && end && start <= end) return Math.round((end.getTime() - start.getTime()) / 86400000) + 1;
+  }
+  if (p.kind === "hakubunkan-kaichu-nikki") {
     const start = parseISODate(String(p.start_date));
     const end = parseISODate(String(p.end_date));
     if (start && end && start <= end) return Math.ceil((Math.round((end.getTime() - start.getTime()) / 86400000) + 1) / 2);
@@ -1063,7 +1074,7 @@ function loadJSON<T>(key: string, fallback: T): T {
 }
 
 function cleanPattern(pattern: Section["pattern"]) {
-  if (pattern.kind === "bunkwan") {
+  if (pattern.kind === "hakubunkan-toyo-nikki") {
     const cleaned = { ...pattern };
     delete cleaned.date_size;
     return cleaned;
@@ -1116,6 +1127,12 @@ const [holidays, setHolidays] = useState<Record<string, string>>(saved?.holidays
   const [sheetsPerGroup, setSheetsPerGroup] = useState(saved?.sheetsPerGroup ?? 4);
   const [status, setStatus] = useState("");
   const [running, setRunning] = useState(false);
+  const [latexLog, setLatexLog] = useState("");
+  useEffect(() => {
+    let unlisten: (() => void) | undefined;
+    void listen<string>("latex-log", ({ payload }) => setLatexLog((log) => `${log}${payload}\n`)).then((stop) => { unlisten = stop; });
+    return () => unlisten?.();
+  }, []);
   useEffect(() => {
 try { localStorage.setItem("base6.state", JSON.stringify({ sections, binding, sheetsPerGroup, size, pageSize, holidays })); } catch { /* ponytail: 隐私模式禁写，状态不持久化即可 */ }
   }, [sections, binding, sheetsPerGroup, size, pageSize, holidays]);
@@ -1208,6 +1225,7 @@ try { localStorage.setItem("base6.state", JSON.stringify({ sections, binding, sh
     });
     if (!output) return;
     setRunning(true);
+    setLatexLog("");
     setStatus("正在排版并生成 PDF…");
     try {
       const request = {
@@ -1230,6 +1248,7 @@ try { localStorage.setItem("base6.state", JSON.stringify({ sections, binding, sh
       return;
     }
     setPreview({ open: true, data: "", busy: true, error: "" });
+    setLatexLog("");
     try {
       const request = {
         output: "",
@@ -1253,6 +1272,7 @@ try { localStorage.setItem("base6.state", JSON.stringify({ sections, binding, sh
               {preview.busy ? (
                 <div className="flex h-[80vh] flex-col items-center justify-center gap-3 text-muted-foreground">
                   <LoaderCircle className="size-8 animate-spin" />
+                  <pre className="max-h-64 w-full overflow-auto whitespace-pre-wrap px-6 text-left text-xs">{latexLog || "正在启动 LaTeX…"}</pre>
                   <p className="text-sm">正在渲染整体预览…</p>
                 </div>
               ) : preview.error ? (
@@ -1386,7 +1406,7 @@ try { localStorage.setItem("base6.state", JSON.stringify({ sections, binding, sh
                 关闭预览
               </Button>
             )}
-            <Button size="lg" disabled={running || !sections.length} onClick={generate}>
+            <Button size="lg" disabled={running || preview.busy || !sections.length} onClick={generate}>
               <FileDown className={running ? "animate-spin" : undefined} />
               {running ? "生成中…" : "选择位置并生成"}
             </Button>
@@ -1395,6 +1415,7 @@ try { localStorage.setItem("base6.state", JSON.stringify({ sections, binding, sh
                 {status}
               </p>
             )}
+            {running && latexLog && <pre className="max-h-64 overflow-auto whitespace-pre-wrap rounded-md bg-muted p-3 text-xs text-muted-foreground">{latexLog}</pre>}
           </CardContent>
         </Card>
       </div>

@@ -2,7 +2,7 @@ use std::collections::BTreeSet;
 
 use serde::Deserialize;
 
-use super::colors::MIDORI_GREEN;
+use super::colors::PALE_JADE;
 use super::{Dot, Geometry, Line, LineStyle, region, validate_color};
 
 #[derive(Clone, Deserialize)]
@@ -30,8 +30,8 @@ impl Default for MidoriPattern {
             dot_frequency: 10,
             dot_radius: 0.4,
             line_width: 0.7,
-            line_color: MIDORI_GREEN.into(),
-            dot_color: MIDORI_GREEN.into(),
+            line_color: PALE_JADE.into(),
+            dot_color: PALE_JADE.into(),
             header: false,
             footer: false,
             inner: false,

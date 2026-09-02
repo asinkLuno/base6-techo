@@ -25,7 +25,7 @@ export type NonBindingText2Size = number;
 export type NonBindingTextSpacing = number;
 export type NonBindingTextEdge = number | null;
 export type NonBindingTextColor = string;
-export type Pattern = DotsPatternRequest | GridPatternRequest | RuledPatternRequest | SeyesPatternRequest | UsRuledPatternRequest | VerticalPatternRequest | BunkwanPatternRequest | MidoriPatternRequest | TimelinePatternRequest;
+export type Pattern = DotsPatternRequest | GridPatternRequest | RuledPatternRequest | SeyesPatternRequest | UsRuledPatternRequest | VerticalPatternRequest | HakubunkanToyoNikkiPatternRequest | MidoriPatternRequest | TimelinePatternRequest;
 export type Kind = "dots" | "grid" | "ruled" | "seyes" | "us-ruled" | "vertical";
 export type Spacing = number;
 export type LineWidth = number;
@@ -83,7 +83,7 @@ export type DotTop = number;
 export type DotBottom = number;
 export type DotLeft = number;
 export type DotRight = number;
-export type Kind3 = "bunkwan";
+export type Kind3 = "hakubunkan-toyo-nikki";
 export type FaintColor = string;
 export type Kind1 = "midori";
 export type Spacing1 = number;
@@ -237,8 +237,11 @@ export interface MidoriPatternRequest {
   inner?: Inner;
   outer?: Outer;
 }
-export interface BunkwanPatternRequest {
+export interface HakubunkanToyoNikkiPatternRequest {
   kind?: Kind3;
+  start_date?: string;
+  end_date?: string;
+  date_format?: string;
   line_color?: LineColor;
   faint_color?: FaintColor;
   line_width?: LineWidth;

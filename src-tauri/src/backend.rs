@@ -1,17 +1,18 @@
 use std::{
     collections::{BTreeMap, BTreeSet, HashMap},
     fs,
+    io::{BufRead, BufReader},
     path::{Path, PathBuf},
-    process::Command,
+    process::{Command, Stdio},
 };
 
-mod bunkwan;
 mod colors;
 mod dots;
 mod eight;
 mod graph;
 mod grid;
-mod huaizhong;
+mod hakubunkan_kaichu_nikki;
+mod hakubunkan_toyo_nikki;
 mod midori;
 mod month;
 mod ruled;
@@ -22,7 +23,6 @@ mod vertical;
 mod year;
 
 use base64::{Engine, engine::general_purpose::STANDARD};
-use bunkwan::{BunkwanPattern, draw_bunkwan, lunar_date};
 use chrono::{
     Locale, NaiveDate,
     format::{Item, StrftimeItems},
@@ -31,13 +31,14 @@ use dots::{DotsPattern, draw_dots};
 use eight::{EightPattern, draw_eight};
 use graph::{GraphPattern, draw_graph};
 use grid::{GridPattern, draw_grid};
-use huaizhong::{HuaizhongPattern, draw_huaizhong};
+use hakubunkan_kaichu_nikki::{HakubunkanKaichuNikkiPattern, draw_hakubunkan_kaichu_nikki};
+use hakubunkan_toyo_nikki::{HakubunkanToyoNikkiPattern, draw_hakubunkan_toyo_nikki, lunar_date};
 use midori::{MidoriPattern, draw_midori};
 use month::{MonthPattern, TrackerPattern, draw_month, draw_tracker};
 use ruled::{RuledPattern, draw_ruled};
 use serde::Deserialize;
 use seyes::{SeyesPattern, draw_seyes};
-use tauri::Manager;
+use tauri::{Emitter, Manager};
 use timeline::{TimelinePattern, draw_timeline};
 use us_ruled::{UsRuledPattern, draw_us_ruled};
 use vertical::{VerticalPattern, draw_vertical};
@@ -256,10 +257,12 @@ enum Pattern {
     #[serde(rename = "us-ruled")]
     UsRuled(UsRuledPattern),
     Vertical(VerticalPattern),
-    Bunkwan(BunkwanPattern),
+    #[serde(rename = "hakubunkan-toyo-nikki")]
+    HakubunkanToyoNikki(HakubunkanToyoNikkiPattern),
     Eight(EightPattern),
     Graph(GraphPattern),
-    Huaizhong(HuaizhongPattern),
+    #[serde(rename = "hakubunkan-kaichu-nikki")]
+    HakubunkanKaichuNikki(HakubunkanKaichuNikkiPattern),
     Midori(MidoriPattern),
     Seyes(SeyesPattern),
     Month(MonthPattern),
@@ -311,8 +314,9 @@ impl Pattern {
             Self::UsRuled(p) => p.pages,
             Self::Vertical(p) => p.pages,
             Self::Eight(p) => p.weeks().len() * 2,
-            Self::Huaizhong(p) => p.page_count(),
-            Self::Bunkwan(_) | Self::Graph(_) | Self::Midori(_) | Self::Tracker(_) => 1,
+            Self::HakubunkanKaichuNikki(p) => p.page_count(),
+            Self::HakubunkanToyoNikki(p) => p.page_count(),
+            Self::Graph(_) | Self::Midori(_) | Self::Tracker(_) => 1,
             Self::Seyes(p) => p.pages,
             Self::Month(p) => {
                 if p.two_page {
@@ -333,10 +337,10 @@ impl Pattern {
             Self::Ruled(p) => &p.color,
             Self::UsRuled(p) => &p.rule_color,
             Self::Vertical(p) => &p.color,
-            Self::Bunkwan(p) => &p.line_color,
+            Self::HakubunkanToyoNikki(p) => &p.line_color,
             Self::Eight(p) => &p.line_color,
             Self::Graph(p) => &p.line_color,
-            Self::Huaizhong(p) => &p.line_color,
+            Self::HakubunkanKaichuNikki(p) => &p.line_color,
             Self::Midori(p) => &p.line_color,
             Self::Seyes(p) => &p.main_color,
             Self::Month(p) => &p.line_color,
@@ -353,10 +357,10 @@ impl Pattern {
             Self::Ruled(p) => p.width,
             Self::UsRuled(p) => p.rule_width,
             Self::Vertical(p) => p.frame_inner_width,
-            Self::Bunkwan(p) => p.line_width,
+            Self::HakubunkanToyoNikki(p) => p.line_width,
             Self::Eight(p) => p.line_width,
             Self::Graph(p) => p.line_width,
-            Self::Huaizhong(p) => p.line_width,
+            Self::HakubunkanKaichuNikki(p) => p.line_width,
             Self::Midori(p) => p.line_width,
             Self::Seyes(p) => p.main_width,
             Self::Month(p) => p.line_width,
@@ -372,10 +376,10 @@ impl Pattern {
             Self::Ruled(p) => p.validate(),
             Self::UsRuled(p) => p.validate(),
             Self::Vertical(p) => p.validate(),
-            Self::Bunkwan(p) => p.validate(),
+            Self::HakubunkanToyoNikki(p) => p.validate(),
             Self::Eight(p) => p.validate(),
             Self::Graph(p) => p.validate(),
-            Self::Huaizhong(p) => p.validate(),
+            Self::HakubunkanKaichuNikki(p) => p.validate(),
             Self::Midori(p) => p.validate(),
             Self::Seyes(p) => p.validate(),
             Self::Month(p) => p.validate(),
@@ -711,7 +715,10 @@ fn render_page(
             let (l, d) = draw_vertical(geo, p);
             (l, d, vec![], vec![])
         }
-        Pattern::Bunkwan(p) => (draw_bunkwan(geo, p), vec![], vec![], vec![]),
+        Pattern::HakubunkanToyoNikki(p) => {
+            let (l, t) = draw_hakubunkan_toyo_nikki(geo, p, index, &doc.binding_text_font);
+            (l, vec![], vec![], t)
+        }
         Pattern::Midori(p) => {
             let (l, d) = draw_midori(geo, p);
             (l, d, vec![], vec![])
@@ -736,8 +743,8 @@ fn render_page(
             let (l, t) = draw_graph(geo, p, &doc.binding_text_font);
             (l, vec![], vec![], t)
         }
-        Pattern::Huaizhong(p) => {
-            let (l, t) = draw_huaizhong(geo, p, index, &doc.binding_text_font);
+        Pattern::HakubunkanKaichuNikki(p) => {
+            let (l, t) = draw_hakubunkan_kaichu_nikki(geo, p, index, &doc.binding_text_font);
             (l, vec![], vec![], t)
         }
         Pattern::Tracker(p) => {
@@ -1045,10 +1052,24 @@ fn font_command(font: &str) -> String {
     }
 }
 
+fn font_family_definition(command: &str, font: &str) -> String {
+    font_command(font).replacen(r"\fontspec", &format!(r"\newfontfamily\{command}"), 1)
+}
+
 fn render_latex(pages: &[OutputPage]) -> String {
     let mut colors = BTreeMap::from([("pnumcolor".to_string(), GRAY.to_string())]);
     let mut bodies = Vec::new();
-    let mut uses_font = false;
+    let fonts = pages
+        .iter()
+        .flat_map(|page| &page.placements)
+        .flat_map(|placement| &placement.draw.texts)
+        .filter(|text| !text.font.trim_start().starts_with('\\'))
+        .map(|text| text.font.clone())
+        .collect::<BTreeSet<_>>()
+        .into_iter()
+        .enumerate()
+        .map(|(i, font)| (font, format!("basefont{}", "x".repeat(i + 1))))
+        .collect::<BTreeMap<_, _>>();
     for page in pages {
         let mut parts = vec![format!(
             r"\useasboundingbox (0,0) rectangle ({},{});",
@@ -1066,7 +1087,7 @@ fn render_latex(pages: &[OutputPage]) -> String {
                     .entry((color, line.width.unwrap_or(0.2).to_string(), line.style))
                     .or_default()
                     .push(format!(
-                        r"  \draw ({},{}) -- ({},{});",
+                        r"  ({},{}) -- ({},{})",
                         placement.dx + line.x1,
                         line.y1,
                         placement.dx + line.x2,
@@ -1118,7 +1139,7 @@ fn render_latex(pages: &[OutputPage]) -> String {
         }
         for ((color, width, style), commands) in line_groups {
             parts.push(format!(
-                "\\begin{{scope}}[{color}, line width={width}pt, {}]\n{}\n\\end{{scope}}",
+                "\\begin{{scope}}[{color}, line width={width}pt, {}]\n\\draw\n{};\n\\end{{scope}}",
                 style.tikz(),
                 commands.join("\n")
             ));
@@ -1144,8 +1165,18 @@ fn render_latex(pages: &[OutputPage]) -> String {
                     colors.insert(name.clone(), text.color.clone());
                     name
                 };
-                uses_font |= !text.font.trim_start().starts_with('\\');
-                parts.push(format!(r"\node[{color}, rotate={}, anchor={}, font={{{}\fontsize{{{}}}{{{}}}\selectfont}}] at ({},{}) {{{}}};", text.rotation, text.anchor, font_command(&text.font), text.size, text.size * 1.2, placement.dx + text.x, text.y, tex_escape(&text.content)));
+                let font = fonts
+                    .get(&text.font)
+                    .map(|command| format!(r"\{command}"))
+                    .unwrap_or_else(|| font_command(&text.font));
+                let multiline = text.content.contains('\n');
+                let content = text
+                    .content
+                    .split('\n')
+                    .map(tex_escape)
+                    .collect::<Vec<_>>()
+                    .join(r"\\");
+                parts.push(format!(r"\node[{color}, rotate={}, anchor={}, {}font={{{}\fontsize{{{}}}{{{}}}\selectfont}}] at ({},{}) {{{}}};", text.rotation, text.anchor, if multiline { "align=center, " } else { "" }, font, text.size, text.size * 1.2, placement.dx + text.x, text.y, content));
             }
         }
         bodies.push(format!(
@@ -1165,10 +1196,17 @@ fn render_latex(pages: &[OutputPage]) -> String {
         .join("\n");
     format!(
         "\\documentclass[multi=tikzpicture]{{standalone}}\n{}\n\\usepackage{{tikz}}\n\\usepackage{{hyperref}}\n\\usepackage{{bookmark}}\n{}\n\\begin{{document}}\n{}\n\\end{{document}}\n",
-        if uses_font {
-            r"\usepackage{fontspec}"
+        if fonts.is_empty() {
+            String::new()
         } else {
-            ""
+            format!(
+                "\\usepackage{{fontspec}}\n{}",
+                fonts
+                    .iter()
+                    .map(|(font, command)| font_family_definition(command, font))
+                    .collect::<Vec<_>>()
+                    .join("\n")
+            )
         },
         definitions,
         {
@@ -1191,7 +1229,11 @@ fn render_latex(pages: &[OutputPage]) -> String {
     )
 }
 
-fn compile(tex: &Path, resource_dir: Option<&Path>) -> Result<PathBuf, String> {
+fn compile(
+    tex: &Path,
+    resource_dir: Option<&Path>,
+    log: Option<&dyn Fn(&str)>,
+) -> Result<PathBuf, String> {
     let bundled = resource_dir
         .map(|dir| {
             dir.join(if cfg!(windows) {
@@ -1215,14 +1257,43 @@ fn compile(tex: &Path, resource_dir: Option<&Path>) -> Result<PathBuf, String> {
         .filter(|p| p.is_file());
     let engine = bundled.unwrap_or_else(|| PathBuf::from("tectonic"));
     let mut command = Command::new(&engine);
-    command.arg(tex.file_name().unwrap_or_default());
-    let output = command
+    command
+        .arg("--print")
+        .arg(tex.file_name().unwrap_or_default());
+    let mut child = command
         .current_dir(tex.parent().unwrap_or(Path::new(".")))
-        .output()
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
         .map_err(|e| format!("failed to run {}: {e}", engine.display()))?;
-    if !output.status.success() {
-        let mut details = String::from_utf8_lossy(&output.stdout).into_owned();
-        details.push_str(&String::from_utf8_lossy(&output.stderr));
+    let (tx, rx) = std::sync::mpsc::channel();
+    fn forward<R: std::io::Read + Send + 'static>(
+        pipe: Option<R>,
+        tx: std::sync::mpsc::Sender<String>,
+    ) {
+        let Some(pipe) = pipe else { return };
+        let tx = tx.clone();
+        std::thread::spawn(move || {
+            for line in BufReader::new(pipe).lines().map_while(Result::ok) {
+                let _ = tx.send(line);
+            }
+        });
+    }
+    forward(child.stdout.take(), tx.clone());
+    forward(child.stderr.take(), tx.clone());
+    drop(tx);
+    let mut details = String::new();
+    for line in rx {
+        if !line.starts_with("warning: accessing absolute path ")
+            && let Some(log) = log
+        {
+            log(&line);
+        }
+        details.push_str(&line);
+        details.push('\n');
+    }
+    let status = child.wait().map_err(|e| e.to_string())?;
+    if !status.success() {
         return Err(format!(
             "{} failed:\n{}",
             engine.display(),
@@ -1247,6 +1318,15 @@ pub(crate) fn generate(
     body: RunPipelineRequest,
     preview: bool,
     resource_dir: Option<&Path>,
+) -> Result<(PathBuf, Vec<u8>), String> {
+    generate_with_log(body, preview, resource_dir, None)
+}
+
+fn generate_with_log(
+    body: RunPipelineRequest,
+    preview: bool,
+    resource_dir: Option<&Path>,
+    log: Option<&dyn Fn(&str)>,
 ) -> Result<(PathBuf, Vec<u8>), String> {
     if body.sections.is_empty() {
         return Err("sections must not be empty".into());
@@ -1288,7 +1368,7 @@ pub(crate) fn generate(
     let result = (|| {
         let tex = temp.join("document.tex");
         fs::write(&tex, render_latex(&generated)).map_err(|e| e.to_string())?;
-        let pdf = compile(&tex, resource_dir)?;
+        let pdf = compile(&tex, resource_dir, log)?;
         let bytes = fs::read(&pdf).map_err(|e| e.to_string())?;
         let output = PathBuf::from(body.output);
         if !preview {
@@ -1346,7 +1426,11 @@ pub(crate) async fn run_pipeline(
 ) -> Result<String, String> {
     let resource_dir = app.path().resource_dir().ok();
     tauri::async_runtime::spawn_blocking(move || {
-        generate(body, false, resource_dir.as_deref()).map(|(path, _)| path.display().to_string())
+        let log = |line: &str| {
+            let _ = app.emit("latex-log", line);
+        };
+        generate_with_log(body, false, resource_dir.as_deref(), Some(&log))
+            .map(|(path, _)| path.display().to_string())
     })
     .await
     .map_err(|e| e.to_string())?
@@ -1359,7 +1443,11 @@ pub(crate) async fn preview_document(
 ) -> Result<String, String> {
     let resource_dir = app.path().resource_dir().ok();
     tauri::async_runtime::spawn_blocking(move || {
-        generate(body, true, resource_dir.as_deref()).map(|(_, bytes)| STANDARD.encode(bytes))
+        let log = |line: &str| {
+            let _ = app.emit("latex-log", line);
+        };
+        generate_with_log(body, true, resource_dir.as_deref(), Some(&log))
+            .map(|(_, bytes)| STANDARD.encode(bytes))
     })
     .await
     .map_err(|e| e.to_string())?
@@ -1879,7 +1967,7 @@ mod tests {
     }
 
     #[test]
-    fn bunkwan_uses_content_range_and_shared_header() {
+    fn hakubunkan_toyo_nikki_uses_content_range_and_shared_header() {
         let page = PageSettings::default();
         let document = DocumentSettings {
             header: BandSettings {
@@ -1888,10 +1976,14 @@ mod tests {
             },
             ..Default::default()
         };
-        let pattern = Pattern::Bunkwan(BunkwanPattern::default());
+        let pattern = Pattern::HakubunkanToyoNikki(HakubunkanToyoNikkiPattern::default());
         let draw = render_page(&page, &pattern, 1, &document, 0, None, &None);
         let content = geometry_for(&page, 1).content;
-        assert_eq!((draw.lines[0].x1, draw.lines[0].y1), (content.x, content.y));
+        assert_eq!(
+            (draw.lines[0].x1, draw.lines[0].y1),
+            (content.x, content.y + 10.0)
+        );
+        assert!(draw.texts.iter().any(|text| text.content.contains('月')));
         assert!(draw.texts.iter().any(|text| text.content == "header"));
     }
 
@@ -1957,7 +2049,7 @@ mod tests {
             "output": output,
             "sections": [
                 { "document": { "binding_text": "[base-6]" }, "pattern": { "kind": "ruled", "pages": 1 } },
-                { "pattern": { "kind": "bunkwan" } },
+                { "pattern": { "kind": "hakubunkan-toyo-nikki" } },
                 { "pattern": { "kind": "eight", "start_date": "2026-08-03", "end_date": "2026-08-16" } },
                 { "pattern": { "kind": "midori" } },
                 { "pattern": { "kind": "timeline", "pages": 1, "start_date": "2026-08-01", "end_date": "2026-08-01", "latitude": 31.23, "longitude": 121.47, "timezone": "Asia/Shanghai" } }

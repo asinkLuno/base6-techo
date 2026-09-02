@@ -17,7 +17,7 @@ pub(crate) enum LunarStyle {
 
 #[derive(Clone, Deserialize)]
 #[serde(default, deny_unknown_fields)]
-pub(crate) struct HuaizhongPattern {
+pub(crate) struct HakubunkanKaichuNikkiPattern {
     pub(crate) start_date: NaiveDate,
     pub(crate) end_date: NaiveDate,
     pub(crate) date_format: String,
@@ -29,7 +29,7 @@ pub(crate) struct HuaizhongPattern {
     pub(crate) date_size: f64,
 }
 
-impl Default for HuaizhongPattern {
+impl Default for HakubunkanKaichuNikkiPattern {
     fn default() -> Self {
         let today = chrono::Utc::now().date_naive();
         Self {
@@ -46,7 +46,15 @@ impl Default for HuaizhongPattern {
     }
 }
 
-impl HuaizhongPattern {
+impl HakubunkanKaichuNikkiPattern {
+    fn date_format(&self) -> String {
+        self.date_format
+            .replace("%a", "")
+            .replace("%A", "")
+            .trim()
+            .into()
+    }
+
     pub(crate) fn validate(&self) -> Result<(), String> {
         if self.end_date < self.start_date {
             return Err("结束日期必须晚于或等于开始日期".into());
@@ -56,7 +64,7 @@ impl HuaizhongPattern {
         }
         validate_color(&self.line_color)?;
         validate_weekday_headers(&self.weekday_headers)?;
-        validate_date_format(&self.date_format, &self.date_locale)?;
+        validate_date_format(&self.date_format(), &self.date_locale)?;
         if [self.start_date, self.end_date]
             .into_iter()
             .any(|date| LunisolarDate::try_from(date).is_err())
@@ -71,9 +79,9 @@ impl HuaizhongPattern {
     }
 }
 
-pub(crate) fn draw_huaizhong(
+pub(crate) fn draw_hakubunkan_kaichu_nikki(
     geo: Geometry,
-    p: &HuaizhongPattern,
+    p: &HakubunkanKaichuNikkiPattern,
     index: usize,
     font: &str,
 ) -> (Vec<Line>, Vec<Text>) {
@@ -132,7 +140,7 @@ pub(crate) fn draw_huaizhong(
             ));
             texts.push(header(
                 r.x + r.width / 2.0,
-                format_date(date, &p.date_format, &p.date_locale),
+                format_date(date, &p.date_format(), &p.date_locale),
                 "center",
             ));
             if let Ok(lunar) = LunisolarDate::try_from(date) {
@@ -146,21 +154,25 @@ pub(crate) fn draw_huaizhong(
                     ),
                     LunarStyle::Traditional => lunar_date(date).expect("converted above"),
                 };
-                texts.push(header(r.x + r.width - 3.0, content, "east"));
+                let mut lunar_text = header(r.x + r.width - 3.0, content, "east");
+                lunar_text.size = p.date_size * 0.7;
+                texts.push(lunar_text);
             }
-            for (label, fraction) in [("天气", 0.28), ("气温", 0.72)] {
-                for (i, character) in label.chars().enumerate() {
-                    texts.push(Text {
-                        x: r.x + r.width - weather_w / 2.0,
-                        y: y + header_h + (half_h - header_h) * fraction + (i as f64 - 0.5) * 3.0,
-                        content: character.into(),
-                        size: p.date_size * 0.65,
-                        color: p.line_color.clone(),
-                        rotation: 0,
-                        font: font.into(),
-                        anchor: "center",
-                    });
-                }
+            for (label, fraction) in [("天气", 0.06), ("气温", 0.52)] {
+                texts.push(Text {
+                    x: r.x + r.width - weather_w / 2.0,
+                    y: y + header_h + (half_h - header_h) * fraction,
+                    content: label
+                        .chars()
+                        .map(|c| c.to_string())
+                        .collect::<Vec<_>>()
+                        .join("\n"),
+                    size: p.date_size * 0.65,
+                    color: p.line_color.clone(),
+                    rotation: 0,
+                    font: font.into(),
+                    anchor: "center",
+                });
             }
         }
     }
@@ -174,13 +186,14 @@ mod tests {
 
     #[test]
     fn renders_two_consecutive_days_per_page() {
-        let p = HuaizhongPattern {
+        let p = HakubunkanKaichuNikkiPattern {
             start_date: NaiveDate::from_ymd_opt(2026, 1, 3).unwrap(),
             end_date: NaiveDate::from_ymd_opt(2026, 1, 6).unwrap(),
+            date_format: "%a    %-m 月  %-d 日".into(),
             ..Default::default()
         };
         assert_eq!(p.page_count(), 2);
-        let (_, texts) = draw_huaizhong(
+        let (_, texts) = draw_hakubunkan_kaichu_nikki(
             geometry_for(&PageSettings::default(), 2),
             &p,
             1,
@@ -190,5 +203,6 @@ mod tests {
         assert!(texts.iter().any(|t| t.content.contains("6 日")));
         assert!(texts.iter().any(|t| t.content == "月"));
         assert!(texts.iter().any(|t| t.content.starts_with("旧 ")));
+        assert!(texts.iter().all(|t| !t.content.starts_with("一 ")));
     }
 }

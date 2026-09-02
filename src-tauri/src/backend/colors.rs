@@ -5,5 +5,4 @@ pub const PHASE_GOLD: &str = "#e5b93f"; // 月相/时间轴昼
 pub const TIMELINE_NIGHT: &str = "#496a9f"; // 时间轴夜
 pub const HOLIDAY_RED: &str = "#8b0000"; // 周末/节假日（同 UI --color-destructive）
 pub const BLACK: &str = "#000000"; // 正文/年历文字
-pub const BUNKWAN_GREEN: &str = "#39ff14"; // 分馆主线
-pub const MIDORI_GREEN: &str = "#a9d1ae"; // midori 网格
+pub const PALE_JADE: &str = "#a9d1ae"; // 博文館/Midori 网格
