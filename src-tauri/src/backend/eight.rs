@@ -233,11 +233,14 @@ pub(crate) fn push_one_month(
         let date_key = format!("{}-{:02}-{:02}", date.year(), date.month(), date.day());
         let holiday_name = holidays.as_ref().and_then(|h| h.get(&date_key));
         let is_compensatory = holiday_name.is_some_and(|n| n.starts_with("上班"));
-        // 八分视图迷你月历只染当周（调休上班日仍不染）；年历保持周末/节假日染色。
+        // 八分视图迷你月历只染当周（调休上班日仍不染）；年历保持周末/节假日染色，
+        // 且与月历一致：未导入 ICS（holidays 为空）时周末不染红。
+        let has_holidays = holidays.as_ref().is_some_and(|h| !h.is_empty());
         let is_red = if week_only {
             red && !is_compensatory
         } else {
-            red || (holiday_name.is_some() && !is_compensatory) || (is_weekend && !is_compensatory)
+            red || (holiday_name.is_some() && !is_compensatory)
+                || (is_weekend && has_holidays && !is_compensatory)
         };
         push_text(
             texts,

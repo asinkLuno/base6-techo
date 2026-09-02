@@ -243,7 +243,16 @@ mod tests {
     fn page_draws_two_month_calendars() {
         let page = PageSettings::default();
         let p = year("2026-01", "2026-12");
-        let texts = draw_year(geometry_for(&page, 1), &p, 0, r"\sffamily", &None);
+        // 2026 年规则与月历一致：周末染红需要导入 ICS（holidays 非空）。
+        let mut holidays = HashMap::new();
+        holidays.insert("2026-02-14".into(), "情人节".into());
+        let texts = draw_year(
+            geometry_for(&page, 1),
+            &p,
+            0,
+            r"\sffamily",
+            &Some(holidays.clone()),
+        );
         assert!(texts.iter().any(|t| t.content == "2026.01"));
         assert!(texts.iter().any(|t| t.content == "2026.02"));
         // 2026-01-01 是周四（黑色），2026-02-01 是周日（红色，周末）
@@ -260,6 +269,40 @@ mod tests {
                 .iter()
                 .any(|t| t.content == "1" && t.color == HOLIDAY_RED),
             "2 月 1 号是红色（周末）"
+        );
+    }
+
+    #[test]
+    fn year_month_title_and_headers_follow_settings() {
+        let page = PageSettings::default();
+        // 默认 %Y.%m + 中文表头（与旧版一致）。
+        let p = year("2026-01", "2026-02");
+        let texts = draw_year(geometry_for(&page, 1), &p, 0, r"\sffamily", &None);
+        assert!(texts.iter().any(|t| t.content == "2026.01"));
+        assert!(texts.iter().any(|t| t.content == "一"));
+        // 标题格式与表头串复用月历的设置方式。
+        let p = YearPattern {
+            title_format: "%Y年%-m月".into(),
+            weekday_headers: "Mo,Tu,We,Th,Fr,Sa,Su".into(),
+            ..year("2026-01", "2026-02")
+        };
+        assert!(p.validate().is_ok());
+        let texts = draw_year(geometry_for(&page, 1), &p, 0, r"\sffamily", &None);
+        assert!(texts.iter().any(|t| t.content == "2026年1月"));
+        assert!(texts.iter().any(|t| t.content == "Mo"));
+        // 关闭显示节假日：无节日名，周末不染红。
+        let mut holidays = HashMap::new();
+        holidays.insert("2026-02-14".into(), "情人节".into());
+        let p = YearPattern {
+            show_holidays: false,
+            ..year("2026-01", "2026-02")
+        };
+        let texts = draw_year(geometry_for(&page, 1), &p, 0, r"\sffamily", &Some(holidays));
+        assert!(!texts.iter().any(|t| t.content == "情人节"));
+        assert!(
+            !texts
+                .iter()
+                .any(|t| t.content == "1" && t.color == HOLIDAY_RED)
         );
     }
 }

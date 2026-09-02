@@ -239,6 +239,10 @@ const defaults: Record<PatternKind, Values & { kind: PatternKind }> = {
     cols: 2,
     date_size: 6,
     weekday_lang: "zh",
+    title_format: "%Y.%m",
+    weekday_headers: "一,二,三,四,五,六,日",
+    show_holidays: true,
+    lunar: false,
   },
   timeline: {
     kind: "timeline",
@@ -577,12 +581,10 @@ function PatternFields({ section, set }: { section: Section; set: (key: string, 
         <Field label="行数" value={p.rows} min={1} max={12} onChange={(v) => set("rows", v)} />
         <Field label="列数" value={p.cols} min={1} max={12} onChange={(v) => set("cols", v)} />
         <Field label="日期字号（pt）" value={p.date_size} min={1} step={0.5} onChange={(v) => set("date_size", v)} />
-        <Select
-          label="表头语言"
-          value={p.weekday_lang}
-          options={WEEKDAY_LANG_OPTIONS}
-          onChange={(v) => set("weekday_lang", v)}
-        />
+        <WeekdayHeaderField value={String(p.weekday_headers ?? "")} onChange={(v) => set("weekday_headers", v)} />
+        <Field label="月历标题格式" value={p.title_format} type="text" placeholder="%Y.%m" onChange={(v) => set("title_format", v)} />
+        <Field label="显示节假日" value={Boolean(p.show_holidays ?? true)} type="checkbox" onChange={(v) => set("show_holidays", Boolean(v))} />
+        <Field label="显示农历" value={Boolean(p.lunar)} type="checkbox" onChange={(v) => set("lunar", Boolean(v))} />
       </>
     );
   if (p.kind === "month")
