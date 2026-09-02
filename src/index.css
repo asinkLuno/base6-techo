@@ -149,3 +149,12 @@ button, input, select { font: inherit; }
     @apply font-sans;
   }
 }
+/* ViewTransition：用户偏好减少动态效果时禁用过渡动画。 */
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-old(*),
+  ::view-transition-new(*),
+  ::view-transition-group(*) {
+    animation-duration: 0s !important;
+    animation-delay: 0s !important;
+  }
+}

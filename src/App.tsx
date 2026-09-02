@@ -3,10 +3,19 @@ import { arrayMove, SortableContext, useSortable, verticalListSortingStrategy } 
 import { CSS } from "@dnd-kit/utilities";
 import { open, save } from "@tauri-apps/plugin-dialog";
 import { invoke } from "@tauri-apps/api/core";
-import { ChevronDown, ChevronUp, Download, Eye, FileDown, GripVertical, Plus, RefreshCw, Trash2, Upload, X } from "lucide-react";
-import { memo, useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { ChevronDown, ChevronUp, Download, Eye, FileDown, GripVertical, LoaderCircle, Plus, RefreshCw, Trash2, Upload, X } from "lucide-react";
+import { memo, startTransition, useCallback, useEffect, useMemo, useState, ViewTransition, type ReactNode } from "react";
 import type { RenderSectionRequest, RunPipelineRequest } from "./pipeline-request.generated";
 import { Button } from "./components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSub,
+  DropdownMenuSubTrigger,
+  DropdownMenuSubContent,
+} from "./components/ui/dropdown-menu";
 import { Card, CardContent, CardHeader, CardTitle } from "./components/ui/card";
 import { Checkbox } from "./components/ui/checkbox";
 import { Input } from "./components/ui/input";
@@ -53,6 +62,23 @@ const patternNames: Record<PatternKind, string> = {
   year: "年历",
 };
 
+// 版式分类：多级菜单里按大类归组。
+const PATTERN_GROUPS: [string, PatternKind[]][] = [
+  ["基础", ["dots", "grid", "ruled", "seyes", "us-ruled", "vertical"]],
+  ["复刻", ["midori", "bunkwan"]],
+  ["日程", ["month", "tracker", "eight", "timeline", "graph", "year"]],
+];
+
+// 序列化请求前递归剥掉 null 字段：后端 serde default 会落回默认值。
+function stripNulls<T>(obj: T): T {
+  if (obj === null || typeof obj !== "object" || Array.isArray(obj)) return obj;
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(obj)) {
+    if (v == null) continue;
+    out[k] = typeof v === "object" ? stripNulls(v) : v;
+  }
+  return out as T;
+}
 
 // 默认颜色，须与后端 src-tauri/src/backend/colors.rs 一一对应。
 const COLORS = {
@@ -387,7 +413,23 @@ function Field({ label, value, type = "number", min, max, step, placeholder, onC
   return (
     <label className="grid gap-1.5">
       <FieldLabel>{label}</FieldLabel>
-      <Input type={type} value={String(value ?? "")} min={min} max={max} step={step} placeholder={placeholder} onChange={(event) => onChange(type === "number" ? Number(event.target.value) : event.target.value)} />
+      <Input
+        type={type}
+        value={String(value ?? "")}
+        min={min}
+        max={max}
+        step={step}
+        placeholder={placeholder}
+        onChange={(event) => {
+          if (type !== "number") {
+            onChange(event.target.value);
+            return;
+          }
+          // 清空或非法输入记为 null：请求里剥掉该键，后端按默认值处理。
+          const n = Number(event.target.value);
+          onChange(event.target.value === "" || !Number.isFinite(n) ? null : n);
+        }}
+      />
     </label>
   );
 }
@@ -748,7 +790,7 @@ function bandRequest(values: Values, prefix: "header" | "footer", enabled: boole
 }
 
 function sectionRequest(section: Section, holidays: Record<string, string>): RenderSectionRequest {
-  return {
+  return stripNulls({
     page: {
       ...section.page,
       header: section.headerEnabled ? section.page.header : 0,
@@ -779,7 +821,7 @@ function sectionRequest(section: Section, holidays: Record<string, string>): Ren
   title: patternNames[section.pattern.kind],
   pattern: cleanPattern(section.pattern),
   holidays,
-  } as unknown as RenderSectionRequest;
+  } as unknown as RenderSectionRequest);
 }
 
 const SortableSection = memo(function SortableSection({ section, index, update, remove }: { section: Section; index: number; update: (id: string, patch: Partial<Section>) => void; remove: (id: string) => void }) {
@@ -795,6 +837,7 @@ const SortableSection = memo(function SortableSection({ section, index, update, 
   const page = (key: string, value: Value) => update(section.id, { page: { ...section.page, [key]: value } });
   const pattern = (key: string, value: Value) => update(section.id, { pattern: { ...section.pattern, [key]: value } });
   return (
+    <ViewTransition key={section.id}>
     <div
       ref={sortable.setNodeRef}
       style={{
@@ -865,12 +908,34 @@ const SortableSection = memo(function SortableSection({ section, index, update, 
               <Field label="水印颜色" value={section.document.non_binding_text_color} type="color" onChange={(v) => doc("non_binding_text_color", v)} />
             </Group>
             <section className="grid gap-4 rounded-lg border bg-background p-4 sm:col-span-2">
-              <Select
-                label="版式"
-                value={section.pattern.kind}
-                options={Object.entries(patternNames)}
-                onChange={(kind) => update(section.id, { pattern: { ...defaults[kind as PatternKind] } })}
-              />
+              <div className="grid gap-1.5">
+                <FieldLabel>版式</FieldLabel>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" className="h-8 w-full justify-between px-2.5 font-normal">
+                      {patternNames[section.pattern.kind]}
+                      <ChevronDown className="size-4 opacity-50" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent className="w-40">
+                    {PATTERN_GROUPS.map(([label, kinds]) => (
+                      <DropdownMenuSub key={label}>
+                        <DropdownMenuSubTrigger>{label}</DropdownMenuSubTrigger>
+                        <DropdownMenuSubContent>
+                          {kinds.map((kind) => (
+                                <DropdownMenuItem
+                                  key={kind}
+                                  onClick={() => update(section.id, { pattern: { ...defaults[kind] } })}
+                                >
+                                  {patternNames[kind]}
+                                </DropdownMenuItem>
+                          ))}
+                        </DropdownMenuSubContent>
+                      </DropdownMenuSub>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
               <div className="grid gap-4 border-t pt-4 sm:grid-cols-2">
                 <PatternFields section={section} set={pattern} />
               </div>
@@ -879,6 +944,7 @@ const SortableSection = memo(function SortableSection({ section, index, update, 
         )}
       </Card>
     </div>
+    </ViewTransition>
   );
 });
 
@@ -1010,14 +1076,16 @@ localStorage.setItem("base6.state", JSON.stringify({ sections, binding, sheetsPe
   }, [sections, binding, sheetsPerGroup, size, pageSize, holidays]);
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
   const update = useCallback((id: string, patch: Partial<Section>) => setSections((items) => items.map((item) => (item.id === id ? { ...item, ...patch } : item))), []);
-  const removeSection = useCallback((id: string) => setSections((items) => items.filter(({ id: itemId }) => itemId !== id)), []);
+  const removeSection = useCallback((id: string) => startTransition(() => setSections((items) => items.filter(({ id: itemId }) => itemId !== id))), []);
   function dragEnd({ active, over }: DragEndEvent) {
     if (!over || active.id === over.id) return;
-    setSections((items) =>
-      arrayMove(
-        items,
-        items.findIndex(({ id }) => id === active.id),
-        items.findIndex(({ id }) => id === over.id),
+    startTransition(() =>
+      setSections((items) =>
+        arrayMove(
+          items,
+          items.findIndex(({ id }) => id === active.id),
+          items.findIndex(({ id }) => id === over.id),
+        ),
       ),
     );
   }
@@ -1113,7 +1181,7 @@ localStorage.setItem("base6.state", JSON.stringify({ sections, binding, sheetsPe
   const [preview, setPreview] = useState<{ open: boolean; data: string; busy: boolean; error: string }>({ open: false, data: "", busy: false, error: "" });
   async function previewDocument(rerender = false) {
     if (preview.open && !rerender) {
-      setPreview((p) => ({ ...p, open: false }));
+      startTransition(() => setPreview((p) => ({ ...p, open: false })));
       return;
     }
     setPreview({ open: true, data: "", busy: true, error: "" });
@@ -1124,7 +1192,8 @@ localStorage.setItem("base6.state", JSON.stringify({ sections, binding, sheetsPe
         bind: { mode: binding, sheets_per_group: sheetsPerGroup },
       } as unknown as RunPipelineRequest;
       const data = await invoke<string>("preview_document", { body: request });
-      setPreview({ open: true, data, busy: false, error: "" });
+      // 用 Transition 触发 ViewTransition：加载圈与 PDF 之间交叉淡入。
+      startTransition(() => setPreview({ open: true, data, busy: false, error: "" }));
     } catch (error) {
       setPreview({ open: true, data: "", busy: false, error: String(error) });
     }
@@ -1134,19 +1203,24 @@ localStorage.setItem("base6.state", JSON.stringify({ sections, binding, sheetsPe
       <div className="grid items-start gap-6 lg:grid-cols-[1fr_320px]">
         <section className="grid gap-3">
           {preview.open && (
+            <ViewTransition>
             <div className="overflow-hidden rounded-xl border bg-muted/30">
               {preview.busy ? (
-                <p className="p-6 text-center text-sm text-muted-foreground">正在渲染整体预览…</p>
+                <div className="flex h-[80vh] flex-col items-center justify-center gap-3 text-muted-foreground">
+                  <LoaderCircle className="size-8 animate-spin" />
+                  <p className="text-sm">正在渲染整体预览…</p>
+                </div>
               ) : preview.error ? (
                 <p className="p-6 text-xs text-destructive">预览失败：{preview.error}</p>
               ) : (
                 <iframe title="整体预览" src={`data:application/pdf;base64,${preview.data}`} className="block h-[80vh] w-full" />
               )}
             </div>
+            </ViewTransition>
           )}
           <div className="mb-1 flex items-center justify-between">
             <h2 className="text-lg font-semibold">Sections</h2>
-            <Button variant="outline" onClick={() => setSections((items) => [...items, newSection(size.width, size.height)])}>
+            <Button variant="outline" onClick={() => startTransition(() => setSections((items) => [...items, newSection(size.width, size.height)]))}>
               <Plus />
               添加
             </Button>
@@ -1258,7 +1332,7 @@ localStorage.setItem("base6.state", JSON.stringify({ sections, binding, sheetsPe
               </Button>
             </div>
             <Button variant="outline" size="lg" disabled={running || preview.busy || !sections.length} onClick={() => previewDocument(true)}>
-              {preview.open ? <RefreshCw /> : <Eye />}
+              {preview.busy ? <RefreshCw className="animate-spin" /> : preview.open ? <RefreshCw /> : <Eye />}
               {preview.busy ? "渲染中…" : preview.open ? "重新渲染" : "整体预览"}
             </Button>
             {preview.open && (
@@ -1268,7 +1342,7 @@ localStorage.setItem("base6.state", JSON.stringify({ sections, binding, sheetsPe
               </Button>
             )}
             <Button size="lg" disabled={running || !sections.length} onClick={generate}>
-              <FileDown />
+              <FileDown className={running ? "animate-spin" : undefined} />
               {running ? "生成中…" : "选择位置并生成"}
             </Button>
             {status && (

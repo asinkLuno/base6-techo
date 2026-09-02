@@ -1210,24 +1210,13 @@ fn compile(tex: &Path, resource_dir: Option<&Path>) -> Result<PathBuf, String> {
             })
         })
         .filter(|p| p.is_file());
-    let engine = bundled.or_else(|| {
-        ["tectonic", "xelatex", "pdflatex"]
-            .into_iter()
-            .find_map(which)
-    });
-    let engine = engine.ok_or("no LaTeX engine found: tectonic/xelatex/pdflatex")?;
+    let engine = bundled.unwrap_or_else(|| PathBuf::from("tectonic"));
     let mut command = Command::new(&engine);
-    if engine.file_stem().is_some_and(|s| s == "tectonic") {
-        command.arg(tex.file_name().unwrap_or_default());
-    } else {
-        command
-            .args(["-interaction=nonstopmode", "-halt-on-error"])
-            .arg(tex.file_name().unwrap_or_default());
-    }
+    command.arg(tex.file_name().unwrap_or_default());
     let output = command
         .current_dir(tex.parent().unwrap_or(Path::new(".")))
         .output()
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| format!("failed to run {}: {e}", engine.display()))?;
     if !output.status.success() {
         let mut details = String::from_utf8_lossy(&output.stdout).into_owned();
         details.push_str(&String::from_utf8_lossy(&output.stderr));
@@ -1249,14 +1238,6 @@ fn compile(tex: &Path, resource_dir: Option<&Path>) -> Result<PathBuf, String> {
         return Err(format!("{} did not produce PDF", engine.display()));
     }
     Ok(pdf)
-}
-
-fn which(name: &str) -> Option<PathBuf> {
-    std::env::var_os("PATH").and_then(|paths| {
-        std::env::split_paths(&paths)
-            .map(|p| p.join(name))
-            .find(|p| p.is_file())
-    })
 }
 
 pub(crate) fn generate(
@@ -1301,19 +1282,22 @@ pub(crate) fn generate(
         chrono::Utc::now().timestamp_nanos_opt().unwrap_or_default()
     ));
     fs::create_dir_all(&temp).map_err(|e| e.to_string())?;
-    let tex = temp.join("document.tex");
-    fs::write(&tex, render_latex(&generated)).map_err(|e| e.to_string())?;
-    let pdf = compile(&tex, resource_dir)?;
-    let bytes = fs::read(&pdf).map_err(|e| e.to_string())?;
-    let output = PathBuf::from(body.output);
-    if !preview {
-        if let Some(parent) = output.parent() {
-            fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+    let result = (|| {
+        let tex = temp.join("document.tex");
+        fs::write(&tex, render_latex(&generated)).map_err(|e| e.to_string())?;
+        let pdf = compile(&tex, resource_dir)?;
+        let bytes = fs::read(&pdf).map_err(|e| e.to_string())?;
+        let output = PathBuf::from(body.output);
+        if !preview {
+            if let Some(parent) = output.parent() {
+                fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+            }
+            fs::write(&output, &bytes).map_err(|e| e.to_string())?;
         }
-        fs::write(&output, &bytes).map_err(|e| e.to_string())?;
-    }
+        Ok((output, bytes))
+    })();
     let _ = fs::remove_dir_all(temp);
-    Ok((output, bytes))
+    result
 }
 
 #[tauri::command]
