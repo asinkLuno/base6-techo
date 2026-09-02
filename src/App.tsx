@@ -85,10 +85,10 @@ const COLORS = {
   gray: "#7a7a7a",
   phaseGold: "#e5b93f",
   timelineNight: "#496a9f",
-  holidayRed: "#b83b38",
-  bunkwanGreen: "#31584a",
-  bunkwanFaint: "#82968e",
+  holidayRed: "#8b0000",
+  bunkwanGreen: "#39ff14",
   midoriGreen: "#a9d1ae",
+  black: "#000000",
 };
 const PAGE_SIZES: Record<string, [number, number]> = {
   A4: [210, 297],
@@ -148,6 +148,7 @@ const defaults: Record<PatternKind, Values & { kind: PatternKind }> = {
     column_spacing: 5,
     radius: 0.3,
     color: COLORS.gray,
+    center_color: COLORS.black,
   },
   grid: {
     kind: "grid",
@@ -192,7 +193,7 @@ const defaults: Record<PatternKind, Values & { kind: PatternKind }> = {
   bunkwan: {
     kind: "bunkwan",
     line_color: COLORS.bunkwanGreen,
-    faint_color: COLORS.bunkwanFaint,
+    faint_color: COLORS.midoriGreen,
     line_width: 0.4,
   },
   midori: {
@@ -275,7 +276,9 @@ const defaults: Record<PatternKind, Values & { kind: PatternKind }> = {
     start: 0,
     end: 26,
     pages: 1,
-    date: "",
+    start_date: toISODate(currentMonday),
+    end_date: toISODate(currentSunday),
+    title_format: "%Y年%-m月%-d日",
     line_color: COLORS.gray,
     line_width: 1.138,
     label_size: 10.2,
@@ -517,10 +520,13 @@ function PatternFields({ section, set }: { section: Section; set: (key: string, 
     return (
       <>
         <Field label="页数" value={p.pages} min={1} max={500} onChange={(v) => set("pages", v)} />
-        <Field label="行距（mm）" value={p.spacing} min={0.1} step={0.1} onChange={(v) => set("spacing", v)} />
-        <Field label="列距（mm）" value={p.column_spacing} min={0.1} step={0.1} onChange={(v) => set("column_spacing", v)} />
+        <div className="grid gap-4 sm:col-span-2 sm:grid-cols-2">
+          <Field label="行距（mm）" value={p.spacing} min={0.1} step={0.1} onChange={(v) => set("spacing", v)} />
+          <Field label="列距（mm）" value={p.column_spacing} min={0.1} step={0.1} onChange={(v) => set("column_spacing", v)} />
+        </div>
         <Field label="点径（mm）" value={p.radius} min={0.01} step={0.05} onChange={(v) => set("radius", v)} />
         <Field label="颜色" value={p.color} type="color" onChange={(v) => set("color", v)} />
+        <Field label="中心点颜色" value={p.center_color} type="color" onChange={(v) => set("center_color", v)} />
       </>
     );
   if (p.kind === "grid")
@@ -683,18 +689,24 @@ function PatternFields({ section, set }: { section: Section; set: (key: string, 
     );
   return (
     <>
-      <Field label="起始小时" value={p.start} min={0} max={29} onChange={(v) => set("start", v)} />
-      <Field label="结束小时" value={p.end} min={1} max={30} onChange={(v) => set("end", v)} />
-      <Select
-        label="跨页"
-        value={p.pages}
-        options={[
-          [1, "单页"],
-          [2, "左右双页"],
-        ]}
-        onChange={(v) => set("pages", Number(v))}
-      />
-      <Field label="日期（留空不区分昼夜）" value={p.date} type="date" onChange={(v) => set("date", v || "")} />
+      <Field label="起始时间" value={p.start} min={0} max={23} onChange={(v) => set("start", v)} />
+      <Field label="结束时间" value={p.end} min={1} max={24} onChange={(v) => set("end", v)} />
+      <div className="sm:col-span-2">
+        <Select
+          label="跨页"
+          value={p.pages}
+          options={[
+            [1, "单页"],
+            [2, "左右双页"],
+          ]}
+          onChange={(v) => set("pages", Number(v))}
+        />
+      </div>
+      <div className="grid gap-4 sm:col-span-2 sm:grid-cols-2">
+        <Field label="开始日期" value={p.start_date} type="date" onChange={(v) => set("start_date", v || "")} />
+        <Field label="结束日期" value={p.end_date} type="date" onChange={(v) => set("end_date", v || "")} />
+      </div>
+      <Field label="标题格式" value={p.title_format} type="text" placeholder="%Y年%-m月%-d日" onChange={(v) => set("title_format", v)} />
       <Field label="线条颜色" value={p.line_color} type="color" onChange={(v) => set("line_color", v)} />
       <Field label="线宽" value={p.line_width} min={0.01} step={0.05} onChange={(v) => set("line_width", v)} />
       <Field label="标签字号（pt）" value={p.label_size} min={1} step={0.1} onChange={(v) => set("label_size", v)} /> <Field label="纬度（留空不绘制日照）" value={p.latitude} type="text" placeholder="如 30°15′N 或 30.25" onChange={(v) => set("latitude", toDecimal(String(v)) ?? v)} />
@@ -1030,7 +1042,8 @@ function cleanPattern(pattern: Section["pattern"]) {
       latitude: pattern.latitude ?? null,
       longitude: pattern.longitude ?? null,
       timezone: pattern.timezone || null,
-      date: pattern.date || null,
+      start_date: pattern.start_date || null,
+      end_date: pattern.end_date || null,
     };
   return pattern;
 }

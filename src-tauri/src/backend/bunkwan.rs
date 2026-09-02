@@ -2,7 +2,7 @@ use chinese_lunisolar_calendar::LunisolarDate;
 use chrono::NaiveDate;
 use serde::Deserialize;
 
-use super::colors::{BUNKWAN_FAINT, BUNKWAN_GREEN};
+use super::colors::{BUNKWAN_GREEN, MIDORI_GREEN};
 use super::{Geometry, Line, LineStyle, validate_color};
 
 #[derive(Clone, Deserialize)]
@@ -17,7 +17,7 @@ impl Default for BunkwanPattern {
     fn default() -> Self {
         Self {
             line_color: BUNKWAN_GREEN.into(),
-            faint_color: BUNKWAN_FAINT.into(),
+            faint_color: MIDORI_GREEN.into(),
             line_width: 0.4,
         }
     }

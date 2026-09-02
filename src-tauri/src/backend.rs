@@ -41,7 +41,7 @@ use us_ruled::{UsRuledPattern, draw_us_ruled};
 use vertical::{VerticalPattern, draw_vertical};
 use year::{YearPattern, draw_year};
 
-use colors::{BLACK, GRAY, PAGE_NUMBER};
+use colors::{BLACK, GRAY};
 const MM_PER_PT: f64 = 25.4 / 72.27;
 
 #[derive(Clone, Deserialize)]
@@ -275,13 +275,6 @@ pub(crate) enum WeekdayLang {
     Ja,
 }
 
-pub(crate) fn weekday_headers(lang: WeekdayLang) -> [&'static str; 7] {
-    match lang {
-        WeekdayLang::Zh => ["一", "二", "三", "四", "五", "六", "日"],
-        WeekdayLang::En => ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"],
-        WeekdayLang::Ja => ["月", "火", "水", "木", "金", "土", "日"],
-    }
-}
 
 #[derive(Clone, Copy, Debug, Default, Deserialize, Eq, Ord, PartialEq, PartialOrd)]
 #[serde(rename_all = "kebab-case")]
@@ -325,7 +318,7 @@ impl Pattern {
                     1
                 }
             }
-            Self::Timeline(p) => p.pages as usize,
+            Self::Timeline(p) => p.page_count(),
             Self::Year(p) => p.page_count(),
         }
     }
@@ -726,7 +719,7 @@ fn render_page(
             (l, d, pa, t)
         }
         Pattern::Timeline(p) => {
-            let (l, d, t) = draw_timeline(geo, p, &doc.binding_text_font);
+            let (l, d, t) = draw_timeline(geo, p, index, &doc.binding_text_font);
             (l, d, vec![], t)
         }
         Pattern::Month(p) => {
@@ -1043,7 +1036,7 @@ fn font_command(font: &str) -> String {
 }
 
 fn render_latex(pages: &[OutputPage]) -> String {
-    let mut colors = BTreeMap::from([("pnumcolor".to_string(), PAGE_NUMBER.to_string())]);
+    let mut colors = BTreeMap::from([("pnumcolor".to_string(), GRAY.to_string())]);
     let mut bodies = Vec::new();
     let mut uses_font = false;
     for page in pages {
@@ -1134,7 +1127,7 @@ fn render_latex(pages: &[OutputPage]) -> String {
         }
         for placement in &page.placements {
             for text in &placement.draw.texts {
-                let color = if text.color == PAGE_NUMBER {
+                let color = if text.color == GRAY {
                     "pnumcolor".into()
                 } else {
                     let name = color_name(&text.color);
@@ -1643,7 +1636,7 @@ mod tests {
                             y: 0.0,
                             content: n.to_string(),
                             size: 8.0,
-                            color: PAGE_NUMBER.into(),
+                            color: GRAY.into(),
                             rotation: 0,
                             font: r"\sffamily".into(),
                             anchor: "center",
@@ -1716,6 +1709,25 @@ mod tests {
             assert!(((dot.x - cx) / 8.0).fract().abs() < 1e-9);
             assert!(((dot.y - cy) / 8.0).fract().abs() < 1e-9);
         }
+    }
+
+    #[test]
+    fn dots_center_color_overrides_only_center_dot() {
+        let page = PageSettings::default();
+        let pattern = DotsPattern {
+            spacing: 8.0,
+            column_spacing: 8.0,
+            center_color: Some("#ff0000".into()),
+            ..Default::default()
+        };
+        let geo = geometry_for(&page, 1);
+        let (_lines, dots) = draw_dots(geo, &pattern);
+        let center = dots.iter().find(|d| d.color.as_deref() == Some("#ff0000")).unwrap();
+        let cx = geo.content.x + geo.content.width / 2.0;
+        let cy = geo.content.y + geo.content.height / 2.0;
+        assert!((center.x - cx).abs() < 1e-9 && (center.y - cy).abs() < 1e-9);
+        // 仅一个点被着色
+        assert_eq!(dots.iter().filter(|d| d.color.as_deref() == Some("#ff0000")).count(), 1);
     }
 
     #[test]
@@ -1880,13 +1892,15 @@ mod tests {
 
     #[test]
     fn timeline_crosses_midnight() {
+        let date = NaiveDate::from_ymd_opt(2025, 6, 21).unwrap();
         let p = TimelinePattern {
             latitude: Some(31.23),
             longitude: Some(121.47),
             timezone: Some("Asia/Shanghai".into()),
+            start_date: Some(date),
+            end_date: Some(date),
             ..Default::default()
         };
-        let date = NaiveDate::from_ymd_opt(2025, 6, 21).unwrap();
         assert_eq!(
             timeline_color(&p, Some(date), 28 * 60).as_deref(),
             Some(colors::TIMELINE_NIGHT)
@@ -1928,7 +1942,7 @@ mod tests {
                 { "pattern": { "kind": "bunkwan" } },
                 { "pattern": { "kind": "eight", "start_date": "2026-08-03", "end_date": "2026-08-16" } },
                 { "pattern": { "kind": "midori" } },
-                { "pattern": { "kind": "timeline", "pages": 1, "date": "2026-08-01", "latitude": 31.23, "longitude": 121.47, "timezone": "Asia/Shanghai" } }
+                { "pattern": { "kind": "timeline", "pages": 1, "start_date": "2026-08-01", "end_date": "2026-08-01", "latitude": 31.23, "longitude": 121.47, "timezone": "Asia/Shanghai" } }
             ],
             "bind": { "mode": "booklet", "sheets_per_group": 4 }
         }))

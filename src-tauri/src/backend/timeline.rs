@@ -4,7 +4,10 @@ use chrono_tz::Tz;
 use serde::Deserialize;
 
 use super::colors::{GRAY, PHASE_GOLD, TIMELINE_NIGHT};
-use super::{Dot, Geometry, Line, LineStyle, MM_PER_PT, Side, Text, validate_color};
+use super::{
+    Dot, Geometry, Line, LineStyle, MM_PER_PT, Side, Text, format_date, validate_color,
+    validate_title_format,
+};
 
 #[derive(Clone, Deserialize)]
 #[serde(default, deny_unknown_fields)]
@@ -20,7 +23,10 @@ pub(crate) struct TimelinePattern {
     pub(crate) timezone: Option<String>,
     pub(crate) daylight_color: String,
     pub(crate) night_color: String,
-    pub(crate) date: Option<NaiveDate>,
+    pub(crate) start_date: Option<NaiveDate>,
+    pub(crate) end_date: Option<NaiveDate>,
+    /// 每页顶部日期标题格式，例如 "%Y年%-m月%-d日"。
+    pub(crate) title_format: String,
 }
 impl Default for TimelinePattern {
     fn default() -> Self {
@@ -36,7 +42,9 @@ impl Default for TimelinePattern {
             timezone: None,
             daylight_color: PHASE_GOLD.into(),
             night_color: TIMELINE_NIGHT.into(),
-            date: None,
+            start_date: None,
+            end_date: None,
+            title_format: "%Y年%-m月%-d日".into(),
         }
     }
 }
@@ -44,6 +52,12 @@ impl TimelinePattern {
     pub(crate) fn validate(&self) -> Result<(), String> {
         if !(0..30).contains(&self.start) || self.end <= self.start || self.end > 30 {
             return Err("timeline hours must satisfy 0 <= start < end <= 30".into());
+        }
+        let (Some(start_date), Some(end_date)) = (self.start_date, self.end_date) else {
+            return Err("timeline start_date and end_date are required".into());
+        };
+        if end_date < start_date {
+            return Err("timeline start_date must be <= end_date".into());
         }
         if !matches!(self.pages, 1 | 2) {
             return Err("pages must be 1 or 2".into());
@@ -75,7 +89,12 @@ impl TimelinePattern {
         }
         validate_color(&self.line_color)?;
         validate_color(&self.daylight_color)?;
+        validate_title_format(&self.title_format, "zh-CN", false)?;
         validate_color(&self.night_color)
+    }
+    pub(crate) fn page_count(&self) -> usize {
+        let days = (self.end_date.unwrap() - self.start_date.unwrap()).num_days() + 1;
+        usize::try_from(days).unwrap_or(1) * self.pages as usize
     }
 }
 
@@ -135,16 +154,20 @@ pub(crate) fn solar_elevation(latitude: f64, longitude: f64, moment: chrono::Dat
 pub(crate) fn draw_timeline(
     geo: Geometry,
     p: &TimelinePattern,
+    index: usize,
     font: &str,
 ) -> (Vec<Line>, Vec<Dot>, Vec<Text>) {
-    let date = p.date;
-    let mid = (p.start + p.end) / 2;
+    let date = p
+        .start_date
+        .map(|start| start + Duration::days((index / p.pages as usize) as i64));
+    let (start, end) = (p.start, p.end);
+    let mid = (start + end) / 2;
     let (start, end) = if p.pages == 1 {
-        (p.start, p.end)
+        (start, end)
     } else if geo.binding_side == Side::Left {
-        (p.start, mid)
+        (start, mid)
     } else {
-        (mid, p.end)
+        (mid, end)
     };
     let span = f64::from(end - start);
     let hh = geo.content.height / span;
@@ -167,6 +190,19 @@ pub(crate) fn draw_timeline(
     let mut lines = Vec::new();
     let mut dots = Vec::new();
     let mut texts = Vec::new();
+    if let Some(date) = date {
+        texts.push(Text {
+            x: geo.content.x + geo.content.width / 2.0,
+            y: geo.content.y - 3.0,
+            // 字号是 pt，坐标是 mm：标题离轴线顶部 3mm，避开 00 小时标签上探的半个字高。
+            content: format_date(date, &p.title_format, "zh-CN"),
+            size: p.label_size * 1.5,
+            color: p.line_color.clone(),
+            rotation: 0,
+            font: font.into(),
+            anchor: "south",
+        });
+    }
     for hour in start..=end {
         let color = timeline_color(p, date, hour * 60);
         let y = geo.content.y + f64::from(hour - start) / span * geo.content.height;
@@ -214,4 +250,41 @@ pub(crate) fn draw_timeline(
         }
     }
     (lines, dots, texts)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::backend::Rect;
+
+    #[test]
+    fn draws_date_heading_with_title_format() {
+        let date = NaiveDate::from_ymd_opt(2025, 6, 21).unwrap();
+        let p = TimelinePattern {
+            start_date: Some(date),
+            end_date: Some(date),
+            ..Default::default()
+        };
+        let geo = Geometry {
+            page: Rect {
+                x: 0.0,
+                y: 0.0,
+                width: 100.0,
+                height: 100.0,
+            },
+            content: Rect {
+                x: 15.0,
+                y: 10.0,
+                width: 77.0,
+                height: 80.0,
+            },
+            binding_side: Side::Left,
+        };
+        let (_, _, texts) = draw_timeline(geo, &p, 0, "font");
+        assert!(
+            texts
+                .iter()
+                .any(|t| t.content == "2025年6月21日" && t.anchor == "south")
+        );
+    }
 }

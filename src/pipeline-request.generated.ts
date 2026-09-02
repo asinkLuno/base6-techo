@@ -113,7 +113,8 @@ export type Longitude = number | null;
 export type Timezone = string | null;
 export type DaylightColor = string;
 export type NightColor = string;
-export type Date = string | null;
+export type StartDate = string | null;
+export type EndDate = string | null;
 export type Mode = ("booklet" | "thread") | null;
 export type SheetsPerGroup = number;
 
@@ -173,6 +174,7 @@ export interface DotsPatternRequest {
   column_spacing?: ColumnSpacing;
   radius?: Radius;
   color?: Color;
+  center_color?: Color;
 }
 export interface GridPatternRequest {
   kind?: Kind;
@@ -246,7 +248,9 @@ export interface TimelinePatternRequest {
   start?: Start;
   end?: End;
   pages?: Pages;
-  date?: Date;
+  start_date?: StartDate;
+  end_date?: EndDate;
+  title_format?: string;
   line_color?: LineColor2;
   line_width?: LineWidth2;
   label_size?: LabelSize;
