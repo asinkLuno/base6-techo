@@ -2,12 +2,12 @@
 //! （交叉处留 0.2mm 缺口）、左上角日期、右上角照面比例月相方块。
 
 use super::colors::{GRAY, HOLIDAY_RED, PHASE_GOLD};
-use chrono::format::{Item, StrftimeItems};
 use chrono::{Datelike, Duration, NaiveDate, TimeZone, Utc, Weekday};
 use serde::Deserialize;
 
 use super::{
-    Geometry, HashMap, Line, LineStyle, Poly, Rect, Text, chrono_format, lunar_date, validate_color,
+    Geometry, HashMap, Line, LineStyle, Poly, Rect, Text, chrono_format, lunar_date,
+    validate_color, validate_title_format, validate_weekday_headers,
 };
 
 const COLS: usize = 7;
@@ -68,18 +68,9 @@ impl MonthPattern {
             return Err("line_width, date_size and sub_size must be > 0".into());
         }
         validate_color(&self.line_color)?;
-        let headers = self
-            .weekday_headers
-            .split(',')
-            .map(str::trim)
-            .collect::<Vec<_>>();
-        if headers.len() != 7 || headers.iter().any(|s| s.is_empty()) {
-            return Err("weekday_headers must be 7 comma-separated values".into());
-        }
-        let fmt = chrono_format(&self.title_format);
-        if fmt.contains('\u{e000}') || StrftimeItems::new(&fmt).any(|item| item == Item::Error) {
-            return Err(format!("invalid title_format: {}", self.title_format));
-        }
+        validate_weekday_headers(&self.weekday_headers)?;
+        // 月历标题不经 format_date 渲染，不支持 %cccc（农历占位）。
+        validate_title_format(&self.title_format, "zh-CN", false)?;
         validate_color(&self.phase_color)
     }
 }
@@ -417,9 +408,6 @@ fn push_table(
     count: usize,
     with_items: bool,
     rows: usize,
-    holidays: &Option<HashMap<String, String>>,
-    year: i32,
-    month: u32,
 ) {
     let grid = |x1, y1, x2, y2| Line {
         x1,
@@ -458,23 +446,13 @@ fn push_table(
     let off = usize::from(with_items);
     for i in 0..count {
         let day = first + i as u32;
-        let date_key = format!("{}-{:02}-{:02}", year, month, day);
-        let date = NaiveDate::from_ymd_opt(year, month, day);
-        let is_weekend =
-            date.is_some_and(|d| d.weekday() == Weekday::Sat || d.weekday() == Weekday::Sun);
-        let holiday_name = holidays.as_ref().and_then(|h| h.get(&date_key));
-        let is_compensatory = holiday_name.is_some_and(|n| n.starts_with("上班"));
-        // 未导入 ICS（holidays 为空）时周末不染红。
-        let has_holidays = holidays.as_ref().is_some_and(|h| !h.is_empty());
-        let is_red = holiday_name.is_some() && !is_compensatory
-            || is_weekend && has_holidays && !is_compensatory;
-        let text_color = if is_red { HOLIDAY_RED } else { &p.line_color };
+        // 打卡表不染色。
         texts.push(Text {
             x: xs[off + i + 1],
             y: top + A - 0.2,
             content: day.to_string(),
             size: p.date_size,
-            color: text_color.to_string(),
+            color: p.line_color.to_string(),
             rotation: 0,
             font: font.into(),
             anchor: "south east",
@@ -488,7 +466,6 @@ pub(crate) fn draw_tracker(
     p: &TrackerPattern,
     index: usize,
     font: &str,
-    holidays: &Option<HashMap<String, String>>,
 ) -> (Vec<Line>, Vec<Poly>, Vec<Text>) {
     let mut lines = Vec::new();
     let mut paths = Vec::new();
@@ -542,9 +519,6 @@ pub(crate) fn draw_tracker(
         count1 as usize,
         true,
         rows,
-        holidays,
-        year,
-        month,
     );
     if count2 > 0 {
         push_table(
@@ -558,9 +532,6 @@ pub(crate) fn draw_tracker(
             count2 as usize,
             false,
             rows,
-            holidays,
-            ny,
-            nm,
         );
         // 连接箭头：上表打卡第 i 行左缘 → 下表第 i 行左缘（左外侧逐行错开的折线箭头，表头不连）。
         for j in 1..rows {
@@ -720,11 +691,11 @@ mod tests {
             month: 8,
             ..Default::default()
         };
-        let (lines, paths, texts) =
-            draw_tracker(geometry_for(&page, 1), &p, 0, r"\sffamily", &None);
+        let (lines, paths, texts) = draw_tracker(geometry_for(&page, 1), &p, 0, r"\sffamily");
         // 上表：16 条列界 ×4 段竖线 + 5 条横线 ×15 段；下表：18 ×4 + 5 ×17；行连接箭头 5。
         assert_eq!(lines.len(), 16 * 4 + 5 * 15 + 18 * 4 + 5 * 17);
         assert_eq!(paths.len(), 4);
+        // 31 个日期 + 31 个星期标签；2026-08-01 是周六 → "六"。
         // 31 个表头日期。
         assert_eq!(texts.len(), 31);
         assert_eq!(texts[0].content, "1");

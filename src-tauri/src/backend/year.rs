@@ -6,7 +6,8 @@ use serde::Deserialize;
 
 use super::{
     Geometry, HashMap, Rect, Text, WeekdayLang,
-    eight::{MINI_PAD, push_one_month},
+    eight::{MINI_PAD, push_one_month, weekday_locale},
+    format_date, validate_title_format, validate_weekday_headers,
 };
 
 #[derive(Clone, Deserialize)]
@@ -18,6 +19,12 @@ pub(crate) struct YearPattern {
     pub(crate) cols: usize,
     pub(crate) date_size: f64,
     pub(crate) weekday_lang: WeekdayLang,
+    /// 每格月历月份标题格式（同月历的 title_format）。
+    pub(crate) title_format: String,
+    /// 每格月历星期表头，英文逗号分隔 7 项（同月历的 weekday_headers）。
+    pub(crate) weekday_headers: String,
+    /// 显示节假日：关闭后不画节日名、节日与周末都不染红。
+    pub(crate) show_holidays: bool,
     pub(crate) lunar: bool,
 }
 impl Default for YearPattern {
@@ -30,6 +37,9 @@ impl Default for YearPattern {
             cols: 2,
             date_size: 6.0,
             weekday_lang: WeekdayLang::Zh,
+            title_format: "%Y.%m".into(),
+            weekday_headers: "一,二,三,四,五,六,日".into(),
+            show_holidays: true,
             lunar: false,
         }
     }
@@ -59,6 +69,8 @@ impl YearPattern {
         if !(1..=12).contains(&self.rows) || !(1..=12).contains(&self.cols) {
             return Err("rows and cols must be in 1..=12".into());
         }
+        validate_weekday_headers(&self.weekday_headers)?;
+        validate_title_format(&self.title_format, "zh-CN", self.lunar)?;
         Ok(())
     }
 
@@ -112,6 +124,14 @@ pub(crate) fn draw_year(
     let cell_w = (w - 2.0 * MINI_PAD) / 7.0;
     let h = (cell_w * 8.0 + 2.0 * MINI_PAD).min(band_h);
     let y0 = r.y + (band_h - h) / 2.0;
+    // 未勾选显示节假日时视为无节日表：不画节日名，节日与周末都不染红。
+    let holidays = if p.show_holidays { holidays } else { &None };
+    let head: Vec<String> = p
+        .weekday_headers
+        .split(',')
+        .map(|s| s.trim().to_string())
+        .collect();
+    let locale = weekday_locale(p.weekday_lang);
     for (k, ym) in p.page_months(index).into_iter().enumerate() {
         let Some((year, month)) = ym else { continue };
         let Some(first) = NaiveDate::from_ymd_opt(year, month, 1) else {
@@ -127,7 +147,8 @@ pub(crate) fn draw_year(
             },
             first,
             p.date_size,
-            p.weekday_lang,
+            &head,
+            format_date(first, &p.title_format, locale),
             None,
             font,
             holidays,

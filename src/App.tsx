@@ -191,6 +191,8 @@ const defaults: Record<PatternKind, Values & { kind: PatternKind }> = {
     date_format: "%-d",
     date_locale: "zh-CN",
     weekday_lang: "zh",
+    title_format: "%Y.%m",
+    weekday_headers: "一,二,三,四,五,六,日",
     line_color: COLORS.gray,
     line_width: 0.4,
     line_style: "solid",
@@ -563,6 +565,8 @@ function PatternFields({ section, set }: { section: Section; set: (key: string, 
           options={WEEKDAY_LANG_OPTIONS}
           onChange={(v) => set("weekday_lang", v)}
         />
+        <WeekdayHeaderField value={String(p.weekday_headers ?? "")} onChange={(v) => set("weekday_headers", v)} />
+        <Field label="月历标题格式" value={p.title_format} type="text" placeholder="%Y.%m" onChange={(v) => set("title_format", v)} />
       </>
     );
   if (p.kind === "year")

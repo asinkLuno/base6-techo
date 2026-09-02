@@ -628,6 +628,24 @@ fn validate_date_format(format: &str, locale: &str) -> Result<(), String> {
     Ok(())
 }
 
+/// 月历类迷你月历的星期表头：逗号分隔 7 项。
+pub(crate) fn validate_weekday_headers(s: &str) -> Result<(), String> {
+    let head = s.split(',').map(str::trim).collect::<Vec<_>>();
+    if head.len() != 7 || head.iter().any(|h| h.is_empty()) {
+        return Err("weekday_headers must be 7 comma-separated values".into());
+    }
+    Ok(())
+}
+
+/// 月历类迷你月历的月份标题格式；lunar=false 时禁止 %cccc（农历占位）。
+pub(crate) fn validate_title_format(format: &str, locale: &str, lunar: bool) -> Result<(), String> {
+    validate_date_format(format, locale)?;
+    if chrono_format(format).contains('\u{e000}') && !lunar {
+        return Err("%cccc in title_format requires lunar".into());
+    }
+    Ok(())
+}
+
 fn format_date(date: NaiveDate, format: &str, locale: &str) -> String {
     let formatted = date
         .format_localized(
@@ -720,7 +738,7 @@ fn render_page(
             (l, vec![], vec![], t)
         }
         Pattern::Tracker(p) => {
-            let (l, pa, t) = draw_tracker(geo, p, index, &doc.binding_text_font, holidays);
+            let (l, pa, t) = draw_tracker(geo, p, index, &doc.binding_text_font);
             (l, vec![], pa, t)
         }
         Pattern::Year(p) => {

@@ -6,7 +6,8 @@ use super::colors::{BLACK, GRAY, HOLIDAY_RED, PHASE_GOLD};
 use super::month::{MOON_STEPS, moon_illumination};
 use super::{
     Dot, Geometry, HashMap, Line, LineStyle, Poly, Rect, Text, WeekdayLang, chrono_format,
-    format_date, lunar_date, validate_color, validate_date_format, weekday_headers,
+    format_date, lunar_date, validate_color, validate_date_format, validate_title_format,
+    validate_weekday_headers,
 };
 
 #[derive(Clone, Deserialize)]
@@ -17,6 +18,10 @@ pub(crate) struct EightPattern {
     pub(crate) date_format: String,
     pub(crate) date_locale: String,
     pub(crate) weekday_lang: WeekdayLang,
+    /// 迷你月历月份标题格式（同月历的 title_format）。
+    pub(crate) title_format: String,
+    /// 迷你月历星期表头，英文逗号分隔 7 项（同月历的 weekday_headers）。
+    pub(crate) weekday_headers: String,
     pub(crate) line_color: String,
     pub(crate) line_width: f64,
     pub(crate) line_style: LineStyle,
@@ -34,6 +39,8 @@ impl Default for EightPattern {
             date_format: "%-d".into(),
             date_locale: "zh-CN".into(),
             weekday_lang: WeekdayLang::Zh,
+            title_format: "%Y.%m".into(),
+            weekday_headers: "一,二,三,四,五,六,日".into(),
             line_color: GRAY.into(),
             line_width: 0.4,
             line_style: LineStyle::Solid,
@@ -61,6 +68,8 @@ impl EightPattern {
             return Err("center_gap must be >= 0".into());
         }
         validate_color(&self.line_color)?;
+        validate_weekday_headers(&self.weekday_headers)?;
+        validate_title_format(&self.title_format, &self.date_locale, self.lunar)?;
         validate_date_format(&self.date_format, &self.date_locale)?;
         if chrono_format(&self.date_format).contains('\u{e000}')
             && [self.start_date, self.end_date]
@@ -95,6 +104,14 @@ fn next_month_first(first: NaiveDate) -> Option<NaiveDate> {
     }
 }
 
+/// 星期表头语言对应的日期本地化（月份标题用）。
+pub(crate) fn weekday_locale(lang: WeekdayLang) -> &'static str {
+    match lang {
+        WeekdayLang::En => "en-US",
+        WeekdayLang::Zh | WeekdayLang::Ja => "zh-CN",
+    }
+}
+
 /// 空白格（周一所在页左上象限）内上下画两个月：不跨月的周显示本月和下月，
 /// 跨月的周恰好就是所跨的两个月。本周内的日期红色，其余黑色。
 fn push_mini_calendar(
@@ -105,9 +122,16 @@ fn push_mini_calendar(
     font: &str,
     holidays: &Option<HashMap<String, String>>,
 ) {
+    let head: Vec<String> = p
+        .weekday_headers
+        .split(',')
+        .map(|s| s.trim().to_string())
+        .collect();
+    let locale = weekday_locale(p.weekday_lang);
     let first = NaiveDate::from_ymd_opt(week_start.year(), week_start.month(), 1)
         .expect("month of an existing date is valid");
     if let Some(next) = next_month_first(first) {
+        let title = format_date(next, &p.title_format, locale);
         push_one_month(
             texts,
             Rect {
@@ -117,7 +141,8 @@ fn push_mini_calendar(
             },
             next,
             p.date_size * 0.7,
-            p.weekday_lang,
+            &head,
+            title,
             Some((week_start, week_start + Duration::days(6))),
             font,
             holidays,
@@ -134,7 +159,8 @@ fn push_mini_calendar(
         },
         first,
         p.date_size * 0.7,
-        p.weekday_lang,
+        &head,
+        format_date(first, &p.title_format, locale),
         Some((week_start, week_start + Duration::days(6))),
         font,
         holidays,
@@ -151,7 +177,8 @@ pub(crate) fn push_one_month(
     rect: Rect,
     first: NaiveDate,
     size: f64,
-    lang: WeekdayLang,
+    head: &[String],
+    title: String,
     highlight: Option<(NaiveDate, NaiveDate)>,
     font: &str,
     holidays: &Option<HashMap<String, String>>,
@@ -167,12 +194,6 @@ pub(crate) fn push_one_month(
     let rows = (first_wd + days).div_ceil(7);
     let cell_w = (rect.width - 2.0 * MINI_PAD) / 7.0;
     let cell_h = (rect.height - 2.0 * MINI_PAD) / (rows + 2) as f64;
-    let title_format = "%Y.%m";
-    let locale = match lang {
-        WeekdayLang::En => "en-US",
-        WeekdayLang::Zh | WeekdayLang::Ja => "zh-CN",
-    };
-    let head = weekday_headers(lang);
     fn push_text(
         texts: &mut Vec<Text>,
         rect: Rect,
@@ -197,16 +218,7 @@ pub(crate) fn push_one_month(
         });
     }
     push_text(
-        texts,
-        rect,
-        cell_w,
-        cell_h,
-        size,
-        font,
-        &format_date(first, title_format, locale),
-        3.0,
-        0,
-        BLACK,
+        texts, rect, cell_w, cell_h, size, font, &title, 3.0, 0, BLACK,
     );
     for (i, w) in head.iter().enumerate() {
         push_text(
@@ -541,13 +553,21 @@ mod tests {
     }
 
     #[test]
-    fn mini_calendar_header_follows_language() {
+    fn mini_calendar_header_follows_settings() {
         let page = PageSettings::default();
-        let mut p = pattern("2026-08-03", "2026-08-09");
-        p.weekday_lang = WeekdayLang::Ja;
-        assert!(draw(&page, &p, 0).iter().any(|t| t.content == "月"));
-        p.weekday_lang = WeekdayLang::En;
-        assert!(draw(&page, &p, 0).iter().any(|t| t.content == "Mo"));
+        // 默认中文表头 + %Y.%m 标题（与旧版一致）。
+        let p = pattern("2026-08-03", "2026-08-09");
+        assert!(draw(&page, &p, 0).iter().any(|t| t.content == "一"));
+        // 表头串与标题格式复用月历的设置方式。
+        let p = EightPattern {
+            weekday_headers: "Mo,Tu,We,Th,Fr,Sa,Su".into(),
+            title_format: "%Y年%-m月".into(),
+            ..pattern("2026-08-03", "2026-08-09")
+        };
+        assert!(p.validate().is_ok());
+        let texts = draw(&page, &p, 0);
+        assert!(texts.iter().any(|t| t.content == "Mo"));
+        assert!(texts.iter().any(|t| t.content == "2026年8月"));
     }
 
     #[test]
