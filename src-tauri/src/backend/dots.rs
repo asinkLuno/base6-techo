@@ -61,13 +61,11 @@ pub(crate) fn draw_dots(geo: Geometry, p: &DotsPattern) -> (Vec<Line>, Vec<Dot>)
                 x: *x,
                 y,
                 radius: p.radius,
-                color: Some(
-                    if iy == cy && ix == cx {
-                        center_color.unwrap_or(&p.color).to_string()
-                    } else {
-                        p.color.clone()
-                    }
-                ),
+                color: Some(if iy == cy && ix == cx {
+                    center_color.unwrap_or(&p.color).to_string()
+                } else {
+                    p.color.clone()
+                }),
                 square: false,
             })
         })

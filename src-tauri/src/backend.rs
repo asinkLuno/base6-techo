@@ -11,6 +11,7 @@ mod dots;
 mod eight;
 mod graph;
 mod grid;
+mod huaizhong;
 mod midori;
 mod month;
 mod ruled;
@@ -30,6 +31,7 @@ use dots::{DotsPattern, draw_dots};
 use eight::{EightPattern, draw_eight};
 use graph::{GraphPattern, draw_graph};
 use grid::{GridPattern, draw_grid};
+use huaizhong::{HuaizhongPattern, draw_huaizhong};
 use midori::{MidoriPattern, draw_midori};
 use month::{MonthPattern, TrackerPattern, draw_month, draw_tracker};
 use ruled::{RuledPattern, draw_ruled};
@@ -257,6 +259,7 @@ enum Pattern {
     Bunkwan(BunkwanPattern),
     Eight(EightPattern),
     Graph(GraphPattern),
+    Huaizhong(HuaizhongPattern),
     Midori(MidoriPattern),
     Seyes(SeyesPattern),
     Month(MonthPattern),
@@ -274,7 +277,6 @@ pub(crate) enum WeekdayLang {
     En,
     Ja,
 }
-
 
 #[derive(Clone, Copy, Debug, Default, Deserialize, Eq, Ord, PartialEq, PartialOrd)]
 #[serde(rename_all = "kebab-case")]
@@ -309,6 +311,7 @@ impl Pattern {
             Self::UsRuled(p) => p.pages,
             Self::Vertical(p) => p.pages,
             Self::Eight(p) => p.weeks().len() * 2,
+            Self::Huaizhong(p) => p.page_count(),
             Self::Bunkwan(_) | Self::Graph(_) | Self::Midori(_) | Self::Tracker(_) => 1,
             Self::Seyes(p) => p.pages,
             Self::Month(p) => {
@@ -333,6 +336,7 @@ impl Pattern {
             Self::Bunkwan(p) => &p.line_color,
             Self::Eight(p) => &p.line_color,
             Self::Graph(p) => &p.line_color,
+            Self::Huaizhong(p) => &p.line_color,
             Self::Midori(p) => &p.line_color,
             Self::Seyes(p) => &p.main_color,
             Self::Month(p) => &p.line_color,
@@ -352,6 +356,7 @@ impl Pattern {
             Self::Bunkwan(p) => p.line_width,
             Self::Eight(p) => p.line_width,
             Self::Graph(p) => p.line_width,
+            Self::Huaizhong(p) => p.line_width,
             Self::Midori(p) => p.line_width,
             Self::Seyes(p) => p.main_width,
             Self::Month(p) => p.line_width,
@@ -370,6 +375,7 @@ impl Pattern {
             Self::Bunkwan(p) => p.validate(),
             Self::Eight(p) => p.validate(),
             Self::Graph(p) => p.validate(),
+            Self::Huaizhong(p) => p.validate(),
             Self::Midori(p) => p.validate(),
             Self::Seyes(p) => p.validate(),
             Self::Month(p) => p.validate(),
@@ -728,6 +734,10 @@ fn render_page(
         }
         Pattern::Graph(p) => {
             let (l, t) = draw_graph(geo, p, &doc.binding_text_font);
+            (l, vec![], vec![], t)
+        }
+        Pattern::Huaizhong(p) => {
+            let (l, t) = draw_huaizhong(geo, p, index, &doc.binding_text_font);
             (l, vec![], vec![], t)
         }
         Pattern::Tracker(p) => {
@@ -1722,12 +1732,20 @@ mod tests {
         };
         let geo = geometry_for(&page, 1);
         let (_lines, dots) = draw_dots(geo, &pattern);
-        let center = dots.iter().find(|d| d.color.as_deref() == Some("#ff0000")).unwrap();
+        let center = dots
+            .iter()
+            .find(|d| d.color.as_deref() == Some("#ff0000"))
+            .unwrap();
         let cx = geo.content.x + geo.content.width / 2.0;
         let cy = geo.content.y + geo.content.height / 2.0;
         assert!((center.x - cx).abs() < 1e-9 && (center.y - cy).abs() < 1e-9);
         // 仅一个点被着色
-        assert_eq!(dots.iter().filter(|d| d.color.as_deref() == Some("#ff0000")).count(), 1);
+        assert_eq!(
+            dots.iter()
+                .filter(|d| d.color.as_deref() == Some("#ff0000"))
+                .count(),
+            1
+        );
     }
 
     #[test]

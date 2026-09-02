@@ -29,7 +29,7 @@ import { parseICS } from "./lib/ics-parser";
 
 type Value = string | number | boolean | null;
 type Values = Record<string, Value>;
-type PatternKind = "bunkwan" | "dots" | "eight" | "graph" | "grid" | "midori" | "month" | "ruled" | "timeline" | "seyes" | "tracker" | "us-ruled" | "vertical" | "year";
+type PatternKind = "bunkwan" | "dots" | "eight" | "graph" | "grid" | "huaizhong" | "midori" | "month" | "ruled" | "timeline" | "seyes" | "tracker" | "us-ruled" | "vertical" | "year";
 type Section = {
   id: string;
   expanded: boolean;
@@ -55,6 +55,7 @@ const patternNames: Record<PatternKind, string> = {
   bunkwan: "博文馆当用日历",
   eight: "八分视图",
   graph: "制图网格",
+  huaizhong: "怀中日记",
   midori: "Midori",
   month: "月历",
   timeline: "时间轴",
@@ -65,7 +66,7 @@ const patternNames: Record<PatternKind, string> = {
 // 版式分类：多级菜单里按大类归组。
 const PATTERN_GROUPS: [string, PatternKind[]][] = [
   ["基础", ["dots", "grid", "ruled", "seyes", "us-ruled", "vertical"]],
-  ["复刻", ["midori", "bunkwan"]],
+  ["复刻", ["midori", "bunkwan", "huaizhong"]],
   ["日程", ["month", "tracker", "eight", "timeline", "graph", "year"]],
 ];
 
@@ -224,6 +225,18 @@ const defaults: Record<PatternKind, Values & { kind: PatternKind }> = {
     line_width: 0.4,
     line_style: "solid",
     center_gap: 2,
+    date_size: 10,
+  },
+  huaizhong: {
+    kind: "huaizhong",
+    start_date: toISODate(new Date()),
+    end_date: toISODate(new Date(Date.now() + 86400000)),
+    date_format: "%-m 月  %-d 日",
+    date_locale: "zh-CN",
+    weekday_headers: "月,火,水,木,金,土,日",
+    lunar_style: "numeric",
+    line_color: COLORS.gray,
+    line_width: 0.4,
     date_size: 10,
   },
   graph: {
@@ -621,6 +634,20 @@ function PatternFields({ section, set }: { section: Section; set: (key: string, 
         <Field label="月历标题格式" value={p.title_format} type="text" placeholder="%Y.%m" onChange={(v) => set("title_format", v)} />
       </>
     );
+  if (p.kind === "huaizhong")
+    return (
+      <>
+        <Field label="开始日期" value={p.start_date} type="date" onChange={(v) => set("start_date", v)} />
+        <Field label="结束日期" value={p.end_date} type="date" onChange={(v) => set("end_date", v)} />
+        <Field label="日期格式" value={p.date_format} type="text" placeholder="%-m 月  %-d 日" onChange={(v) => set("date_format", v)} />
+        <Select label="语言" value={p.date_locale} options={DATE_LOCALE_OPTIONS} onChange={(v) => set("date_locale", v)} />
+        <WeekdayHeaderField value={String(p.weekday_headers ?? "")} onChange={(v) => set("weekday_headers", v)} />
+        <Select label="农历格式" value={p.lunar_style} options={[["numeric", "旧 + 阿拉伯数字"], ["traditional", "传统农历表述"]]} onChange={(v) => set("lunar_style", v)} />
+        <Field label="线条颜色" value={p.line_color} type="color" onChange={(v) => set("line_color", v)} />
+        <Field label="线宽（pt）" value={p.line_width} min={0.01} step={0.05} onChange={(v) => set("line_width", v)} />
+        <Field label="日期字号（pt）" value={p.date_size} min={1} step={0.5} onChange={(v) => set("date_size", v)} />
+      </>
+    );
   if (p.kind === "year")
     return (
       <>
@@ -774,7 +801,12 @@ function effectivePages(section: Section): number {
   if (p.kind === "eight") {
     const start = parseISODate(String(p.start_date));
     const end = parseISODate(String(p.end_date));
-    if (start && end && start <= end) return (Math.round((end.getTime() - start.getTime()) / 86400000 / 7) + 1) * 2;
+    if (start && end && start <= end) return (Math.floor((end.getTime() - start.getTime()) / 86400000 / 7) + 1) * 2;
+  }
+  if (p.kind === "huaizhong") {
+    const start = parseISODate(String(p.start_date));
+    const end = parseISODate(String(p.end_date));
+    if (start && end && start <= end) return Math.ceil((Math.round((end.getTime() - start.getTime()) / 86400000) + 1) / 2);
   }
   if (p.kind === "year") {
     const [sy, sm] = String(p.start).split("-").map(Number);
@@ -1085,7 +1117,7 @@ const [holidays, setHolidays] = useState<Record<string, string>>(saved?.holidays
   const [status, setStatus] = useState("");
   const [running, setRunning] = useState(false);
   useEffect(() => {
-localStorage.setItem("base6.state", JSON.stringify({ sections, binding, sheetsPerGroup, size, pageSize, holidays }));
+try { localStorage.setItem("base6.state", JSON.stringify({ sections, binding, sheetsPerGroup, size, pageSize, holidays })); } catch { /* ponytail: 隐私模式禁写，状态不持久化即可 */ }
   }, [sections, binding, sheetsPerGroup, size, pageSize, holidays]);
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
   const update = useCallback((id: string, patch: Partial<Section>) => setSections((items) => items.map((item) => (item.id === id ? { ...item, ...patch } : item))), []);
