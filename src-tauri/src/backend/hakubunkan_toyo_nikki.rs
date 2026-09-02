@@ -14,7 +14,6 @@ pub(crate) struct HakubunkanToyoNikkiPattern {
     pub(crate) end_date: NaiveDate,
     pub(crate) date_format: String,
     pub(crate) line_color: String,
-    pub(crate) faint_color: String,
     pub(crate) line_width: f64,
 }
 
@@ -26,7 +25,6 @@ impl Default for HakubunkanToyoNikkiPattern {
             end_date: today,
             date_format: "%-m月%-d日".into(),
             line_color: PALE_JADE.into(),
-            faint_color: PALE_JADE.into(),
             line_width: 0.4,
         }
     }
@@ -41,7 +39,6 @@ impl HakubunkanToyoNikkiPattern {
             return Err("line_width must be > 0".into());
         }
         validate_color(&self.line_color)?;
-        validate_color(&self.faint_color)?;
         validate_date_format(&self.date_format, "zh-CN")
     }
 
@@ -87,7 +84,7 @@ pub(crate) fn draw_hakubunkan_toyo_nikki(
         y1,
         x2,
         y2,
-        color: Some(p.faint_color.clone()),
+        color: Some(p.line_color.clone()),
         width: Some(p.line_width / 2.0),
         style: LineStyle::Dotted,
     };
@@ -140,13 +137,8 @@ pub(crate) fn draw_hakubunkan_toyo_nikki(
         label(r.x + r.width * 0.105, r.y + top_h * 0.07, "受信", "center"),
         label(r.x + r.width * 0.315, r.y + top_h * 0.07, "发信", "center"),
         label(r.x + r.width * 0.875, r.y + top_h * 0.5, "摘\n记", "center"),
-        label(r.x + r.width * 0.955, r.y + top_h * 0.2, "天\n气", "center"),
-        label(
-            r.x + r.width * 0.955,
-            r.y + top_h * 0.74,
-            "气\n温",
-            "center",
-        ),
+        label(r.x + r.width * 0.955, r.y + 1.5, "天\n气", "north"),
+        label(r.x + r.width * 0.955, side_y + 1.5, "气\n温", "north"),
     ];
     (lines, texts)
 }
@@ -181,6 +173,7 @@ mod tests {
                 .collect::<Vec<_>>(),
             ["受信", "发信", "摘\n记", "天\n气", "气\n温"]
         );
+        assert!(texts[4..].iter().all(|text| text.anchor == "north"));
     }
 
     #[test]

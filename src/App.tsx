@@ -197,7 +197,6 @@ const defaults: Record<PatternKind, Values & { kind: PatternKind }> = {
     end_date: toISODate(new Date()),
     date_format: "%-m月%-d日",
     line_color: COLORS.paleJade,
-    faint_color: COLORS.paleJade,
     line_width: 0.4,
   },
   midori: {
@@ -595,8 +594,7 @@ function PatternFields({ section, set }: { section: Section; set: (key: string, 
         <Field label="开始日期" value={p.start_date} type="date" onChange={(v) => set("start_date", v)} />
         <Field label="结束日期" value={p.end_date} type="date" onChange={(v) => set("end_date", v)} />
         <Field label="日期格式" value={p.date_format} type="text" placeholder="%-m月%-d日" onChange={(v) => set("date_format", v)} />
-        <Field label="主线颜色" value={p.line_color} type="color" onChange={(v) => set("line_color", v)} />
-        <Field label="点线颜色" value={p.faint_color} type="color" onChange={(v) => set("faint_color", v)} />
+        <Field label="线条颜色" value={p.line_color} type="color" onChange={(v) => set("line_color", v)} />
         <Field label="线宽（pt）" value={p.line_width} min={0.01} step={0.05} onChange={(v) => set("line_width", v)} />
       </>
     );
@@ -1003,67 +1001,6 @@ const SortableSection = memo(function SortableSection({ section, index, update, 
   );
 });
 
-/// localStorage 里可能存着旧版式字段：迁移到当前模板结构，避免后端 deny_unknown_fields 拒绝。
-function migrateSection(s: Section): Section {
-  const pattern = { ...s.pattern } as Values & { kind: string };
-  if (pattern.kind === "seyes" && pattern.margin_x != null) {
-    const spacing = Number(pattern.spacing) || 8;
-    const w = Number(s.page?.width ?? 148) - Number(s.page?.binding ?? 0) - Number(s.page?.non_binding ?? 0);
-    const offset = (((w % spacing) + spacing) % spacing) / 2;
-    pattern.margin_line = Math.max(
-      0,
-      Math.round((Number(pattern.margin_x) - Number(s.page?.binding ?? 0) - offset) / spacing) + 1,
-    );
-    delete pattern.margin_x;
-  }
-  if (pattern.kind === "month") {
-    // 旧版农历/节日字号已合并为 sub_size。
-    if (pattern.lunar_size != null || pattern.holiday_size != null) {
-      pattern.sub_size = Number(pattern.lunar_size ?? pattern.holiday_size) || pattern.sub_size;
-      delete pattern.lunar_size;
-      delete pattern.holiday_size;
-    }
-  }
-  if (pattern.kind === "basic") {
-    if (pattern.draw_dots) {
-      return {
-        ...s,
-        pattern: {
-          kind: "dots",
-          pages: pattern.pages,
-          spacing: pattern.spacing,
-          column_spacing: pattern.dot_spacing ?? pattern.spacing,
-          radius: pattern.dot_radius,
-          color: pattern.dot_color ?? pattern.line_color,
-        },
-      } as Section;
-    }
-    if (pattern.draw_vlines && !pattern.draw_hlines) {
-      return {
-        ...s,
-        pattern: {
-          kind: "grid",
-          pages: pattern.pages,
-          spacing: pattern.vline_spacing ?? pattern.spacing,
-          color: pattern.vline_color,
-          width: pattern.vline_width,
-        },
-      } as Section;
-    }
-    return {
-      ...s,
-      pattern: {
-        kind: "ruled",
-        pages: pattern.pages,
-        spacing: pattern.spacing,
-        color: pattern.line_color,
-        width: pattern.line_width,
-      },
-    } as Section;
-  }
-  return { ...s, pattern } as Section;
-}
-
 function loadJSON<T>(key: string, fallback: T): T {
   try {
     const raw = localStorage.getItem(key);
@@ -1074,11 +1011,6 @@ function loadJSON<T>(key: string, fallback: T): T {
 }
 
 function cleanPattern(pattern: Section["pattern"]) {
-  if (pattern.kind === "hakubunkan-toyo-nikki") {
-    const cleaned = { ...pattern };
-    delete cleaned.date_size;
-    return cleaned;
-  }
   if (pattern.kind === "timeline")
     return {
       ...pattern,
@@ -1102,9 +1034,7 @@ export default function App() {
       holidays?: Record<string, string>;
     } | null>("base6.state", null),
   );
-  const [sections, setSections] = useState<Section[]>(() =>
-    (saved?.sections ?? [newSection()]).map(migrateSection),
-  );
+  const [sections, setSections] = useState<Section[]>(saved?.sections ?? [newSection()]);
   const [binding, setBinding] = useState<"booklet" | "thread" | null>(saved?.binding ?? null);
   const [size, setSize] = useState(saved?.size ?? { width: 148, height: 210 });
 const [pageSize, setPageSize] = useState(saved?.pageSize ?? "A5");

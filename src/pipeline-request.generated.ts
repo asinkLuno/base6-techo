@@ -84,7 +84,6 @@ export type DotBottom = number;
 export type DotLeft = number;
 export type DotRight = number;
 export type Kind3 = "hakubunkan-toyo-nikki";
-export type FaintColor = string;
 export type Kind1 = "midori";
 export type Spacing1 = number;
 export type Gap = number;
@@ -243,7 +242,6 @@ export interface HakubunkanToyoNikkiPatternRequest {
   end_date?: string;
   date_format?: string;
   line_color?: LineColor;
-  faint_color?: FaintColor;
   line_width?: LineWidth;
 }
 export interface TimelinePatternRequest {
