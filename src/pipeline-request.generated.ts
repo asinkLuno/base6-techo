@@ -223,18 +223,7 @@ export interface UsRuledPatternRequest {
 }
 export interface MidoriPatternRequest {
   kind?: Kind1;
-  spacing?: Spacing1;
-  gap?: Gap;
-  edge_extension?: EdgeExtension;
-  dot_frequency?: DotFrequency;
-  dot_radius?: DotRadius1;
-  line_width?: LineWidth1;
   line_color?: LineColor1;
-  dot_color?: DotColor;
-  header?: Header1;
-  footer?: Footer1;
-  inner?: Inner;
-  outer?: Outer;
 }
 export interface HakubunkanToyoNikkiPatternRequest {
   kind?: Kind3;

@@ -54,7 +54,7 @@ const patternNames: Record<PatternKind, string> = {
   vertical: "古文竖排",
   "us-ruled": "美式横线",
   "hakubunkan-toyo-nikki": "博文館・當用日記",
-  eight: "八分视图",
+  eight: "八分周视图",
   graph: "制图网格",
   "hakubunkan-kaichu-nikki": "博文館・懐中日記",
   midori: "Midori",
@@ -201,18 +201,7 @@ const defaults: Record<PatternKind, Values & { kind: PatternKind }> = {
   },
   midori: {
     kind: "midori",
-    spacing: 5,
-    gap: 1,
-    edge_extension: 1.2,
-    dot_frequency: 10,
-    dot_radius: 0.4,
-    line_width: 0.7,
     line_color: COLORS.paleJade,
-    dot_color: COLORS.paleJade,
-    header: false,
-    footer: false,
-    inner: false,
-    outer: false,
   },
   eight: {
     kind: "eight",
@@ -601,12 +590,6 @@ function PatternFields({ section, set }: { section: Section; set: (key: string, 
   if (p.kind === "midori")
     return (
       <>
-        <Field label="间距（mm）" value={p.spacing} min={0.1} step={0.1} onChange={(v) => set("spacing", v)} />
-        <Field label="双线间隙（mm）" value={p.gap} min={0} step={0.1} onChange={(v) => set("gap", v)} />
-        <Field label="边缘延伸（mm）" value={p.edge_extension} min={0} step={0.1} onChange={(v) => set("edge_extension", v)} />
-        <Field label="圆点频率" value={p.dot_frequency} min={1} onChange={(v) => set("dot_frequency", v)} />
-        <Field label="圆点半径（mm）" value={p.dot_radius} min={0.01} step={0.05} onChange={(v) => set("dot_radius", v)} />
-        <Field label="线宽" value={p.line_width} min={0.01} step={0.05} onChange={(v) => set("line_width", v)} />
         <Field label="线条颜色" value={p.line_color} type="color" onChange={(v) => set("line_color", v)} />
         <Field label="圆点颜色" value={p.dot_color} type="color" onChange={(v) => set("dot_color", v)} />
       </>

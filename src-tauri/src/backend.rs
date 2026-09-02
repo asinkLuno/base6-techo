@@ -361,7 +361,8 @@ impl Pattern {
             Self::Eight(p) => p.line_width,
             Self::Graph(p) => p.line_width,
             Self::HakubunkanKaichuNikki(p) => p.line_width,
-            Self::Midori(p) => p.line_width,
+            // midori 版式已把尺寸/线宽固定，只留颜色可配；默认线宽取固定值。
+            Self::Midori(_) => 0.7,
             Self::Seyes(p) => p.main_width,
             Self::Month(p) => p.line_width,
             Self::Timeline(p) => p.line_width,
