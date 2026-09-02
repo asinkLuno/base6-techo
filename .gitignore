@@ -2,6 +2,7 @@ node_modules/
 .yarn/
 target/
 dist/
+build.log
 
 # LaTeX build output
 out.*
