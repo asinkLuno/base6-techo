@@ -12,7 +12,7 @@ import {
 import { Add, Delete, Download, FileDownload, Refresh, Upload, Visibility } from "@mui/icons-material";
 import type { Section } from "./lib/schema";
 import {
-  FONT_OPTIONS, PAGE_SIZE_OPTIONS, PAGE_SIZES, newSection,
+  FONT_OPTIONS, PAGE_SIZE_OPTIONS, PAGE_SIZES, margins, newSection,
 } from "./lib/schema";
 import { effectivePages, loadJSON, sectionRequest } from "./lib/utils";
 import { parseICS } from "./lib/ics-parser";
@@ -116,7 +116,7 @@ export default function App() {
 
   function applySize(w: number, h: number) {
     setSize({ width: w, height: h });
-    setSections((items) => items.map((s) => ({ ...s, page: { ...s.page, width: w, height: h } })));
+    setSections((items) => items.map((s) => ({ ...s, page: { ...s.page, width: w, height: h, ...margins(w, h) } })));
   }
 
   function dragEnd({ active, over }: DragEndEvent) {

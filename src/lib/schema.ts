@@ -8,7 +8,7 @@ export type Values = Record<string, Value>;
 export type PatternKind =
   | "dots" | "grid" | "ruled" | "seyes" | "vertical" | "us-ruled"
   | "hakubunkan-toyo-nikki" | "midori" | "eight" | "hakubunkan-kaichu-nikki"
-  | "year" | "month" | "tracker" | "month-tracker" | "graph" | "timeline";
+  | "year" | "month" | "tracker" | "month-tracker" | "graph" | "timeline" | "blank";
 
 export type Section = {
   id: string;
@@ -42,10 +42,11 @@ export const patternNames: Record<PatternKind, string> = {
   timeline: "时间轴",
   tracker: "月打卡",
   year: "年历",
+  blank: "空白页",
 };
 
 export const PATTERN_GROUPS: [string, PatternKind[]][] = [
-  ["基础", ["dots", "grid", "ruled", "seyes", "us-ruled", "vertical"]],
+  ["基础", ["dots", "grid", "ruled", "seyes", "us-ruled", "vertical", "blank"]],
   ["复刻", ["midori", "hakubunkan-toyo-nikki", "hakubunkan-kaichu-nikki"]],
   ["日程", ["month", "month-tracker", "tracker", "eight", "timeline", "graph", "year"]],
 ];
@@ -176,7 +177,22 @@ export const defaults: Record<PatternKind, Values & { kind: PatternKind }> = {
     title_format: "%Y年%-m月%-d日", line_color: COLORS.gray, line_width: 1.138, label_size: 10.2,
     latitude: "", longitude: "", timezone: "Etc/GMT-8", daylight_color: COLORS.phaseGold, night_color: COLORS.timelineNight,
   },
+  blank: { kind: "blank", pages: 1 },
 };
+
+
+// base6 设计准则：由纸张尺寸自动计算页边距（mm）
+//   Inner(装订边)=宽×9%（8mm 物理下限）< Outer(非装订边)=宽×12%
+//   Head(页头)=高×7% < Foot(页脚)=高×9%
+//   页面尺寸变化时据此自动重算（与 scripts/gen-examples.sh 的 margins 一致）。
+export function margins(width: number, height: number) {
+  return {
+    binding: Math.max(8, Math.round(width * 0.09)),
+    non_binding: Math.max(7, Math.round(width * 0.12)),
+    header: Math.max(6, Math.round(height * 0.07)),
+    footer: Math.max(8, Math.round(height * 0.09)),
+  };
+}
 
 export function newSection(width = 148, height = 210): Section {
   return {
@@ -187,7 +203,7 @@ export function newSection(width = 148, height = 210): Section {
     footerEnabled: false,
     footerMode: "text",
     pageNumber: true,
-    page: { width, height, header: 10, footer: 10, binding: 15, non_binding: 8 },
+    page: { width, height, ...margins(width, height) },
     document: {
       binding_text: "", binding_text_2: "", binding_text_size: 8, binding_text_2_size: 8,
       binding_text_spacing: 5, binding_text_edge: null, binding_text_color: COLORS.gray,

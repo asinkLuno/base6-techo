@@ -229,6 +229,13 @@ export function PatternFields({ section, set }: Props) {
       </Grid>
     );
 
+  if (p.kind === "blank")
+    return (
+      <Grid>
+        <Field label="页数" value={p.pages} min={1} max={500} onChange={(v) => set("pages", v)} />
+      </Grid>
+    );
+
   // timeline
   return (
     <Grid>

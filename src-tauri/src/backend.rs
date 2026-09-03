@@ -273,6 +273,27 @@ enum Pattern {
     #[serde(rename = "month-tracker")]
     MonthTracker(MonthTrackerPattern),
     Year(YearPattern),
+    Blank(BlankPattern),
+}
+
+/// 空白页：不绘制任何内文版式，仅保留页眉/页脚/装订边文字。
+#[derive(Clone, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+struct BlankPattern {
+    pages: usize,
+}
+impl Default for BlankPattern {
+    fn default() -> Self {
+        Self { pages: 1 }
+    }
+}
+impl BlankPattern {
+    fn validate(&self) -> Result<(), String> {
+        if !(1..=500).contains(&self.pages) {
+            return Err("pages must be in 1..=500".into());
+        }
+        Ok(())
+    }
 }
 
 /// 迷你月历/月历的星期表头语言。
@@ -339,6 +360,7 @@ impl Pattern {
             }
             Self::Timeline(p) => p.page_count(),
             Self::Year(p) => p.page_count(),
+            Self::Blank(p) => p.pages,
         }
     }
 
@@ -361,6 +383,7 @@ impl Pattern {
             Self::Tracker(p) => &p.line_color,
             // 年历只用文字（黑/红固定色），无线条；不会走到该默认值。
             Self::Year(_) => BLACK,
+            Self::Blank(_) => GRAY,
         }
     }
     fn line_width(&self) -> f64 {
@@ -382,6 +405,7 @@ impl Pattern {
             Self::Timeline(p) => p.line_width,
             Self::Tracker(p) => p.line_width,
             Self::Year(_) => 0.0,
+            Self::Blank(_) => 0.0,
         }
     }
     fn validate(&self) -> Result<(), String> {
@@ -402,6 +426,7 @@ impl Pattern {
             Self::Timeline(p) => p.validate(),
             Self::Tracker(p) => p.validate(),
             Self::Year(p) => p.validate(),
+            Self::Blank(p) => p.validate(),
         }
     }
 }
@@ -776,6 +801,7 @@ fn render_page(
             let t = draw_year(geo, p, index, &doc.binding_text_font, holidays);
             (vec![], vec![], vec![], t)
         }
+        Pattern::Blank(_) => (vec![], vec![], vec![], vec![]),
     };
     let binding_x = if geo.binding_side == Side::Left {
         doc.binding_text_edge.unwrap_or(page.binding / 2.0)
