@@ -1,4 +1,12 @@
+import { useRef, useState, type CSSProperties } from "react";
 import type { ReactNode } from "react";
+import {
+  motion,
+  MotionConfig,
+  useScroll,
+  useTransform,
+  useMotionValueEvent,
+} from "motion/react";
 
 type Pattern = { code: string; name: string; en: string; desc: string; preview: string; img?: string; pos?: string; pdf: string; pages: string; params: [string, string][] };
 
@@ -333,19 +341,6 @@ function GitHubIcon({ className }: { className?: string }) {
   );
 }
 
-/* 左侧毫米标尺：1 mm = 4 px，每 10 mm 一个刻度数字，0 位红线。 */
-function MmRail() {
-  const ticks = Array.from({ length: 520 }, (_, i) => i);
-  return (
-    <div className="mm-rail" aria-hidden="true">
-      {ticks.map((i) => (
-        <span key={i} className={`tick${i % 10 === 0 ? " t10" : i % 5 === 0 ? " t5" : ""}${i === 0 ? " t0" : ""}`}>
-          {i % 10 === 0 && i > 0 && <em>{i}</em>}
-        </span>
-      ))}
-    </div>
-  );
-}
 
 function SectionHead({ code, title, lede }: { code: string; title: ReactNode; lede: string }) {
   return (
@@ -356,6 +351,161 @@ function SectionHead({ code, title, lede }: { code: string; title: ReactNode; le
     </header>
   );
 }
+
+type Layer = "trim" | "header" | "footer" | "binding" | "non-binding" | "content" | "feature";
+
+const LAYERS: { id: Layer; name: string; latex: string; mm: string }[] = [
+  { id: "content", name: "版心 content", latex: "\\textwidth × \\textheight", mm: "125 × 190 mm" },
+  { id: "feature", name: "版式 feature", latex: "pattern in content", mm: "点阵 5 mm" },
+  { id: "header", name: "天头 header", latex: "top margin", mm: "10 mm" },
+  { id: "footer", name: "地脚 footer", latex: "bottom margin", mm: "10 mm" },
+  { id: "binding", name: "订口 binding", latex: "inner margin", mm: "15 mm" },
+  { id: "non-binding", name: "切口 non-binding", latex: "outer margin", mm: "8 mm" },
+  { id: "trim", name: "整本 trim", latex: "\\paperwidth × \\paperheight", mm: "对页 296 × 210" },
+];
+
+// 每个 stage 对应一段滚动 progress；stage 索引就是 LAYERS 顺序。
+const STAGE_COUNT = LAYERS.length; // 9
+
+function PageAnatomy() {
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [stage, setStage] = useState(0);
+  // A5 148×210，binding 15 / non-binding 8 / header 10 / footer 10 mm
+  const px = (mm: number) => mm * 1.62;
+  const W = px(148);
+  const H = px(210);
+  const bx = px(15);
+  const nbx = px(8);
+  const hx = px(10);
+  const fx = px(10);
+
+  const { scrollYProgress } = useScroll({
+    target: scrollRef,
+    offset: ["start start", "end end"],
+  });
+  // step 是浮点 stage：0 = 版心，1 = feature，…，6 = 整本对页。
+  const step = useTransform(scrollYProgress, [0, 1], [0, STAGE_COUNT - 1]);
+  useMotionValueEvent(step, "change", (v) => setStage(Math.round(v)));
+
+  // 各层可见度：在自己的 stage 边界处从 0→1。
+  const vContent = useTransform(step, (s) => (s >= 0 ? 1 : 0));
+  const vFeature = useTransform(step, (s) => clamp01(s - 0.6));
+  const vHeader = useTransform(step, (s) => clamp01(s - 1.4));
+  const vFooter = useTransform(step, (s) => clamp01(s - 2.4));
+  const vBinding = useTransform(step, (s) => clamp01(s - 3.4));
+  const vNonBinding = useTransform(step, (s) => clamp01(s - 4.4));
+  const vTrim = useTransform(step, (s) => clamp01(s - 5.4));
+  // 整本 stage：单页缩到左、对页镜像滑入。
+  const bookT = useTransform(step, (s) => clamp01((s - 5.4) / 0.6));
+  const pageShiftX = useTransform(bookT, [0, 1], [0, -W / 2 - 12]);
+  const mirrorOpacity = bookT;
+  const mirrorShiftX = useTransform(bookT, [0, 1], [W * 1.1, W / 2 + 12]);
+
+  // 点击清单项：跳到对应 stage 的滚动位置。
+  const jumpTo = (idx: number) => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const top = el.offsetTop;
+    const h = el.offsetHeight;
+    const target = top + (h * idx) / (STAGE_COUNT - 1) - window.innerHeight * 0.45;
+    window.scrollTo({ top: target, behavior: "smooth" });
+  };
+
+  return (
+    <div className="anatomy-scroll" ref={scrollRef}>
+      <div className="anatomy-sticky">
+        <div className="anatomy">
+          <div className="anatomy-stage">
+            <motion.div
+              className="book-pair"
+              style={{ "--page-w": `${W}px`, width: W * 2 + 24, height: H } as CSSProperties}
+            >
+              {/* 左页：单页剖面，整本 stage 时滑到左半 */}
+              <motion.div
+                className="page-rect"
+                style={{ width: W, height: H, opacity: vContent, x: pageShiftX }}
+              >
+                <motion.span className="trim-frame" style={{ opacity: vTrim }} />
+                <span className="crop-mk c-tl" />
+                <span className="crop-mk c-tr" />
+                <span className="crop-mk c-bl" />
+                <span className="crop-mk c-br" />
+                <motion.span className="band top" style={{ height: hx, opacity: vHeader }} />
+                <motion.span className="band bottom" style={{ height: fx, opacity: vFooter }} />
+                <motion.span className="band left" style={{ width: bx, opacity: vBinding }} />
+                <motion.span className="band right" style={{ width: nbx, opacity: vNonBinding }} />
+                <motion.span className="bind-rule" style={{ left: bx, opacity: vBinding }} />
+                <motion.div
+                  className="layer content"
+                  style={{ left: bx, top: hx, width: W - bx - nbx, height: H - hx - fx }}
+                >
+                  <motion.div className="layer feature pv pv-dots" style={{ opacity: vFeature }} />
+                </motion.div>
+              </motion.div>
+
+              {/* 右页：整本 stage 时从右滑入，装订侧在右（镜像） */}
+              <motion.div
+                className="page-rect mirror"
+                style={{ width: W, height: H, opacity: mirrorOpacity, x: mirrorShiftX }}
+              >
+                <span className="crop-mk c-tl" />
+                <span className="crop-mk c-tr" />
+                <span className="crop-mk c-bl" />
+                <span className="crop-mk c-br" />
+                <motion.span className="band top" style={{ height: hx, opacity: vHeader }} />
+                <motion.span className="band bottom" style={{ height: fx, opacity: vFooter }} />
+                <motion.span className="band right" style={{ width: bx, opacity: vBinding }} />
+                <motion.span className="band left" style={{ width: nbx, opacity: vNonBinding }} />
+                <motion.span className="bind-rule" style={{ right: bx, opacity: vBinding }} />
+                <motion.div
+                  className="layer content"
+                  style={{ right: bx, top: hx, width: W - bx - nbx, height: H - hx - fx }}
+                >
+                  <motion.div className="layer feature pv pv-dots" style={{ opacity: vFeature }} />
+                </motion.div>
+              </motion.div>
+            </motion.div>
+
+          </div>
+
+          <aside className="anatomy-side">
+            <ul className="layer-list">
+              {LAYERS.map((l, i) => (
+                <li key={l.id} className={stage === i ? "hot" : ""}>
+                  <button type="button" onClick={() => jumpTo(i)} aria-pressed={stage === i}>
+                    <span className="ll-name">{l.name}</span>
+                    <span className="ll-latex">{l.latex}</span>
+                    <span className="ll-mm">{l.mm}</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+            <p
+              className="anatomy-note"
+              dangerouslySetInnerHTML={{ __html: ANATOMY_CAPTIONS[stage] ?? ANATOMY_CAPTIONS[0] }}
+            />
+          </aside>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+const ANATOMY_CAPTIONS: string[] = [
+  "<strong>版心 content</strong>：LaTeX \\textwidth × \\textheight 圈出的可排区域。一切版式——点阵、月历、周视图——都只在这个矩形里生成。",
+  "<strong>版式 feature</strong>：版心内填入具体版式。这里是 5 mm 点阵；换成月历、八分周视图，版心几何不变。",
+  "<strong>天头 header</strong>：版心上方的 margin 带。页眉文字、页码、Date:/No. 横线都在这条带里。",
+  "<strong>地脚 footer</strong>：版心下方的 margin 带。页脚文字、对页页码对称排布。",
+  "<strong>订口 binding</strong>：朝向书脊的一侧。装订侧水印、base6 编号沿这条边竖排；红线是应用 colors.rs 的页边线红。",
+  "<strong>切口 non-binding</strong>：朝向书外侧的一侧。切口宽度通常小于订口，留出翻页与裁切余量。",
+  "<strong>整本 trim</strong>：单页收齐四道边距成 trim box，对页镜像拼成整本。",
+];
+
+function clamp01(v: number) {
+  return v < 0 ? 0 : v > 1 ? 1 : v;
+}
+
+
 
 function PatternCard({ p }: { p: Pattern }) {
   return (
@@ -390,8 +540,7 @@ function PatternCard({ p }: { p: Pattern }) {
 
 export default function App() {
   return (
-    <>
-      <MmRail />
+    <MotionConfig reducedMotion="user">
 
       <header className="nav">
         <a className="brand" href="#top">
@@ -413,26 +562,40 @@ export default function App() {
       <main id="top">
         <section className="hero">
           <div className="hero-copy">
-            <p className="eyebrow">自印手帐 · 本地桌面应用</p>
-            <h1>
+            <motion.p className="eyebrow" initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.55, ease: "easeOut" }}>自印手帐 · 本地桌面应用</motion.p>
+            <motion.h1
+              initial={{ opacity: 0, y: 14 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.55, ease: "easeOut", delay: 0.06 }}
+            >
               整本手帐，
               <br />
               一次排成。
-            </h1>
-            <p className="lede">
+            </motion.h1>
+            <motion.p
+              className="lede"
+              initial={{ opacity: 0, y: 14 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.55, ease: "easeOut", delay: 0.12 }}
+            >
               base6-techo 排的是<strong>整本手帐</strong>：一本多节，每节各配版式——月历、周视图、点阵、博文館日记复刻
               ；四周水印独立叠印；最后一步才做整本拼版——不拼版直出方便活页打孔，骑马钉、锁线分册自动拼版，打印装订即是成品。
               整本以 LaTeX 排版，内置 Tectonic 引擎本地编译出矢量 PDF，手帐内容不出本机。整个项目在 GitHub 上开源。
-            </p>
-            <div className="hero-cta">
+            </motion.p>
+            <motion.div
+              className="hero-cta"
+              initial={{ opacity: 0, y: 14 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.55, ease: "easeOut", delay: 0.18 }}
+            >
               <a className="btn btn-solid" href="#download">下载桌面版</a>
               <a className="btn btn-ghost" href="#examples">先看成品样例</a>
               <a className="btn btn-ghost btn-gh" href={REPO_URL} target="_blank" rel="noreferrer">
                 <GitHubIcon className="btn-gh-icon" />
                 GitHub
               </a>
-            </div>
-            <p className="hero-file">base6-techo.pdf · v{APP_VERSION} · multi-section · LaTeX · vector</p>
+            </motion.div>
+            <motion.p className="hero-file" initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.55, ease: "easeOut", delay: 0.24 }}>base6-techo.pdf · v{APP_VERSION} · multi-section · LaTeX · vector</motion.p>
           </div>
 
           <div className="hero-art">
@@ -441,13 +604,39 @@ export default function App() {
             <span className="crop bl" aria-hidden="true" />
             <span className="crop br" aria-hidden="true" />
             <p className="hero-tag">自印手帐・版面生成器</p>
-            <div className="sheet s-seyes pv pv-seyes"><span>A5 · 法文格</span></div>
-            <div className="sheet s-kaichu">
+            <motion.div
+              className="sheet s-seyes pv pv-seyes"
+              initial={{ opacity: 0, x: 8, y: 18, rotate: 0 }}
+              animate={{ opacity: 1, x: 0, y: 0, rotate: -6.5 }}
+              transition={{ duration: 0.65, ease: [0.2, 0.7, 0.25, 1], delay: 0.12 }}
+            >
+              <span>A5 · 法文格</span>
+            </motion.div>
+            <motion.div
+              className="sheet s-kaichu"
+              initial={{ opacity: 0, x: 8, y: 18, rotate: 0 }}
+              animate={{ opacity: 1, x: 0, y: 0, rotate: 1.6 }}
+              transition={{ duration: 0.65, ease: [0.2, 0.7, 0.25, 1], delay: 0.2 }}
+            >
               <img src="/img/huaizhong.png" alt="" />
               <span>懷中日記 · 复刻</span>
-            </div>
-            <div className="sheet s-dots pv pv-dots"><span>TN · 5 mm 点阵</span></div>
-            <div className="sheet s-month pv pv-month"><span>月历</span></div>
+            </motion.div>
+            <motion.div
+              className="sheet s-dots pv pv-dots"
+              initial={{ opacity: 0, x: 8, y: 18, rotate: 0 }}
+              animate={{ opacity: 1, x: 0, y: 0, rotate: 7 }}
+              transition={{ duration: 0.65, ease: [0.2, 0.7, 0.25, 1], delay: 0.28 }}
+            >
+              <span>TN · 5 mm 点阵</span>
+            </motion.div>
+            <motion.div
+              className="sheet s-month pv pv-month"
+              initial={{ opacity: 0, x: 8, y: 18, rotate: 0 }}
+              animate={{ opacity: 1, x: 0, y: 0, rotate: -2.5 }}
+              transition={{ duration: 0.65, ease: [0.2, 0.7, 0.25, 1], delay: 0.36 }}
+            >
+              <span>月历</span>
+            </motion.div>
           </div>
         </section>
 
@@ -467,6 +656,14 @@ export default function App() {
           </dl>
         </section>
 
+        <section id="anatomy" className="section">
+          <SectionHead
+            code="ANATOMY"
+            title="一张纸的解剖"
+            lede="版式是 feature，外面套着 header / footer / 装订侧 / 非装订侧四道边距，再往外是整本的 trim box——按 LaTeX geometry 包的层级，一层层往里收。点标签，亮一层。"
+          />
+          <PageAnatomy />
+        </section>
         <section id="patterns" className="section">
           <SectionHead
             code="PATTERNS"
@@ -573,6 +770,6 @@ yarn tauri dev`}</pre>
           <a href={REPO_URL} target="_blank" rel="noreferrer">GitHub 开源</a> ｜ Tauri · React · LaTeX
         </p>
       </footer>
-    </>
+    </MotionConfig>
   );
 }

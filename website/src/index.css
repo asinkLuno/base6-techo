@@ -59,55 +59,6 @@ html {
   scroll-padding-top: 84px;
 }
 
-/* ---------- 左侧毫米标尺：1 mm = 4 px，10 mm 一个数字，0 位红线 ---------- */
-
-.mm-rail {
-  position: fixed;
-  left: 0;
-  top: 0;
-  bottom: 0;
-  width: 44px;
-  z-index: 40;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  padding-right: 8px;
-  overflow: hidden;
-  background: #f1f3ea;
-  border-right: 1px solid var(--rule);
-}
-
-.tick {
-  position: relative;
-  flex: none;
-  width: 6px;
-  height: 4px;
-  border-top: 1px solid #b7bdaa;
-}
-
-.tick.t5 {
-  width: 10px;
-}
-
-.tick.t10 {
-  width: 15px;
-  border-top-color: #8a917e;
-}
-
-.tick.t0 {
-  width: 19px;
-  border-top: 2px solid var(--red);
-}
-
-.tick em {
-  position: absolute;
-  right: 17px;
-  top: -5px;
-  font: 500 8.5px/1 var(--mono);
-  font-style: normal;
-  color: #8a917e;
-}
-
 /* ---------- 导航 ---------- */
 
 .nav {
@@ -117,8 +68,6 @@ html {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  max-width: 1140px;
-  margin: 0 auto;
   padding: 15px 24px;
   background: rgba(233, 236, 225, 0.88);
   backdrop-filter: blur(10px);
@@ -200,8 +149,6 @@ html {
   grid-template-columns: 1.02fr 0.98fr;
   align-items: center;
   gap: 56px;
-  max-width: 1140px;
-  margin: 0 auto;
   padding: 96px 24px 80px;
 }
 
@@ -438,70 +385,6 @@ html {
   z-index: 2;
 }
 
-@media (prefers-reduced-motion: no-preference) {
-  @keyframes rise {
-    from {
-      opacity: 0;
-      transform: translateY(14px);
-    }
-    to {
-      opacity: 1;
-      transform: none;
-    }
-  }
-
-  .hero-copy > * {
-    animation: rise 0.55s ease both;
-  }
-
-  .hero-copy > *:nth-child(2) {
-    animation-delay: 0.06s;
-  }
-
-  .hero-copy > *:nth-child(3) {
-    animation-delay: 0.12s;
-  }
-
-  .hero-copy > *:nth-child(4) {
-    animation-delay: 0.18s;
-  }
-
-  .hero-copy > *:nth-child(5) {
-    animation-delay: 0.24s;
-  }
-
-  @keyframes fan {
-    from {
-      opacity: 0;
-      transform: translate(8px, 18px) rotate(0deg);
-    }
-    to {
-      opacity: 1;
-      transform: var(--tf);
-    }
-  }
-
-  .sheet {
-    animation: fan 0.65s cubic-bezier(0.2, 0.7, 0.25, 1) both;
-  }
-
-  .s-seyes {
-    animation-delay: 0.12s;
-  }
-
-  .s-kaichu {
-    animation-delay: 0.2s;
-  }
-
-  .s-dots {
-    animation-delay: 0.28s;
-  }
-
-  .s-month {
-    animation-delay: 0.36s;
-  }
-}
-
 /* ---------- 版式预览（纯 CSS，颜色取应用默认线色） ---------- */
 
 .pv {
@@ -604,8 +487,6 @@ html {
 /* ---------- 通用区块 ---------- */
 
 .section {
-  max-width: 1140px;
-  margin: 0 auto;
   padding: 92px 24px 20px;
 }
 
@@ -1107,8 +988,7 @@ html {
 /* 页脚：奥付 */
 
 .footer {
-  max-width: 1140px;
-  margin: 64px auto 0;
+  margin: 64px 0 0;
   padding: 38px 24px 48px;
   border-top: 2px solid var(--ink);
   text-align: center;
@@ -1153,19 +1033,222 @@ html {
   color: var(--ink);
 }
 
+/* ---------- 版面解剖 ---------- */
+
+/* 外层滚动容器：7 个 stage 撑出滚动空间。 */
+.anatomy-scroll {
+  position: relative;
+  height: 620vh;
+}
+
+/* sticky 内层：钉在 viewport 顶部，高度占满，内容垂直居中。 */
+.anatomy-sticky {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.anatomy {
+  display: grid;
+  grid-template-columns: 1fr 1.05fr;
+  gap: 56px;
+  align-items: center;
+  width: 100%;
+  padding: 0 24px;
+}
+
+.anatomy-stage {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  overflow: visible;
+  min-height: 420px;
+}
+
+/* 两页并排容器：固定尺寸由 inline style 注入（width: 2W+gap, height: H） */
+.book-pair {
+  position: relative;
+  margin: 0 auto;
+}
+
+/* 单页矩形：trim box 外框，白纸。两页 absolute 定位，靠 margin 居中。 */
+.page-rect {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  margin-left: calc(-1 * var(--page-w, 0px) / 2);
+  background: var(--paper);
+  border: 1px solid #b9b4a0;
+  box-shadow: 0 26px 48px -22px rgba(38, 36, 28, 0.36);
+  transform-origin: center center;
+}
+
+/* 镜像右页：同样 absolute 居中，靠 motion x 滑到右侧 */
+.page-rect.mirror {
+  /* margin/binding 镜像：右页装订侧在右，由 JSX 内部 band 方向决定 */
+}
+/* 整本 stage 出现的红色 trim 外框 */
+.trim-frame {
+  position: absolute;
+  inset: -3px;
+  border: 1px solid var(--red);
+  pointer-events: none;
+  border-radius: 1px;
+}
+
+/* 四道 margin 带：半透明灰 */
+.band {
+  position: absolute;
+  background: rgba(112, 108, 94, 0.16);
+  pointer-events: none;
+}
+
+.band.top { top: 0; left: 0; right: 0; }
+.band.bottom { bottom: 0; left: 0; right: 0; }
+.band.left { top: 0; bottom: 0; left: 0; }
+.band.right { top: 0; bottom: 0; right: 0; }
+
+/* 装订侧红线：应用 colors.rs 的页边线红，只做线 */
+.bind-rule {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: var(--red);
+  pointer-events: none;
+}
+
+/* 版心 content：淡虚线边框，无填充 */
+.layer.content {
+  position: absolute;
+  border: 1px dashed #9a9486;
+  pointer-events: none;
+}
+
+/* feature：版心内的版式样张（真实 pv-dots / pv-month） */
+.layer.feature {
+  position: absolute;
+  inset: 0;
+  border: 1px solid transparent;
+}
+
+/* 印刷 crop marks：trim 四角细线 */
+.crop-mk {
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  pointer-events: none;
+}
+
+.crop-mk.c-tl { left: -20px; top: -16px; border-left: 1px solid rgba(38,36,28,0.45); border-top: 1px solid rgba(38,36,28,0.45); }
+.crop-mk.c-tr { right: -20px; top: -16px; border-right: 1px solid rgba(38,36,28,0.45); border-top: 1px solid rgba(38,36,28,0.45); }
+.crop-mk.c-bl { left: -20px; bottom: -16px; border-left: 1px solid rgba(38,36,28,0.45); border-bottom: 1px solid rgba(38,36,28,0.45); }
+.crop-mk.c-br { right: -20px; bottom: -16px; border-right: 1px solid rgba(38,36,28,0.45); border-bottom: 1px solid rgba(38,36,28,0.45); }
+
+/* 右侧层级清单 */
+.anatomy-side {
+  padding: 0;
+}
+
+.layer-list {
+  list-style: none;
+  margin: 0 0 22px;
+  padding: 0;
+  border-top: 1px solid var(--rule);
+}
+
+.layer-list li {
+  border-bottom: 1px solid var(--rule);
+  transition: background 0.15s ease;
+}
+
+.layer-list li.hot {
+  background: rgba(255, 253, 247, 0.8);
+}
+
+.layer-list button {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  grid-template-rows: auto auto;
+  grid-template-areas:
+    "name mm"
+    "latex mm";
+  width: 100%;
+  padding: 12px 4px;
+  background: none;
+  border: 0;
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+}
+
+.layer-list .ll-name {
+  grid-area: name;
+  font-family: var(--serif);
+  font-weight: 700;
+  font-size: 15px;
+  letter-spacing: 0.06em;
+}
+
+.layer-list .ll-latex {
+  grid-area: latex;
+  font: 400 11.5px var(--mono);
+  color: var(--muted);
+  letter-spacing: 0.02em;
+}
+
+.layer-list .ll-mm {
+  grid-area: mm;
+  align-self: center;
+  font: 500 12px var(--mono);
+  color: var(--red-ink);
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
+.layer-list li.hot .ll-name {
+  color: var(--red-ink);
+}
+
+.layer-list li.hot .ll-latex::before {
+  content: "→ ";
+  color: var(--red);
+}
+
+.anatomy-note {
+  margin: 0;
+  padding: 14px 16px;
+  border-left: 2px solid var(--red);
+  background: rgba(255, 253, 247, 0.6);
+  color: var(--body-text);
+  font-size: 13.5px;
+  line-height: 1.9;
+}
+
+.anatomy-note strong {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+@media (max-width: 920px) {
+  .anatomy {
+    grid-template-columns: 1fr;
+    gap: 28px;
+  }
+
+  .anatomy-stage {
+    min-height: 340px;
+  }
+}
+
+
+
 /* ---------- 响应式 ---------- */
 
-@media (min-width: 1160px) {
-  body {
-    padding-left: 44px;
-  }
-}
-
-@media (max-width: 1159px) {
-  .mm-rail {
-    display: none;
-  }
-}
 
 @media (max-width: 920px) {
   .hero {
