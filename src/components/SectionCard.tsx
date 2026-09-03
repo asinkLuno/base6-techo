@@ -1,7 +1,8 @@
 import { CSS } from "@dnd-kit/utilities";
+import { memo } from "react";
 import { useSortable } from "@dnd-kit/sortable";
 import {
-  Avatar, Box, Card, CardContent, Checkbox, Collapse,
+  Box, Card, CardContent, Checkbox, Collapse,
   FormControlLabel, IconButton, Stack, Typography,
 } from "@mui/material";
 import { Delete, DragHandle, ExpandLess, ExpandMore } from "@mui/icons-material";
@@ -62,7 +63,7 @@ function TextFields({ values, prefix, set }: {
   );
 }
 
-export function SectionCard({ section, index, update, remove }: {
+const SectionCard = memo(function SectionCard({ section, index, update, remove }: {
   section: Section;
   index: number;
   update: Update;
@@ -95,15 +96,22 @@ export function SectionCard({ section, index, update, remove }: {
       }}
     >
       <Card variant="outlined" sx={{ overflow: "hidden" }}>
+        <Box sx={{ display: "flex", alignItems: "stretch" }}>
+          <Box sx={{ width: 3, flexShrink: 0, bgcolor: "secondary.main" }} />
+          <Box sx={{ flex: 1, minWidth: 0 }}>
         <Stack direction="row" spacing={1} sx={{ p: 1.5, alignItems: "center" }}>
           <IconButton size="small" disableRipple {...sortable.attributes} {...sortable.listeners} sx={{ cursor: "grab", touchAction: "none" }}>
             <DragHandle />
           </IconButton>
-          <Avatar sx={{ width: 28, height: 28, fontSize: 12 }}>{index + 1}</Avatar>
+          <Box sx={{ fontVariantNumeric: "tabular-nums", width: 28, textAlign: "center" }}>
+            <Typography variant="subtitle2" sx={{ fontWeight: 700, color: "text.primary", lineHeight: 1.2 }}>
+              {String(index + 1).padStart(2, "0")}
+            </Typography>
+          </Box>
           <Box sx={{ flex: 1, minWidth: 0, cursor: "pointer" }} onClick={() => update(section.id, { expanded: !section.expanded })}>
-            <Typography variant="body2" noWrap>#{index + 1}</Typography>
+            <Typography variant="body2" noWrap>{patternNames[section.pattern.kind]}</Typography>
             <Typography variant="caption" color="text.secondary">
-              {patternNames[section.pattern.kind]} · {effectivePages(section)} 页
+              Section {index + 1} · {effectivePages(section)} 页
             </Typography>
           </Box>
           <IconButton size="small" onClick={() => update(section.id, { expanded: !section.expanded })}>
@@ -113,6 +121,8 @@ export function SectionCard({ section, index, update, remove }: {
             <Delete />
           </IconButton>
         </Stack>
+          </Box>
+        </Box>
 
         <Collapse in={section.expanded}>
           <CardContent sx={{ borderTop: "1px solid", borderColor: "divider", bgcolor: "action.hover", display: "grid", gap: 2, pt: 2.5 }}>
@@ -175,4 +185,6 @@ export function SectionCard({ section, index, update, remove }: {
       </Card>
     </Box>
   );
-}
+});
+
+export { SectionCard };

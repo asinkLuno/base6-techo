@@ -7,9 +7,9 @@ import { open, save } from "@tauri-apps/plugin-dialog";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import {
-  Box, Button, Card, CardContent, Divider, IconButton, Stack, Typography,
+  AppBar, Box, Button, Card, CardContent, Divider, IconButton, Stack, Toolbar, Typography,
 } from "@mui/material";
-import { Add, Close, Delete, Download, FileDownload, Refresh, Upload, Visibility } from "@mui/icons-material";
+import { Add, Delete, Download, FileDownload, Refresh, Upload, Visibility } from "@mui/icons-material";
 import type { Section } from "./lib/schema";
 import {
   FONT_OPTIONS, PAGE_SIZE_OPTIONS, PAGE_SIZES, newSection,
@@ -18,6 +18,40 @@ import { effectivePages, loadJSON, sectionRequest } from "./lib/utils";
 import { parseICS } from "./lib/ics-parser";
 import { Field, FontPicker, SelectField } from "./components/controls";
 import { SectionCard } from "./components/SectionCard";
+
+function Panel({ title, description, action, children }: {
+  title: string;
+  description?: string;
+  action?: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  return (
+    <Card variant="outlined" sx={{ overflow: "hidden" }}>
+      <Box
+        sx={{
+          px: 2,
+          py: 1.25,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          borderBottom: "1px solid",
+          borderColor: "divider",
+          bgcolor: "rgba(45,54,64,0.025)",
+        }}
+      >
+        <Box sx={{ minWidth: 0 }}>
+          <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>{title}</Typography>
+          {description && (
+            <Typography variant="caption" color="text.secondary">{description}</Typography>
+          )}
+        </Box>
+        {action}
+      </Box>
+      <CardContent sx={{ display: "grid", gap: 2 }}>{children}</CardContent>
+    </Card>
+  );
+}
+
 
 export default function App() {
   const [saved] = useState(() =>
@@ -211,179 +245,208 @@ export default function App() {
   const busy = running || preview.busy;
 
   return (
-    <Box sx={{ maxWidth: 1152, mx: "auto", p: { xs: 2.5, sm: 4 } }}>
-      <Box sx={{ display: "grid", gap: 3, alignItems: "start", gridTemplateColumns: { lg: "1fr 320px" } }}>
-        <Box sx={{ display: "grid", gap: 1.5 }}>
-          {preview.open && (
-            <Box sx={{ overflow: "hidden", borderRadius: 2, border: "1px solid", borderColor: "divider", bgcolor: "action.hover" }}>
-              {preview.busy ? (
-                <Box sx={{ height: "80vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 1.5 }}>
-                  <Refresh sx={{ animation: "spin 1s linear infinite" }} />
-                  <Box component="pre" sx={{ maxHeight: 256, width: "100%", overflow: "auto", whiteSpace: "pre-wrap", px: 3, fontSize: 12 }}>
-                    {latexLog || "正在启动 LaTeX…"}
-                  </Box>
-                  <Typography variant="body2" color="text.secondary">正在渲染整体预览…</Typography>
-                </Box>
-              ) : preview.error ? (
-                <Typography color="error" sx={{ p: 3, fontSize: 12 }}>预览失败：{preview.error}</Typography>
-              ) : (
-                <iframe title="整体预览" src={`data:application/pdf;base64,${preview.data}`} style={{ display: "block", width: "100%", height: "80vh", border: 0 }} />
-              )}
-            </Box>
-          )}
-
-          <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 1 }}>
-            <Typography variant="h6">Sections</Typography>
-            <Button
-              startIcon={<Add />}
-              onClick={() => startTransition(() => setSections((items) => [...items, newSection(size.width, size.height)]))}
-            >
-              添加
-            </Button>
-          </Box>
-
-          <DndContext sensors={sensors} onDragEnd={dragEnd}>
-            <SortableContext items={sections.map(({ id }) => id)} strategy={verticalListSortingStrategy}>
-              <Box sx={{ display: "grid", gap: 2 }}>
-                {sections.map((section, index) => (
-                  <SectionCard key={section.id} section={section} index={index} update={update} remove={removeSection} />
-                ))}
-              </Box>
-            </SortableContext>
-          </DndContext>
-          {sections.length === 0 && (
-            <Box sx={{ border: "1px dashed", borderColor: "divider", borderRadius: 2, p: 10, textAlign: "center" }}>
-              <Typography color="text.secondary">至少添加一个 Section。</Typography>
-            </Box>
-          )}
-        </Box>
-
-        <Card variant="outlined" sx={{ position: { lg: "sticky" }, top: 32 }}>
-          <CardContent sx={{ display: "grid", gap: 2 }}>
-            <Typography variant="h6">装订方式</Typography>
-
-            <SelectField
-              label="页面大小"
-              value={pageSize}
-              options={PAGE_SIZE_OPTIONS}
-              onChange={(v) => {
-                setPageSize(v);
-                if (v !== "custom") {
-                  const [w, h] = PAGE_SIZES[v];
-                  applySize(w, h);
-                }
-              }}
-            />
-            {pageSize === "custom" && (
-              <>
-                <Field label="宽度（mm）" value={size.width} min={10} step={0.5} onChange={(v) => applySize(Number(v), size.height)} />
-                <Field label="高度（mm）" value={size.height} min={10} step={0.5} onChange={(v) => applySize(size.width, Number(v))} />
-              </>
-            )}
-
-            <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
-              <Button size="small" startIcon={<Upload />} disabled={running} onClick={importICS}>
-                导入 ICS 日历
-              </Button>
-              {Object.keys(holidays).length > 0 && (
-                <IconButton size="small" onClick={() => setHolidays({})} aria-label="清除节日">
-                  <Delete />
-                </IconButton>
-              )}
-            </Stack>
-            {Object.keys(holidays).length > 0 && (
-              <Typography variant="caption" color="text.secondary">
-                已导入 {Object.keys(holidays).length} 个节日日期
-              </Typography>
-            )}
-
-            <FontPicker
-              value={String(sections[0]?.document.binding_text_font ?? String.raw`\sffamily`)}
-              options={fontOptions}
-              onChange={(v) =>
-                setSections((items) =>
-                  items.map((s) => ({ ...s, document: { ...s.document, binding_text_font: v } })),
-                )
-              }
-            />
-
-            <Divider />
-
-            {([
-              { value: "booklet", title: "骑马钉", hint: "整本按 4 页补齐并拼版" },
-              { value: "thread", title: "锁线分册", hint: "按每帖纸张数分组拼版" },
-              { value: null, title: "不拼版", hint: "保持页面顺序输出" },
-            ] as const).map((option) => (
-              <Box
-                key={option.title}
-                onClick={() => setBinding(option.value)}
-                sx={{
-                  border: "1px solid",
-                  borderColor: binding === option.value ? "primary.main" : "divider",
-                  borderRadius: 1.5,
-                  p: 1.5,
-                  cursor: "pointer",
-                  bgcolor: binding === option.value ? "rgba(63, 81, 181, 0.08)" : "transparent",
-                  "&:hover": { bgcolor: "action.hover" },
-                }}
-              >
-                <Typography variant="body2" sx={{ fontWeight: "medium" }}>{option.title}</Typography>
-                <Typography variant="caption" color="text.secondary">{option.hint}</Typography>
-              </Box>
-            ))}
-
-            {binding === "thread" && (
-              <Field label="每帖纸张数" value={sheetsPerGroup} min={1} onChange={(v) => setSheetsPerGroup(Number(v))} />
-            )}
-
-            <Box sx={{ borderTop: "1px solid", borderColor: "divider", pt: 2 }}>
-              <Typography variant="body2" sx={{ display: "flex", justifyContent: "space-between" }}>
-                <span>Sections</span>
-                <span>{sections.length}</span>
-              </Typography>
-              <Typography variant="body2" sx={{ display: "flex", justifyContent: "space-between", mt: 1 }}>
-                <span>成品页数</span>
-                <span>{totalPages}</span>
-              </Typography>
-            </Box>
-
-            <Stack direction="row" spacing={1}>
-              <Button size="small" startIcon={<Download />} sx={{ flex: 1 }} onClick={exportPreset}>导出预设</Button>
-              <Button size="small" startIcon={<Upload />} sx={{ flex: 1 }} onClick={importPreset}>导入预设</Button>
-            </Stack>
-
+    <Box sx={{ minHeight: "100vh", bgcolor: "background.default" }}>
+      <AppBar position="sticky" elevation={0} sx={{ bgcolor: "background.paper", borderBottom: "1px solid", borderColor: "divider" }}>
+        <Toolbar sx={{ maxWidth: 1240, width: "100%", mx: "auto", px: { xs: 2, md: 3 }, minHeight: { xs: 56, sm: 64 } }}>
+          <Stack direction="row" spacing={2} sx={{ alignItems: "baseline" }}>
+            <Typography variant="h6" sx={{ fontWeight: 700, letterSpacing: "0.04em" }}>
+              base6 <Box component="span" sx={{ color: "secondary.main" }}>techo</Box>
+            </Typography>
+            <Typography variant="caption" sx={{ color: "text.secondary", letterSpacing: "0.16em", display: { xs: "none", sm: "block" } }}>
+              手帐排版工作台
+            </Typography>
+          </Stack>
+          <Box sx={{ flex: 1 }} />
+          <Stack direction="row" spacing={1}>
             <Button
               variant="outlined"
-              size="large"
+              startIcon={preview.busy ? <Refresh sx={{ animation: "spin 1s linear infinite" }} /> : <Visibility />}
               disabled={busy || !sections.length}
               onClick={() => previewDocument(true)}
             >
-              {preview.busy ? <Refresh /> : preview.open ? <Refresh /> : <Visibility />}
-              {preview.busy ? "渲染中…" : preview.open ? "重新渲染" : "整体预览"}
+              {preview.busy ? "渲染中…" : preview.open ? "刷新预览" : "预览"}
             </Button>
+            <Button
+              variant="contained"
+              color="secondary"
+              startIcon={running ? <Refresh sx={{ animation: "spin 1s linear infinite" }} /> : <FileDownload />}
+              disabled={busy || !sections.length}
+              onClick={generate}
+            >
+              {running ? "生成中…" : "生成 PDF"}
+            </Button>
+          </Stack>
+        </Toolbar>
+      </AppBar>
+
+      <Box sx={{ maxWidth: 1240, width: "100%", mx: "auto", px: { xs: 2, md: 3 }, py: 3 }}>
+        <Box sx={{ display: "grid", gap: 3, alignItems: "start", gridTemplateColumns: { lg: "1fr 340px" } }}>
+          {/* 主区：预览 + 版面列表 */}
+          <Box sx={{ display: "grid", gap: 2.5, minWidth: 0 }}>
             {preview.open && (
-              <Button variant="text" size="large" disabled={preview.busy} onClick={() => setPreview((p) => ({ ...p, open: false }))}>
-                <Close /> 关闭预览
-              </Button>
-            )}
-
-            <Button size="large" disabled={busy || !sections.length} onClick={generate}>
-              <FileDownload />
-              {running ? "生成中…" : "选择位置并生成"}
-            </Button>
-
-            {status && (
-              <Typography role="status" variant="body2" color="text.secondary" sx={{ bgcolor: "action.hover", borderRadius: 1, p: 1.5, wordBreak: "break-all" }}>
-                {status}
-              </Typography>
-            )}
-            {running && latexLog && (
-              <Box component="pre" sx={{ maxHeight: 256, overflow: "auto", whiteSpace: "pre-wrap", bgcolor: "action.hover", borderRadius: 1, p: 1.5, fontSize: 12 }}>
-                {latexLog}
+              <Box sx={{ overflow: "hidden", borderRadius: 2, border: "1px solid", borderColor: "divider", bgcolor: "action.hover" }}>
+                {preview.busy ? (
+                  <Box sx={{ height: "72vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 1.5 }}>
+                    <Refresh sx={{ animation: "spin 1s linear infinite" }} />
+                    <Box component="pre" sx={{ maxHeight: 256, width: "100%", overflow: "auto", whiteSpace: "pre-wrap", px: 3, fontSize: 12 }}>
+                      {latexLog || "正在启动 LaTeX…"}
+                    </Box>
+                    <Typography variant="body2" color="text.secondary">正在渲染整体预览…</Typography>
+                  </Box>
+                ) : preview.error ? (
+                  <Typography color="error" sx={{ p: 3, fontSize: 12 }}>预览失败：{preview.error}</Typography>
+                ) : (
+                  <iframe title="整体预览" src={`data:application/pdf;base64,${preview.data}`} style={{ display: "block", width: "100%", height: "72vh", border: 0 }} />
+                )}
               </Box>
             )}
-          </CardContent>
-        </Card>
+
+            <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <Stack spacing={0.25}>
+                <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>版面</Typography>
+                <Typography variant="caption" color="text.secondary">
+                  {sections.length} 个 Section · 成品 {totalPages} 页
+                </Typography>
+              </Stack>
+              <Button
+                startIcon={<Add />}
+                onClick={() => startTransition(() => setSections((items) => [...items, newSection(size.width, size.height)]))}
+              >
+                添加 Section
+              </Button>
+            </Box>
+
+            <DndContext sensors={sensors} onDragEnd={dragEnd}>
+              <SortableContext items={sections.map(({ id }) => id)} strategy={verticalListSortingStrategy}>
+                <Box sx={{ display: "grid", gap: 2 }}>
+                  {sections.map((section, index) => (
+                    <SectionCard key={section.id} section={section} index={index} update={update} remove={removeSection} />
+                  ))}
+                </Box>
+              </SortableContext>
+            </DndContext>
+            {sections.length === 0 && (
+              <Box sx={{ border: "1px dashed", borderColor: "divider", borderRadius: 2, p: 10, textAlign: "center" }}>
+                <Typography color="text.secondary">至少添加一个 Section。</Typography>
+              </Box>
+            )}
+          </Box>
+
+          {/* 侧栏：分组的设置面板 */}
+          <Box sx={{ display: "grid", gap: 2.5, position: { lg: "sticky" }, top: 80 }}>
+            <Panel title="纸张" description="页面的物理尺寸">
+              <SelectField
+                label="页面大小"
+                value={pageSize}
+                options={PAGE_SIZE_OPTIONS}
+                onChange={(v) => {
+                  setPageSize(v);
+                  if (v !== "custom") {
+                    const [w, h] = PAGE_SIZES[v];
+                    applySize(w, h);
+                  }
+                }}
+              />
+              {pageSize === "custom" && (
+                <>
+                  <Field label="宽度（mm）" value={size.width} min={10} step={0.5} onChange={(v) => applySize(Number(v), size.height)} />
+                  <Field label="高度（mm）" value={size.height} min={10} step={0.5} onChange={(v) => applySize(size.width, Number(v))} />
+                </>
+              )}
+            </Panel>
+
+            <Panel title="装订" description="决定页码如何拼版">
+              {([
+                { value: "booklet", title: "骑马钉", hint: "整本按 4 页补齐并拼版" },
+                { value: "thread", title: "锁线分册", hint: "按每帖纸张数分组拼版" },
+                { value: null, title: "不拼版", hint: "保持页面顺序输出" },
+              ] as const).map((option) => (
+                <Box
+                  key={option.title}
+                  onClick={() => setBinding(option.value)}
+                  sx={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    border: "1px solid",
+                    borderColor: binding === option.value ? "secondary.main" : "divider",
+                    borderRadius: 1.5,
+                    p: 1.5,
+                    cursor: "pointer",
+                    bgcolor: binding === option.value ? "rgba(192,90,58,0.08)" : "transparent",
+                    "&:hover": { bgcolor: "action.hover" },
+                  }}
+                >
+                  <Box>
+                    <Typography variant="body2" sx={{ fontWeight: "medium" }}>{option.title}</Typography>
+                    <Typography variant="caption" color="text.secondary">{option.hint}</Typography>
+                  </Box>
+                  {binding === option.value && (
+                    <Box sx={{ width: 8, height: 8, borderRadius: "50%", bgcolor: "secondary.main" }} />
+                  )}
+                </Box>
+              ))}
+              {binding === "thread" && (
+                <Field label="每帖纸张数" value={sheetsPerGroup} min={1} onChange={(v) => setSheetsPerGroup(Number(v))} />
+              )}
+            </Panel>
+
+            <Panel title="边距文字" description="页缘文字与正文字体">
+              <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
+                <Button size="small" startIcon={<Upload />} disabled={running} onClick={importICS}>
+                  导入 ICS 日历
+                </Button>
+                {Object.keys(holidays).length > 0 && (
+                  <IconButton size="small" onClick={() => setHolidays({})} aria-label="清除节日">
+                    <Delete />
+                  </IconButton>
+                )}
+              </Stack>
+              <Typography variant="body2" color="text.secondary" sx={{ fontSize: 12 }}>
+                页缘文字可标注节日；已导入 {Object.keys(holidays).length} 个日期。
+              </Typography>
+              <Divider />
+              <Typography variant="caption" color="text.secondary">正文 / 页缘字体</Typography>
+              <FontPicker
+                value={String(sections[0]?.document.binding_text_font ?? String.raw`\sffamily`)}
+                options={fontOptions}
+                onChange={(v) =>
+                  setSections((items) =>
+                    items.map((s) => ({ ...s, document: { ...s.document, binding_text_font: v } })),
+                  )
+                }
+              />
+            </Panel>
+
+            <Panel title="预设" description="保存或载入整套设置">
+              <Stack direction="row" spacing={1}>
+                <Button size="small" startIcon={<Download />} sx={{ flex: 1 }} onClick={exportPreset}>导出预设</Button>
+                <Button size="small" startIcon={<Upload />} sx={{ flex: 1 }} onClick={importPreset}>导入预设</Button>
+              </Stack>
+            </Panel>
+
+            <Panel title="状态">
+              <Box sx={{ display: "grid", gap: 0.5 }}>
+                <Typography variant="body2" sx={{ display: "flex", justifyContent: "space-between" }}>
+                  <span>Section</span><span>{sections.length}</span>
+                </Typography>
+                <Typography variant="body2" sx={{ display: "flex", justifyContent: "space-between" }}>
+                  <span>成品页数</span><span>{totalPages}</span>
+                </Typography>
+              </Box>
+              {status && (
+                <Typography role="status" variant="body2" color="text.secondary" sx={{ bgcolor: "action.hover", borderRadius: 1, p: 1.5, wordBreak: "break-all" }}>
+                  {status}
+                </Typography>
+              )}
+              {running && latexLog && (
+                <Box component="pre" sx={{ maxHeight: 256, overflow: "auto", whiteSpace: "pre-wrap", bgcolor: "action.hover", borderRadius: 1, p: 1.5, fontSize: 12 }}>
+                  {latexLog}
+                </Box>
+              )}
+            </Panel>
+          </Box>
+        </Box>
       </Box>
     </Box>
   );
