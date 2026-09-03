@@ -148,7 +148,7 @@ pub(crate) fn draw_hakubunkan_kaichu_nikki(
                 let content = match p.lunar_style {
                     LunarStyle::Numeric => format!(
                         "旧 {}{}.{:02}",
-                        if month.is_leap_month() { "闰" } else { "" },
+                        if month.is_leap_month() { "閏" } else { "" },
                         month.to_u8(),
                         u8::from(lunar.to_lunar_day())
                     ),
@@ -158,16 +158,19 @@ pub(crate) fn draw_hakubunkan_kaichu_nikki(
                 lunar_text.size = p.date_size * 0.7;
                 texts.push(lunar_text);
             }
-            for (label, fraction) in [("天气", 0.06), ("气温", 0.52)] {
+            // 天气竖直排在栏上部靠上、气温在栏中心；坐标由格子几何推导，
+            // 竖排两行以 center 锚点定位，随字号/页型自适应，不越出天气栏。
+            for (label, frac) in [("天気", 0.30), ("気温", 0.5)] {
+                let ly = y + header_h + (half_h - header_h) * frac;
                 texts.push(Text {
                     x: r.x + r.width - weather_w / 2.0,
-                    y: y + header_h + (half_h - header_h) * fraction,
+                    y: ly,
                     content: label
                         .chars()
                         .map(|c| c.to_string())
                         .collect::<Vec<_>>()
                         .join("\n"),
-                    size: p.date_size * 0.65,
+                    size: p.date_size,
                     color: p.line_color.clone(),
                     rotation: 0,
                     font: font.into(),

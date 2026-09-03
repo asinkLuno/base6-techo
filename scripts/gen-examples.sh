@@ -39,11 +39,22 @@ pattern_params() {
     seyes)  echo '"kind":"seyes","pages":2,"spacing":8,"margin_line":7,"main_color":"#9db0cf","main_width":0.2,"fine_color":"#c5d0e4","fine_width":0.1,"vline_color":"#c5d0e4","vline_width":0.1,"margin_color":"#d96a6a","margin_width":0.4' ;;
     us-ruled) echo '"kind":"us-ruled","pages":2,"spacing":8.7,"rule_color":"#8fb0d8","rule_width":0.2,"margin_x":25,"margin_color":"#d96a6a","margin_width":0.4' ;;
     vertical) echo '"kind":"vertical","pages":2,"spacing":10,"color":"#000000","frame_outer_width":0.5,"frame_inner_width":0.18,"frame_gap":1.2' ;;
+    midori) echo '"kind":"midori","pages":2,"line_color":"#a9d1ae"' ;;
+    hakubunkan-toyo-nikki) echo '"kind":"hakubunkan-toyo-nikki","start_date":"2026-09-01","end_date":"2026-09-02","date_format":"%-m月%-d日","line_color":"#a9d1ae","line_width":0.8' ;;
+    hakubunkan-kaichu-nikki) echo '"kind":"hakubunkan-kaichu-nikki","start_date":"2026-09-01","end_date":"2026-09-04","date_format":"%-m 月  %-d 日","date_locale":"zh-CN","weekday_headers":"月,火,水,木,金,土,日","lunar_style":"numeric","line_color":"#7a7a7a","line_width":0.4,"date_size":10' ;;
     *) echo "" >&2; return 1 ;;
   esac
 }
 
-# 根据纸张尺寸计算和谐的页边距（mm）——书卷式比例：
+# 装订水印颜色：当用日记 / Midori 用主线玉色，其余版式保持默认灰（后端缺省）。
+watermark_color_for() {
+  local kind="$1"
+  case "$kind" in
+    hakubunkan-toyo-nikki|midori) echo "#a9d1ae" ;;
+    *) echo "" ;;
+  esac
+}
+
 # 根据纸张尺寸计算和谐的页边距（mm）——base6 设计准则：
 #   Inner(装订) < Outer(非装订)，Head(页头) < Foot(页脚)，
 #   视觉重心向书脊 + 页面上方移动（经典书式），但减少留白以加大手写区。
@@ -68,6 +79,11 @@ margins() {
 build_json() {
   local kind="$1" w="$2" h="$3" size="$4"
   read -r binding non_binding header footer <<< "$(margins "$w" "$h")"
+  # 装订水印颜色：为空则不输出字段（走后端默认灰）。
+  local wc
+  wc=$(watermark_color_for "$kind")
+  local wc_json=""
+  [[ -n "$wc" ]] && wc_json=",\"binding_text_color\":\"$wc\""
   cat <<EOF
 {
   "output": "$OUT_DIR/$kind-$size.pdf",
@@ -75,11 +91,11 @@ build_json() {
   "sections": [
     { "title": "空白页",
       "page": {"width":$w,"height":$h,"header":$header,"footer":$footer,"binding":$binding,"non_binding":$non_binding},
-      "document": {"binding_text":"$BINDING_TEXT","binding_text_font":"$FONT"},
+      "document": {"binding_text":"$BINDING_TEXT"$wc_json,"binding_text_font":"$FONT"},
       "pattern": {"kind":"blank","pages":1} },
     { "title": "$kind",
       "page": {"width":$w,"height":$h,"header":$header,"footer":$footer,"binding":$binding,"non_binding":$non_binding},
-      "document": {"binding_text":"$BINDING_TEXT","binding_text_font":"$FONT"},
+      "document": {"binding_text":"$BINDING_TEXT"$wc_json,"binding_text_font":"$FONT"},
       "pattern": {$(pattern_params "$kind")} }
   ]
 }

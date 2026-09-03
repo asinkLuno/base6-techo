@@ -4,7 +4,8 @@ use serde::Deserialize;
 
 use super::colors::PALE_JADE;
 use super::{
-    Geometry, Line, LineStyle, Rect, Text, format_date, validate_color, validate_date_format,
+    Geometry, Line, LineStyle, MM_PER_PT, Rect, Text, format_date, validate_color,
+    validate_date_format,
 };
 
 #[derive(Clone, Deserialize)]
@@ -69,7 +70,14 @@ pub(crate) fn draw_hakubunkan_toyo_nikki(
         height: content.height - title_h,
         ..content
     };
-    let split_y = r.y + r.height * 0.24;
+    // 上栏安全高度：须能容纳顶部受信/発信行 + 侧边天气/气温竖排标签（7pt，两行），
+    // 下栏高度随上栏而定：上栏取 max(24%，安全高度)，其余归下栏，保证标签不越界。
+    let label_size = 7.0_f64;
+    let line_h = label_size * 1.2 * MM_PER_PT; // 单行高（mm）
+    let stack_h = line_h * 2.0; // 竖排两行标签高（mm）
+    let safe_top_h = line_h + stack_h * 3.0 + 4.0; // 顶行 + 天气/摘记/气温三竖排 + 间隙留白
+    let top_h = (r.height * 0.24).max(safe_top_h);
+    let split_y = r.y + top_h;
     let solid = |x1, y1, x2, y2| Line {
         x1,
         y1,
@@ -85,7 +93,7 @@ pub(crate) fn draw_hakubunkan_toyo_nikki(
         x2,
         y2,
         color: Some(p.line_color.clone()),
-        width: Some(p.line_width / 2.0),
+        width: Some(p.line_width),
         style: LineStyle::Dotted,
     };
     let mut lines = vec![
@@ -118,7 +126,7 @@ pub(crate) fn draw_hakubunkan_toyo_nikki(
         font: font.into(),
         anchor,
     };
-    let top_h = split_y - r.y;
+
     let texts = vec![
         Text {
             x: content.x + content.width / 2.0,
@@ -135,10 +143,10 @@ pub(crate) fn draw_hakubunkan_toyo_nikki(
             anchor: "center",
         },
         label(r.x + r.width * 0.105, r.y + top_h * 0.07, "受信", "center"),
-        label(r.x + r.width * 0.315, r.y + top_h * 0.07, "发信", "center"),
-        label(r.x + r.width * 0.875, r.y + top_h * 0.5, "摘\n记", "center"),
-        label(r.x + r.width * 0.955, r.y + 1.5, "天\n气", "north"),
-        label(r.x + r.width * 0.955, side_y + 1.5, "气\n温", "north"),
+        label(r.x + r.width * 0.315, r.y + top_h * 0.07, "発信", "center"),
+        label(r.x + r.width * 0.875, r.y + top_h * 0.5, "摘\n記", "center"),
+        label(r.x + r.width * 0.955, r.y + 1.5, "天\n気", "north"),
+        label(r.x + r.width * 0.955, side_y + 1.5, "気\n温", "north"),
     ];
     (lines, texts)
 }
@@ -171,7 +179,7 @@ mod tests {
                 .skip(1)
                 .map(|text| text.content.as_str())
                 .collect::<Vec<_>>(),
-            ["受信", "发信", "摘\n记", "天\n气", "气\n温"]
+            ["受信", "発信", "摘\n記", "天\n気", "気\n温"]
         );
         assert!(texts[4..].iter().all(|text| text.anchor == "north"));
     }
