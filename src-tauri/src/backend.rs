@@ -320,7 +320,8 @@ impl Pattern {
             Self::Eight(p) => p.weeks().len() * 2,
             Self::HakubunkanKaichuNikki(p) => p.page_count(),
             Self::HakubunkanToyoNikki(p) => p.page_count(),
-            Self::Graph(_) | Self::Midori(_) | Self::Tracker(_) => 1,
+            Self::Graph(_) | Self::Tracker(_) => 1,
+            Self::Midori(p) => p.pages,
             Self::Seyes(p) => p.pages,
             Self::Month(p) => {
                 if p.two_page {
@@ -485,6 +486,7 @@ struct Dot {
     radius: f64,
     color: Option<String>,
     square: bool,
+    fill: bool,
 }
 #[derive(Clone)]
 struct Text {
@@ -751,8 +753,8 @@ fn render_page(
             (l, d, vec![], t)
         }
         Pattern::Month(p) => {
-            let (l, pa, t) = draw_month(geo, p, index, &doc.binding_text_font, holidays);
-            (l, vec![], pa, t)
+            let (l, d, pa, t) = draw_month(geo, p, index, &doc.binding_text_font, holidays);
+            (l, d, pa, t)
         }
         Pattern::MonthTracker(p) => {
             let (l, pa, t) = draw_month_tracker(geo, p, index, &doc.binding_text_font);
@@ -1075,6 +1077,54 @@ fn font_family_definition(command: &str, font: &str) -> String {
     font_command(font).replacen(r"\fontspec", &format!(r"\newfontfamily\{command}"), 1)
 }
 
+/// 判断一组点是否构成均匀正方网格（等间距、圆且实心、完整矩形）。
+/// 命中则用单个 TikZ pattern 填充代替逐点 \fill，大幅降低 PDF 点操作数。
+/// 返回 (间距 mm, 半径 mm)。
+fn uniform_dot_grid(dots: &[&Dot]) -> Option<(f64, f64)> {
+    if dots.len() < 4 {
+        return None;
+    }
+    let dot = &dots[0];
+    if dot.square || !dot.fill {
+        return None;
+    }
+    let radius = dot.radius;
+    let same_shape = dots
+        .iter()
+        .all(|d| !d.square && d.fill && (d.radius - radius).abs() < 1e-9);
+    if !same_shape {
+        return None;
+    }
+    // 去重 x/y，检验各自为等差数列、且步长相等（正方网格）。
+    let mut xs: Vec<f64> = dots.iter().map(|d| d.x).collect();
+    let mut ys: Vec<f64> = dots.iter().map(|d| d.y).collect();
+    xs.sort_by(|a, b| a.partial_cmp(b).unwrap());
+    ys.sort_by(|a, b| a.partial_cmp(b).unwrap());
+    xs.dedup_by(|a, b| (*a - *b).abs() < 1e-9);
+    ys.dedup_by(|a, b| (*a - *b).abs() < 1e-9);
+    if xs.is_empty() || ys.is_empty() {
+        return None;
+    }
+    let dx = (xs[1] - xs[0]).abs();
+    let dy = (ys[1] - ys[0]).abs();
+    if dx == 0.0 || (dx - dy).abs() / dx > 1e-6 {
+        return None;
+    }
+    for w in xs.windows(2) {
+        if ((w[1] - w[0]).abs() - dx).abs() > 1e-6 * dx {
+            return None;
+        }
+    }
+    for w in ys.windows(2) {
+        if ((w[1] - w[0]).abs() - dy).abs() > 1e-6 * dy {
+            return None;
+        }
+    }
+    if dots.len() != xs.len() * ys.len() {
+        return None; // 缺格（如中心点异色）→ 落回逐点。
+    }
+    Some((dx, radius))
+}
 fn render_latex(pages: &[OutputPage]) -> String {
     let mut colors = BTreeMap::from([("pnumcolor".to_string(), GRAY.to_string())]);
     let mut bodies = Vec::new();
@@ -1089,6 +1139,8 @@ fn render_latex(pages: &[OutputPage]) -> String {
         .enumerate()
         .map(|(i, font)| (font, format!("basefont{}", "x".repeat(i + 1))))
         .collect::<BTreeMap<_, _>>();
+    // 均匀点阵 pattern 注册表：key = 间距_半径，value = pattern 名。
+    let mut dot_patterns: BTreeMap<String, String> = BTreeMap::new();
     for page in pages {
         let mut parts = vec![format!(
             r"\useasboundingbox (0,0) rectangle ({},{});",
@@ -1134,26 +1186,67 @@ fn render_latex(pages: &[OutputPage]) -> String {
                     .or_default()
                     .push(format!("  \\{cmd} {points}{tail};"));
             }
+            // 点：先按颜色分组；均匀实心圆点阵用单个 pattern 填充（比逐点 \fill 快约 6 倍），否则逐点。
+            let mut by_color: BTreeMap<String, Vec<&Dot>> = BTreeMap::new();
             for dot in &placement.draw.dots {
                 let raw = dot.color.as_deref().unwrap_or(BLACK);
                 let color = color_name(raw);
                 colors.insert(color.clone(), raw.into());
-                dot_groups.entry(color).or_default().push(if dot.square {
-                    format!(
-                        r"  \fill ({},{}) rectangle ({},{});",
-                        placement.dx + dot.x - dot.radius,
-                        dot.y - dot.radius,
-                        placement.dx + dot.x + dot.radius,
-                        dot.y + dot.radius
-                    )
+                by_color.entry(color).or_default().push(dot);
+            }
+            for (color, dots) in by_color {
+                if let Some((spacing, radius)) = uniform_dot_grid(&dots) {
+                    let key = format!("{spacing:.4}_{radius:.4}");
+                    let next = dot_patterns.len();
+                    let name = dot_patterns
+                        .entry(key)
+                        .or_insert_with(|| format!("dotgrid{next}"))
+                        .clone();
+                    let min_x = dots
+                        .iter()
+                        .map(|p| placement.dx + p.x)
+                        .fold(f64::INFINITY, f64::min);
+                    let max_x = dots
+                        .iter()
+                        .map(|p| placement.dx + p.x)
+                        .fold(f64::NEG_INFINITY, f64::max);
+                    let min_y = dots.iter().map(|p| p.y).fold(f64::INFINITY, f64::min);
+                    let max_y = dots.iter().map(|p| p.y).fold(f64::NEG_INFINITY, f64::max);
+                    let half = spacing / 2.0;
+                    dot_groups.entry(color).or_default().push(format!(
+                        "  \\fill[pattern={name}] ({},{}) rectangle ({},{});",
+                        min_x - half,
+                        min_y - half,
+                        max_x + half,
+                        max_y + half
+                    ));
                 } else {
-                    format!(
-                        r"  \fill ({},{}) circle ({});",
-                        placement.dx + dot.x,
-                        dot.y,
-                        dot.radius
-                    )
-                });
+                    for dot in dots {
+                        if dot.square {
+                            dot_groups.entry(color.clone()).or_default().push(format!(
+                                r"  \fill ({},{}) rectangle ({},{});",
+                                placement.dx + dot.x - dot.radius,
+                                dot.y - dot.radius,
+                                placement.dx + dot.x + dot.radius,
+                                dot.y + dot.radius
+                            ));
+                        } else if !dot.fill {
+                            dot_groups.entry(color.clone()).or_default().push(format!(
+                                r"  \draw ({},{}) circle ({});",
+                                placement.dx + dot.x,
+                                dot.y,
+                                dot.radius
+                            ));
+                        } else {
+                            dot_groups.entry(color.clone()).or_default().push(format!(
+                                r"  \fill ({},{}) circle ({});",
+                                placement.dx + dot.x,
+                                dot.y,
+                                dot.radius
+                            ));
+                        }
+                    }
+                }
             }
         }
         for ((color, width, style), commands) in line_groups {
@@ -1213,8 +1306,29 @@ fn render_latex(pages: &[OutputPage]) -> String {
         })
         .collect::<Vec<_>>()
         .join("\n");
+    let patterns_block = if dot_patterns.is_empty() {
+        String::new()
+    } else {
+        let mut s = String::from("\\usetikzlibrary{patterns}\n");
+        for (key, name) in &dot_patterns {
+            let (spacing, radius) = key
+                .split_once('_')
+                .map(|(a, b)| {
+                    (
+                        a.parse::<f64>().unwrap_or(0.0),
+                        b.parse::<f64>().unwrap_or(0.0),
+                    )
+                })
+                .unwrap_or((0.0, 0.0));
+            let half = spacing / 2.0;
+            s.push_str(&format!(
+                "\\pgfdeclarepatternformonly{{{name}}}{{%\n  \\pgfpointorigin}}{{\\pgfpoint{{{spacing}mm}}{{{spacing}mm}}}}{{\\pgfpoint{{{spacing}mm}}{{{spacing}mm}}}}{{%\n  \\pgfpathcircle{{\\pgfpoint{{{half}mm}}{{{half}mm}}}}{{{radius}mm}}%\n  \\pgfusepath{{fill}}%\n}}\n"
+            ));
+        }
+        s
+    };
     format!(
-        "\\documentclass[multi=tikzpicture]{{standalone}}\n{}\n\\usepackage{{tikz}}\n\\usepackage{{hyperref}}\n\\usepackage{{bookmark}}\n{}\n\\begin{{document}}\n{}\n\\end{{document}}\n",
+        "\\documentclass[multi=tikzpicture]{{standalone}}\n{}\n\\usepackage{{tikz}}\n{}\n\\usepackage{{hyperref}}\n\\usepackage{{bookmark}}\n{}\n\\begin{{document}}\n{}\n\\end{{document}}\n",
         if fonts.is_empty() {
             String::new()
         } else {
@@ -1227,6 +1341,7 @@ fn render_latex(pages: &[OutputPage]) -> String {
                     .join("\n")
             )
         },
+        patterns_block,
         definitions,
         {
             let bookmarks = pages

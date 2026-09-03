@@ -6,7 +6,7 @@ use chrono::{Datelike, Duration, NaiveDate, TimeZone, Utc, Weekday};
 use serde::Deserialize;
 
 use super::{
-    Geometry, HashMap, Line, LineStyle, Poly, Rect, Text, chrono_format, lunar_date,
+    Dot, Geometry, HashMap, Line, LineStyle, Poly, Rect, Text, chrono_format, lunar_date,
     validate_color, validate_title_format, validate_weekday_headers,
 };
 
@@ -97,8 +97,9 @@ pub(crate) fn draw_month(
     index: usize,
     font: &str,
     holidays: &Option<HashMap<String, String>>,
-) -> (Vec<Line>, Vec<Poly>, Vec<Text>) {
+) -> (Vec<Line>, Vec<Dot>, Vec<Poly>, Vec<Text>) {
     let mut lines = Vec::new();
+    let mut dots = Vec::new();
     let mut paths = Vec::new();
     let mut texts = Vec::new();
     // 未勾选显示节假日时视为无节日表：不画节日名，节日与周末都不染红。
@@ -115,7 +116,7 @@ pub(crate) fn draw_month(
         month_ym(p.year, p.month, index)
     };
     let Some(first) = NaiveDate::from_ymd_opt(year, month, 1) else {
-        return (lines, paths, texts);
+        return (lines, dots, paths, texts);
     };
     let (ny, nm) = if month == 12 {
         (year + 1, 1)
@@ -123,7 +124,7 @@ pub(crate) fn draw_month(
         (year, month + 1)
     };
     let Some(next) = NaiveDate::from_ymd_opt(ny, nm, 1) else {
-        return (lines, paths, texts);
+        return (lines, dots, paths, texts);
     };
     let days = (next - first).num_days() as usize;
     let first_weekday = first.weekday().num_days_from_monday() as usize; // 0 = 周一
@@ -281,12 +282,14 @@ pub(crate) fn draw_month(
                 })
                 .collect::<Vec<_>>()
         };
-        let tau = std::f64::consts::TAU;
-        paths.push(Poly {
-            points: arc(0.0, tau),
-            color: p.phase_color.clone(),
+        // 圆盘描边：用原生 `circle`（单个坐标对），比采样 24 点路径省 TikZ 坐标解析。
+        dots.push(Dot {
+            x: cx,
+            y: cy,
+            radius,
+            color: Some(p.phase_color.clone()),
+            square: false,
             fill: false,
-            arrow: false,
         });
         // 照面区域：亮侧圆弧 + 明暗界线（半短轴 = (1-2×照面)×半径，月牙凸向亮面、凸月凸向暗面）。
         let half_pi = std::f64::consts::FRAC_PI_2;
@@ -342,6 +345,11 @@ pub(crate) fn draw_month(
                 *point = (left + point.1, base - point.0);
             }
         }
+        for dot in &mut dots {
+            let (x, y) = (left + dot.y, base - dot.x);
+            dot.x = x;
+            dot.y = y;
+        }
         for text in &mut texts {
             let (x, y) = (left + text.y, base - text.x);
             text.x = x;
@@ -349,7 +357,7 @@ pub(crate) fn draw_month(
             text.rotation = 90;
         }
     }
-    (lines, paths, texts)
+    (lines, dots, paths, texts)
 }
 
 const A: f64 = 5.5; // mm，打卡单元格边长
@@ -818,10 +826,12 @@ mod tests {
             month: 8,
             ..Default::default()
         };
-        let (lines, paths, texts) = draw_month(geometry_for(&page, 1), &p, 0, r"\sffamily", &None);
-        // 2026-08：周六起，31 天，6 行 → 竖线 8×6 + 横线 7×7，月相圆盘 + 照面多边形 31×2。
+        let (lines, dots, paths, texts) =
+            draw_month(geometry_for(&page, 1), &p, 0, r"\sffamily", &None);
+        // 2026-08：周六起，31 天，6 行 → 竖线 8×6 + 横线 7×7，31 个圆盘 Dot + 31 个照面多边形。
         assert_eq!(lines.len(), 8 * 6 + 7 * 7);
-        assert_eq!(paths.len(), 62);
+        assert_eq!(dots.len(), 31);
+        assert_eq!(paths.len(), 31);
         // 7 个星期表头 + 31 个日期 + 标题。
         assert_eq!(texts.len(), 39);
         assert_eq!(texts[7].content, "1");
@@ -845,7 +855,7 @@ mod tests {
             month: 12,
             ..Default::default()
         };
-        let (_, _, texts) = draw_month(geometry_for(&page, 2), &p, 1, r"\sffamily", &None);
+        let (_, _, _, texts) = draw_month(geometry_for(&page, 2), &p, 1, r"\sffamily", &None);
         // 2027-01 共 31 天。
         assert!(texts.iter().any(|t| t.content == "31"));
         assert_eq!(texts[7].content, "1");
@@ -860,13 +870,13 @@ mod tests {
             ..Default::default()
         };
         // 2026-08-01 是周六：无 ICS 时不染色。
-        let (_, _, texts) = draw_month(geometry_for(&page, 1), &p, 0, r"\sffamily", &None);
+        let (_, _, _, texts) = draw_month(geometry_for(&page, 1), &p, 0, r"\sffamily", &None);
         let sat = texts.iter().find(|t| t.content == "1").unwrap();
         assert_eq!(sat.color, GRAY);
         // 有 ICS 节日表时周末染红（节日名放在别的日期，专测周末分支）。
         let mut holidays = HashMap::new();
         holidays.insert("2026-08-04".into(), "收获节".into());
-        let (_, _, texts) =
+        let (_, _, _, texts) =
             draw_month(geometry_for(&page, 1), &p, 0, r"\sffamily", &Some(holidays));
         let sat = texts.iter().find(|t| t.content == "1").unwrap();
         assert_eq!(sat.color, HOLIDAY_RED);
@@ -884,7 +894,7 @@ mod tests {
             ..Default::default()
         };
         // 关闭显示节假日：不画节日名，周六也不染红。
-        let (_, _, texts) = draw_month(
+        let (_, _, _, texts) = draw_month(
             geometry_for(&page, 1),
             &p,
             0,
@@ -899,7 +909,7 @@ mod tests {
             show_holidays: true,
             ..p
         };
-        let (_, _, texts) =
+        let (_, _, _, texts) =
             draw_month(geometry_for(&page, 1), &p, 0, r"\sffamily", &Some(holidays));
         assert!(texts.iter().any(|t| t.content == "建军节"));
     }
@@ -962,7 +972,7 @@ mod tests {
             ..Default::default()
         };
         // 默认英文表头（与旧版一致），自定义字符串按逗号拆分（允许空格）。
-        let (_, _, texts) = draw_month(geometry_for(&page, 1), &p, 0, r"\sffamily", &None);
+        let (_, _, _, texts) = draw_month(geometry_for(&page, 1), &p, 0, r"\sffamily", &None);
         assert_eq!(texts[0].content, "Mo");
         for (headers, first) in [
             ("一,二,三,四,五,六,日", "一"),
@@ -972,7 +982,7 @@ mod tests {
                 weekday_headers: headers.into(),
                 ..p.clone()
             };
-            let (_, _, texts) = draw_month(geometry_for(&page, 1), &p, 0, r"\sffamily", &None);
+            let (_, _, _, texts) = draw_month(geometry_for(&page, 1), &p, 0, r"\sffamily", &None);
             assert_eq!(texts[0].content, first);
         }
     }
@@ -988,14 +998,14 @@ mod tests {
             ..Default::default()
         };
         assert!(p.validate().is_ok());
-        let (_, _, texts) = draw_month(geometry_for(&page, 1), &p, 0, r"\sffamily", &None);
+        let (_, _, _, texts) = draw_month(geometry_for(&page, 1), &p, 0, r"\sffamily", &None);
         assert!(texts.iter().any(|t| t.content == "2026年8月"));
         // 自定义格式串。
         let p = MonthPattern {
             title_format: "%m/%Y".into(),
             ..p.clone()
         };
-        let (_, _, texts) = draw_month(geometry_for(&page, 1), &p, 0, r"\sffamily", &None);
+        let (_, _, _, texts) = draw_month(geometry_for(&page, 1), &p, 0, r"\sffamily", &None);
         assert!(texts.iter().any(|t| t.content == "08/2026"));
         // 非法格式串报错。
         assert!(
@@ -1027,9 +1037,11 @@ mod tests {
         };
         // 2026-08：周六起，31 天，6 行；页 0 周一~三 3 列：竖线 4×6 + 横线 7×3，13 天落格。
         let first_r = geometry_for(&page, 1).content;
-        let (lines, paths, texts) = draw_month(geometry_for(&page, 1), &p, 0, r"\sffamily", &None);
+        let (lines, dots, paths, texts) =
+            draw_month(geometry_for(&page, 1), &p, 0, r"\sffamily", &None);
         assert_eq!(lines.len(), 4 * 6 + 7 * 3);
-        assert_eq!(paths.len(), 26);
+        assert_eq!(dots.len(), 13);
+        assert_eq!(paths.len(), 13);
         assert_eq!(texts.len(), 17);
         assert_eq!(texts[0].content, "Mo");
         assert_eq!(texts[3].content, "3");
@@ -1040,7 +1052,8 @@ mod tests {
         let first_cell_w = texts[1].x - texts[0].x;
 
         // 页 1 周四~日 4 列：竖线 5×6 + 横线 7×4，18 天落格（含 8/1 周六与 8/2 周日）。
-        let (_, paths, texts) = draw_month(geometry_for(&page, 2), &p, 1, r"\sffamily", &None);
+        let (_, dots, paths, texts) =
+            draw_month(geometry_for(&page, 2), &p, 1, r"\sffamily", &None);
         // 双页竖放：文字不旋转，落在内容区内。
         let r = geometry_for(&page, 2).content;
         assert!(texts.iter().all(|t| t.rotation == 0));
@@ -1049,7 +1062,8 @@ mod tests {
         assert_eq!(texts[4].content, "1");
         assert!(texts.iter().any(|t| t.content == "2")); // 周日也显示
         assert_eq!(texts.len(), 22); // 4 表头 + 18 日期
-        assert_eq!(paths.len(), 36);
+        assert_eq!(dots.len(), 18);
+        assert_eq!(paths.len(), 18);
         assert!((first_cell_w - (texts[1].x - texts[0].x)).abs() < 0.01);
     }
 

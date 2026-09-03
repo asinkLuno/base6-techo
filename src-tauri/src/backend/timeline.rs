@@ -224,6 +224,7 @@ pub(crate) fn draw_timeline(
                 radius: p.line_width * MM_PER_PT / 2.0,
                 color: color.clone(),
                 square: true,
+                fill: true,
             });
         }
         texts.push(Text {

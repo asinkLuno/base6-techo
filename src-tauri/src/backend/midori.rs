@@ -6,12 +6,14 @@ use super::{Dot, Geometry, Line, LineStyle, region, validate_color};
 #[derive(Clone, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub(crate) struct MidoriPattern {
+    pub(crate) pages: usize,
     pub(crate) line_color: String,
 }
 
 impl Default for MidoriPattern {
     fn default() -> Self {
         Self {
+            pages: 1,
             line_color: PALE_JADE.into(),
         }
     }
@@ -19,6 +21,9 @@ impl Default for MidoriPattern {
 
 impl MidoriPattern {
     pub(crate) fn validate(&self) -> Result<(), String> {
+        if !(1..=500).contains(&self.pages) {
+            return Err("pages must be in 1..=500".into());
+        }
         validate_color(&self.line_color)
     }
 }
@@ -82,6 +87,7 @@ pub(crate) fn draw_midori(geo: Geometry, p: &MidoriPattern) -> (Vec<Line>, Vec<D
         radius: dot_radius,
         color: Some(p.line_color.clone()),
         square: false,
+        fill: true,
     };
     for col in xd {
         let x = sx + col as f64 * spacing;
@@ -109,4 +115,37 @@ fn dot_indices(cells: usize, frequency: usize) -> std::collections::BTreeSet<usi
         }
     }
     out
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn pages_bounds_1_to_500() {
+        assert!(
+            MidoriPattern {
+                pages: 0,
+                ..Default::default()
+            }
+            .validate()
+            .is_err()
+        );
+        assert!(
+            MidoriPattern {
+                pages: 501,
+                ..Default::default()
+            }
+            .validate()
+            .is_err()
+        );
+        assert!(
+            MidoriPattern {
+                pages: 2,
+                ..Default::default()
+            }
+            .validate()
+            .is_ok()
+        );
+    }
 }

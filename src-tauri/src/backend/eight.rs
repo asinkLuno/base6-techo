@@ -321,6 +321,7 @@ pub(crate) fn draw_eight(
         radius: 0.5,
         color: Some(p.line_color.clone()),
         square: false,
+        fill: true,
     }];
     let Some(&(week_start, _)) = p.weeks().get(index / 2) else {
         return (lines, dots, vec![], vec![]);

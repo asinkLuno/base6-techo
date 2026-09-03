@@ -67,6 +67,7 @@ pub(crate) fn draw_dots(geo: Geometry, p: &DotsPattern) -> (Vec<Line>, Vec<Dot>)
                     p.color.clone()
                 }),
                 square: false,
+                fill: true,
             })
         })
         .collect();
