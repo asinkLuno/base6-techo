@@ -1,5 +1,6 @@
-//! 制图网格 — 与月打卡一样沿长边横放的极细方格纸：横轴 1–31 代表三十一天，
-//! 每天细分 5 小格，因此每 5 条格线（日界线）加粗；31 外再多留一组 5 格；纵轴无文字。
+//! 月追踪制图 — 与月打卡一样沿长边横放的极细方格纸：横轴 1–31 代表三十一天，
+//! 每天细分 5 小格，因此每 5 条格线（日界线）加粗；31 外再多留一组 5 格。
+//! 纵轴可选自定义范围 [y_min, y_max]：均分 N 段刻度（默认 N=10），刻度数字沿纵轴标注。
 //! 数字带可选压页面右缘（默认）或左缘，横放阅读时分别位于网格下方或上方。
 
 use serde::Deserialize;
@@ -27,6 +28,17 @@ pub(crate) struct GraphPattern {
     pub(crate) line_color: String,
     pub(crate) line_width: f64,
     pub(crate) date_size: f64,
+    /// 纵轴范围下界；与 y_max 同时设置时沿纵轴均分 y_steps 段绘制刻度数字。
+    pub(crate) y_min: Option<f64>,
+    pub(crate) y_max: Option<f64>,
+    /// 纵轴刻度段数，必须 ≤ 日界粗线数（rows/SUB）。
+    #[serde(default = "GraphPattern::default_y_steps")]
+    pub(crate) y_steps: usize,
+}
+impl GraphPattern {
+    const fn default_y_steps() -> usize {
+        10
+    }
 }
 impl Default for GraphPattern {
     fn default() -> Self {
@@ -35,6 +47,9 @@ impl Default for GraphPattern {
             line_color: GRAY.into(),
             line_width: 0.2,
             date_size: 8.0,
+            y_min: None,
+            y_max: None,
+            y_steps: Self::default_y_steps(),
         }
     }
 }
@@ -42,6 +57,16 @@ impl GraphPattern {
     pub(crate) fn validate(&self) -> Result<(), String> {
         if self.line_width <= 0.0 || self.date_size <= 0.0 {
             return Err("line_width and date_size must be > 0".into());
+        }
+        match (self.y_min, self.y_max) {
+            (Some(lo), Some(hi)) if hi > lo => {}
+            (Some(_), Some(_)) => {
+                return Err("y_max must be > y_min".into());
+            }
+            _ => {}
+        }
+        if self.y_steps == 0 {
+            return Err("y_steps must be > 0".into());
         }
         validate_color(&self.line_color)
     }
@@ -59,7 +84,14 @@ pub(crate) fn draw_graph(geo: Geometry, p: &GraphPattern, font: &str) -> (Vec<Li
         height: r.width,
     };
     let cols = (DAYS + 1) * SUB; // 31 天外再多一组 5 格，末组不标数
-    let cell = land.width / f64::from(cols as u16); // 正方形小格
+    // 有纵轴范围时在设计 x 方向留出 AXIS_H 给纵轴刻度带，否则网格占满 land.width。
+    let has_y_axis = p.y_min.is_some() && p.y_max.is_some();
+    let avail_w = if has_y_axis {
+        land.width - AXIS_H
+    } else {
+        land.width
+    };
+    let cell = avail_w / f64::from(cols as u16); // 正方形小格
     // 行数取 SUB 的倍数，保证上下边框与日界线同为粗线。
     let rows = ((land.height - AXIS_H) / cell) as usize / SUB * SUB;
     let gh = f64::from(rows as u16) * cell;
@@ -86,7 +118,7 @@ pub(crate) fn draw_graph(geo: Geometry, p: &GraphPattern, font: &str) -> (Vec<Li
     }
     for j in 0..=rows {
         let y = gy + cell * j as f64;
-        lines.push(line(land.x, y, land.x + land.width, y, j % SUB == 0));
+        lines.push(line(land.x, y, land.x + avail_w, y, j % SUB == 0));
     }
     // 标签居中压在第 d 条日界粗线上，1–31 共 31 条（起点粗线与末组 5 格不标）。
     // 右侧变体序号镜像（1 在页面顶侧），逆时针转 90° 后从左到右 1→31；
@@ -128,6 +160,26 @@ pub(crate) fn draw_graph(geo: Geometry, p: &GraphPattern, font: &str) -> (Vec<Li
         // 右缘数字顺笔画朝页面左（逆时针转 90° 可读），左缘数字朝页面右（顺时针转 90° 可读）。
         text.rotation = if axis_left { 90 } else { 270 };
     }
+    // 纵轴范围 [y_min, y_max] 均分 y_steps 段；刻度在留出的 AXIS_H 带内（网格顶边外 0.4mm）。
+    // 沿页面 x 方向（即横轴方向）分布：y_min 在左、y_max 在右。页面坐标系绘制以避开旋转循环。
+    // rotation 与横轴数字一致（90/270），横放阅读下水平可读。
+    if has_y_axis {
+        let (y_min, y_max) = (p.y_min.unwrap(), p.y_max.unwrap());
+        let step_h = gh / p.y_steps as f64;
+        for i in 0..=p.y_steps {
+            let value = y_min + (y_max - y_min) * i as f64 / p.y_steps as f64;
+            texts.push(Text {
+                x: left + gy + step_h * i as f64,
+                y: r.y + AXIS_H - 0.4,
+                content: value.to_string(),
+                size: p.date_size,
+                color: p.line_color.clone(),
+                rotation: if axis_left { 90 } else { 270 },
+                font: font.into(),
+                anchor: "south",
+            });
+        }
+    }
     (lines, texts)
 }
 /// 手工样张：cargo test render_graph_sample -- --ignored --nocapture
@@ -142,7 +194,7 @@ fn render_graph_sample() {
             r#"{{
                 "output": "{file}",
                 "sections": [{{
-                    "pattern": {{ "kind": "graph", "axis": "{axis}" }},
+                    "pattern": {{ "kind": "graph", "axis": "{axis}", "y_min": 0, "y_max": 100, "y_steps": 10 }},
                     "document": {{ "page_number": false }}
                 }}]
             }}"#,
@@ -207,6 +259,77 @@ mod tests {
         // 序号位置不变：标签 1 仍在第 1 条日界线（5 格）上。
         assert!((texts[0].y - (r.y + r.height - 5.0 * cell)).abs() < 0.01);
         assert!((texts[30].y - (r.y + 5.0 * cell)).abs() < 0.01);
+    }
+
+    #[test]
+    fn y_axis_range_draws_step_labels() {
+        let page = PageSettings::default();
+        let geo = geometry_for(&page, 1);
+        let r = geo.content;
+        let p = GraphPattern {
+            y_min: Some(0.0),
+            y_max: Some(100.0),
+            y_steps: 10,
+            ..Default::default()
+        };
+        let (_, texts) = draw_graph(geo, &p, r"\sffamily");
+        // 横轴 31 + 纵轴 11 刻度。
+        assert_eq!(texts.len(), 31 + 11);
+        let axis: Vec<String> = texts.iter().map(|t| t.content.clone()).collect();
+        assert!(axis.contains(&"0".to_string()));
+        assert!(axis.contains(&"50".to_string()));
+        assert!(axis.contains(&"100".to_string()));
+        // 纵轴刻度（content 不是 1–31 的）必须在内容区 r 内可见，
+        // 即页面坐标落在 [r.x, r.x+r.width] × [r.y, r.y+r.height]。
+        // 纵轴刻度的 y 固定在 r.y + AXIS_H - 0.4，用此区分横轴数字。
+        let y_texts: Vec<&Text> = texts
+            .iter()
+            .filter(|t| (t.y - (r.y + AXIS_H - 0.4)).abs() < 0.01)
+            .collect();
+        assert_eq!(y_texts.len(), 11, "纵轴刻度应为 11 个");
+        for t in &y_texts {
+            assert!(
+                t.x >= r.x && t.x <= r.x + r.width && t.y >= r.y && t.y <= r.y + r.height,
+                "纵轴刻度 {:?} 坐标 ({}, {}) 超出内容区 x={}..{} y={}..{}",
+                t.content,
+                t.x,
+                t.y,
+                r.x,
+                r.x + r.width,
+                r.y,
+                r.y + r.height
+            );
+        }
+    }
+
+    #[test]
+    fn y_axis_visible_on_left_axis() {
+        // 数字位置在左侧（axis=left）时纵轴刻度仍须在内容区内可见。
+        let page = PageSettings::default();
+        let geo = geometry_for(&page, 1);
+        let r = geo.content;
+        let p = GraphPattern {
+            axis: AxisSide::Left,
+            y_min: Some(0.0),
+            y_max: Some(100.0),
+            y_steps: 10,
+            ..Default::default()
+        };
+        let (_, texts) = draw_graph(geo, &p, r"\sffamily");
+        let y_texts: Vec<&Text> = texts
+            .iter()
+            .filter(|t| (t.y - (r.y + AXIS_H - 0.4)).abs() < 0.01)
+            .collect();
+        assert_eq!(y_texts.len(), 11);
+        for t in &y_texts {
+            assert!(
+                t.x >= r.x && t.x <= r.x + r.width && t.y >= r.y && t.y <= r.y + r.height,
+                "纵轴刻度 {:?} 坐标 ({}, {}) 超出内容区",
+                t.content,
+                t.x,
+                t.y
+            );
+        }
     }
 
     #[test]

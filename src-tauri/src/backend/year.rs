@@ -1,5 +1,5 @@
 //! 年历 — 每页 rows×cols 的月历网格（默认 1×2，左右双页为一行四个月），
-//! 复用八分视图的迷你月历。
+//! 复用八分周视图的迷你月历。
 
 use chrono::{Datelike, NaiveDate, Utc};
 use serde::Deserialize;

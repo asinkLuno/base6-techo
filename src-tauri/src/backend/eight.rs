@@ -171,7 +171,7 @@ fn push_mini_calendar(
 }
 
 /// 单个月历：月份标题 + 星期表头 + 日期（周一为首的 7 列，仅文字无框线），
-/// 落在 highlight 区间内的日期红色（年历等无本周概念时传 None）。八分视图与年历共用。
+/// 落在 highlight 区间内的日期红色（年历等无本周概念时传 None）。八分周视图与年历共用。
 pub(crate) fn push_one_month(
     texts: &mut Vec<Text>,
     rect: Rect,
@@ -233,7 +233,7 @@ pub(crate) fn push_one_month(
         let date_key = format!("{}-{:02}-{:02}", date.year(), date.month(), date.day());
         let holiday_name = holidays.as_ref().and_then(|h| h.get(&date_key));
         let is_compensatory = holiday_name.is_some_and(|n| n.starts_with("上班"));
-        // 八分视图迷你月历只染当周（调休上班日仍不染）；年历保持周末/节假日染色，
+        // 八分周视图迷你月历只染当周（调休上班日仍不染）；年历保持周末/节假日染色，
         // 且与月历一致：未导入 ICS（holidays 为空）时周末不染红。
         let has_holidays = holidays.as_ref().is_some_and(|h| !h.is_empty());
         let is_red = if week_only {

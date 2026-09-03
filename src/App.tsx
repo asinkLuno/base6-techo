@@ -30,7 +30,7 @@ import { parseICS } from "./lib/ics-parser";
 
 type Value = string | number | boolean | null;
 type Values = Record<string, Value>;
-type PatternKind = "dots" | "eight" | "graph" | "grid" | "hakubunkan-kaichu-nikki" | "hakubunkan-toyo-nikki" | "midori" | "month" | "ruled" | "timeline" | "seyes" | "tracker" | "us-ruled" | "vertical" | "year";
+type PatternKind = "dots" | "eight" | "graph" | "grid" | "hakubunkan-kaichu-nikki" | "hakubunkan-toyo-nikki" | "midori" | "month" | "month-tracker" | "ruled" | "timeline" | "seyes" | "tracker" | "us-ruled" | "vertical" | "year";
 type Section = {
   id: string;
   expanded: boolean;
@@ -55,10 +55,11 @@ const patternNames: Record<PatternKind, string> = {
   "us-ruled": "美式横线",
   "hakubunkan-toyo-nikki": "博文館・當用日記",
   eight: "八分周视图",
-  graph: "制图网格",
+  graph: "月追踪制图",
   "hakubunkan-kaichu-nikki": "博文館・懐中日記",
   midori: "Midori",
   month: "月历",
+"month-tracker": "年度追踪",
   timeline: "时间轴",
   tracker: "月打卡",
   year: "年历",
@@ -68,7 +69,7 @@ const patternNames: Record<PatternKind, string> = {
 const PATTERN_GROUPS: [string, PatternKind[]][] = [
   ["基础", ["dots", "grid", "ruled", "seyes", "us-ruled", "vertical"]],
   ["复刻", ["midori", "hakubunkan-toyo-nikki", "hakubunkan-kaichu-nikki"]],
-  ["日程", ["month", "tracker", "eight", "timeline", "graph", "year"]],
+  ["日程", ["month", "month-tracker", "tracker", "eight", "timeline", "graph", "year"]],
 ];
 
 // 序列化请求前递归剥掉 null 字段：后端 serde default 会落回默认值。
@@ -236,6 +237,9 @@ const defaults: Record<PatternKind, Values & { kind: PatternKind }> = {
     line_color: COLORS.gray,
     line_width: 0.2,
     date_size: 8,
+    y_min: null,
+    y_max: null,
+    y_steps: 10,
   },
   month: {
     kind: "month",
@@ -258,6 +262,15 @@ const defaults: Record<PatternKind, Values & { kind: PatternKind }> = {
     year: new Date().getFullYear(),
     month: new Date().getMonth() + 1,
     items: 4,
+    line_color: COLORS.gray,
+    line_width: 0.4,
+    date_size: 8,
+  },
+  "month-tracker": {
+    kind: "month-tracker",
+    start: `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}`,
+    end: `${new Date().getFullYear() + 1}-${String(new Date().getMonth() + 1).padStart(2, "0")}`,
+    two_page: false,
     line_color: COLORS.gray,
     line_width: 0.4,
     date_size: 8,
@@ -591,7 +604,6 @@ function PatternFields({ section, set }: { section: Section; set: (key: string, 
     return (
       <>
         <Field label="线条颜色" value={p.line_color} type="color" onChange={(v) => set("line_color", v)} />
-        <Field label="圆点颜色" value={p.dot_color} type="color" onChange={(v) => set("dot_color", v)} />
       </>
     );
   if (p.kind === "eight")
@@ -684,6 +696,17 @@ function PatternFields({ section, set }: { section: Section; set: (key: string, 
         <Field label="日期字号（pt）" value={p.date_size} min={1} step={0.5} onChange={(v) => set("date_size", v)} />
       </>
     );
+  if (p.kind === "month-tracker")
+    return (
+      <>
+        <Field label="开始月份" value={p.start} type="month" onChange={(v) => set("start", v)} />
+        <Field label="结束月份" value={p.end} type="month" onChange={(v) => set("end", v)} />
+        <Field label="双页（1–14 日 / 15–31 日，格子同大）" value={p.two_page} type="checkbox" onChange={(v) => set("two_page", Boolean(v))} />
+        <Field label="线条颜色" value={p.line_color} type="color" onChange={(v) => set("line_color", v)} />
+        <Field label="线宽（pt）" value={p.line_width} min={0.01} step={0.05} onChange={(v) => set("line_width", v)} />
+        <Field label="日期字号（pt）" value={p.date_size} min={1} step={0.5} onChange={(v) => set("date_size", v)} />
+      </>
+    );
   if (p.kind === "graph")
     return (
       <>
@@ -699,6 +722,9 @@ function PatternFields({ section, set }: { section: Section; set: (key: string, 
         <Field label="线条颜色" value={p.line_color} type="color" onChange={(v) => set("line_color", v)} />
         <Field label="细线宽（pt，粗线为两倍）" value={p.line_width} min={0.01} step={0.05} onChange={(v) => set("line_width", v)} />
         <Field label="轴标签字号（pt）" value={p.date_size} min={1} step={0.5} onChange={(v) => set("date_size", v)} />
+        <Field label="纵轴下界" value={p.y_min ?? ""} placeholder="留空不绘" onChange={(v) => set("y_min", v)} />
+        <Field label="纵轴上界" value={p.y_max ?? ""} placeholder="留空不绘" onChange={(v) => set("y_max", v)} />
+        <Field label="纵轴刻度段数" value={p.y_steps} min={1} step={1} onChange={(v) => set("y_steps", v)} />
       </>
     );
   return (
@@ -783,6 +809,7 @@ function FontPicker({ value, options, onChange }: { value: string; options: [str
 // 页数由版式真实参数决定：是多少页就算多少页。
 function effectivePages(section: Section): number {
   const p = section.pattern;
+  if (p.kind === "month-tracker") return p.two_page ? 2 : 1;
   if (p.kind === "ruled" || p.kind === "dots" || p.kind === "grid" || p.kind === "us-ruled" || p.kind === "seyes" || p.kind === "timeline" || p.kind === "vertical")
     return Math.max(1, Number(p.pages) || 1);
   if (p.kind === "eight") {

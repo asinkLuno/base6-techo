@@ -571,6 +571,239 @@ pub(crate) fn draw_tracker(
     (lines, paths, texts)
 }
 
+/// 把 "YYYY-MM" 解析成 (年, 月)。
+fn parse_ym(s: &str) -> Option<(i32, u32)> {
+    let (y, m) = s.split_once('-')?;
+    let year = y.parse().ok()?;
+    let month = m.parse().ok()?;
+    (1..=12).contains(&month).then_some((year, month))
+}
+
+/// "2026-12" → "2026-12"（固定补零，便于排列表头）。
+fn ym_string(year: i32, month: u32) -> String {
+    format!("{year}-{month:02}")
+}
+
+/// 多月追踪：横轴 1–31 日期列，纵轴月份行（复用月打卡格子样式）。
+#[derive(Clone, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub(crate) struct MonthTrackerPattern {
+    pub(crate) start: String,
+    pub(crate) end: String,
+    /// 双页：第 1 页 1–15 日，第 2 页 16–31 日；单页：1–31 横排。
+    pub(crate) two_page: bool,
+    pub(crate) line_color: String,
+    pub(crate) line_width: f64,
+    pub(crate) date_size: f64,
+}
+impl Default for MonthTrackerPattern {
+    fn default() -> Self {
+        let now = Utc::now();
+        Self {
+            start: ym_string(now.year(), now.month()),
+            end: ym_string(now.year(), now.month()),
+            two_page: false,
+            line_color: GRAY.into(),
+            line_width: 0.4,
+            date_size: 8.0,
+        }
+    }
+}
+impl MonthTrackerPattern {
+    pub(crate) fn validate(&self) -> Result<(), String> {
+        let Some((sy, sm)) = parse_ym(&self.start) else {
+            return Err("start must be YYYY-MM".into());
+        };
+        let Some((ey, em)) = parse_ym(&self.end) else {
+            return Err("end must be YYYY-MM".into());
+        };
+        let total = ey * 12 + em as i32 - (sy * 12 + sm as i32) + 1;
+        if !(1..=60).contains(&total) {
+            return Err("range must be 1..=60 months".into());
+        }
+        if self.line_width <= 0.0 || self.date_size <= 0.0 {
+            return Err("line_width and date_size must be > 0".into());
+        }
+        validate_color(&self.line_color)
+    }
+}
+
+/// 年度追踪表：列 = 日期（label 列 + N 个日期列），行 = 月份，
+/// 顶部开口的表头行放日期数字，下面每月一行空格。
+/// 与 push_table 完全同构：竖线不过表头行、交叉处留 GAP、顶部边线不画。
+/// 标签列（月份）按 `label_cols` 格宽参与总列数，日期格宽全页一致。
+#[allow(clippy::too_many_arguments)]
+fn push_month_grid(
+    lines: &mut Vec<Line>,
+    texts: &mut Vec<Text>,
+    p: &MonthTrackerPattern,
+    font: &str,
+    land: Rect,
+    first_day: u32,
+    days: usize,
+    label_cols: usize,
+    months: usize,
+    start_idx: i32,
+) {
+    let avail_w = land.width;
+    let avail_h = land.height;
+    // 表头/标签列占 label_cols 格宽；首页 3 格表头 + 14 日、后页 17 日，
+    // 两页总格数相同 ⇒ 单格大小一致。
+    let total_cols = label_cols + days;
+    // 行数 = 表头行(日期) + months 个月份行。
+    let rows = months + 1;
+    // 撑满内容区（已去除页头页尾、内装订外装订）：哪个方向先触到内容边，
+    // 格子就由哪个方向定大小，另一方向余白居中；不加固定上限，避免格子
+    // 悬在页面中央没有一边靠边。
+    let cell = (avail_w / total_cols as f64)
+        .min(avail_h / rows as f64)
+        .max(0.8);
+    let label_w = label_cols as f64 * cell;
+    let table_w = total_cols as f64 * cell;
+    let table_h = cell * rows as f64;
+    let lm = land.x + (land.width - table_w) / 2.0;
+    let top = land.y + (land.height - table_h) / 2.0;
+
+    let grid = |x1, y1, x2, y2| Line {
+        x1,
+        y1,
+        x2,
+        y2,
+        color: None,
+        width: None,
+        style: LineStyle::Solid,
+    };
+    // 列界：可选标签列 + days 个日期列。
+    let mut xs = vec![lm];
+    if label_cols > 0 {
+        xs.push(lm + label_w);
+    }
+    for _ in 0..days {
+        let next = xs.last().unwrap() + cell;
+        xs.push(next);
+    }
+    for x in &xs {
+        for i in 1..rows {
+            lines.push(grid(
+                *x,
+                top + i as f64 * cell + GAP,
+                *x,
+                top + (i + 1) as f64 * cell - GAP,
+            ));
+        }
+    }
+    for i in 1..=rows {
+        let y = top + i as f64 * cell;
+        for k in 0..xs.len() - 1 {
+            lines.push(grid(xs[k] + GAP, y, xs[k + 1] - GAP, y));
+        }
+    }
+    // 日期数字（表头行，锚在格右上，与月打卡一致）。
+    let off = usize::from(label_cols > 0);
+    for i in 0..days {
+        let day = first_day + i as u32;
+        texts.push(Text {
+            x: xs[off + i + 1],
+            y: top + cell - 0.2,
+            content: day.to_string(),
+            size: p.date_size,
+            color: p.line_color.clone(),
+            rotation: 0,
+            font: font.into(),
+            anchor: "south east",
+        });
+    }
+    // 月份标签：标签列内每行垂直居中。
+    if label_cols > 0 {
+        for m in 0..months {
+            let month_idx = start_idx + m as i32;
+            let year = month_idx.div_euclid(12);
+            let month = month_idx.rem_euclid(12) as u32 + 1;
+            texts.push(Text {
+                x: lm + label_w / 2.0,
+                y: top + (m as f64 + 1.5) * cell,
+                content: ym_string(year, month),
+                size: (p.date_size * 0.7).max(3.0),
+                color: p.line_color.clone(),
+                rotation: 0,
+                font: font.into(),
+                anchor: "center",
+            });
+        }
+    }
+}
+/// 多月追踪页。单页：内容按横版设计并整体旋转 90°（同月历单页）；
+/// 双页：纵向直立，页 0 为 1–15 日，页 1 为 16–31 日。
+pub(crate) fn draw_month_tracker(
+    geo: Geometry,
+    p: &MonthTrackerPattern,
+    index: usize,
+    font: &str,
+) -> (Vec<Line>, Vec<Poly>, Vec<Text>) {
+    let mut lines = Vec::new();
+    let paths = Vec::new();
+    let mut texts = Vec::new();
+    let r = geo.content;
+
+    let Some((sy, sm)) = parse_ym(&p.start) else {
+        return (lines, paths, texts);
+    };
+    let Some((ey, em)) = parse_ym(&p.end) else {
+        return (lines, paths, texts);
+    };
+    let start_idx = sy * 12 + sm as i32 - 1; // 0 基月份序号
+    let end_idx = ey * 12 + em as i32 - 1;
+    let months = (end_idx - start_idx + 1).max(1) as usize;
+
+    // 月份标签列宽 = 3 格。双页：首页 3 格标签 + 1–14 日，后页 15–31 日；
+    // 两页总格数相同（17），格子大小自然一致。
+    let (first_day, days, label_cols) = if p.two_page {
+        if index == 0 {
+            (1u32, 14usize, 3usize)
+        } else {
+            (15u32, 17usize, 0usize)
+        }
+    } else {
+        (1u32, 31usize, 3usize)
+    };
+
+    // 单页横排：与月历一致，横放设计坐标系，末尾整体逆时针旋转 90°。
+    let land = if p.two_page {
+        r
+    } else {
+        Rect {
+            x: 0.0,
+            y: 0.0,
+            width: r.height,
+            height: r.width,
+        }
+    };
+
+    push_month_grid(
+        &mut lines, &mut texts, p, font, land, first_day, days, label_cols, months, start_idx,
+    );
+
+    if !p.two_page {
+        let base = r.y + r.height;
+        let left = r.x;
+        for line in &mut lines {
+            let (x1, y1) = (left + line.y1, base - line.x1);
+            let (x2, y2) = (left + line.y2, base - line.x2);
+            line.x1 = x1;
+            line.y1 = y1;
+            line.x2 = x2;
+            line.y2 = y2;
+        }
+        for text in &mut texts {
+            let (x, y) = (left + text.y, base - text.x);
+            text.x = x;
+            text.y = y;
+            text.rotation = 90;
+        }
+    }
+    (lines, paths, texts)
+}
+
 #[cfg(test)]
 mod tests {
     use super::super::{PageSettings, geometry_for};
@@ -818,5 +1051,64 @@ mod tests {
         assert_eq!(texts.len(), 22); // 4 表头 + 18 日期
         assert_eq!(paths.len(), 36);
         assert!((first_cell_w - (texts[1].x - texts[0].x)).abs() < 0.01);
+    }
+
+    #[test]
+    fn month_tracker_single_page_covers_days_and_months() {
+        let page = PageSettings::default();
+        let p = MonthTrackerPattern {
+            start: "2026-12".into(),
+            end: "2027-12".into(),
+            ..Default::default()
+        };
+        let (lines, _, texts) = draw_month_tracker(geometry_for(&page, 1), &p, 0, r"\sffamily");
+        // 13 个月行 + 表头行；31 天列 + 月份标签列 = 32 列界。
+        let months = 13usize;
+        let days = 31usize;
+        let col_bounds = days + 2; // label 列 + 31 天
+        // 竖线（每列界，分月分段）+ 横线（每行、每列格）。
+        let expected = col_bounds * months + (months + 1) * (col_bounds - 1);
+        assert_eq!(lines.len(), expected);
+        // 31 个日期数字 + 13 个月份标签。
+        assert_eq!(texts.len(), days + months);
+        assert_eq!(texts[0].content, "1");
+        assert_eq!(texts[days].content, "2026-12");
+        assert!(texts.iter().any(|t| t.content == "31"));
+        assert!(texts.iter().any(|t| t.content == "2027-12"));
+    }
+
+    #[test]
+    fn month_tracker_two_page_splits_day_columns() {
+        let page = PageSettings::default();
+        let p = MonthTrackerPattern {
+            start: "2026-12".into(),
+            end: "2027-12".into(),
+            two_page: true,
+            ..Default::default()
+        };
+        let (lines0, _, texts0) = draw_month_tracker(geometry_for(&page, 1), &p, 0, r"\sffamily");
+        let (lines1, _, texts1) = draw_month_tracker(geometry_for(&page, 2), &p, 1, r"\sffamily");
+        let months = 13usize;
+        // 首页：3 格标签列 + 1–14 日；后页：15–31 日。两页总格数相同。
+        let days0 = 14usize;
+        // xs = [lm, (标签列右界)] + days 个日期界。
+        let col_bounds0 = 1 + 1 + days0;
+        let col_bounds1 = 1 + 17; // 17 日
+        let expected0 = col_bounds0 * months + (months + 1) * (col_bounds0 - 1);
+        let expected1 = col_bounds1 * months + (months + 1) * (col_bounds1 - 1);
+        assert_eq!(lines0.len(), expected0);
+        assert_eq!(lines1.len(), expected1);
+        assert_eq!(texts0.len(), days0 + months);
+        // 第二页只有日期数字，没有月份标签。
+        assert_eq!(texts1.len(), 17);
+        assert!(!texts1.iter().any(|t| t.content.contains('-')));
+        assert_eq!(texts0[0].content, "1");
+        assert_eq!(texts0[days0].content, "2026-12");
+        // 双页竖放：文字不旋转。
+        assert!(texts0.iter().all(|t| t.rotation == 0));
+        assert!(texts1.iter().all(|t| t.rotation == 0));
+        // 后页日期从 15 起。
+        assert!(texts1.iter().any(|t| t.content == "15"));
+        assert!(!texts1.iter().any(|t| t.content == "14"));
     }
 }

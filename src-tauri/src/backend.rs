@@ -34,7 +34,9 @@ use grid::{GridPattern, draw_grid};
 use hakubunkan_kaichu_nikki::{HakubunkanKaichuNikkiPattern, draw_hakubunkan_kaichu_nikki};
 use hakubunkan_toyo_nikki::{HakubunkanToyoNikkiPattern, draw_hakubunkan_toyo_nikki, lunar_date};
 use midori::{MidoriPattern, draw_midori};
-use month::{MonthPattern, TrackerPattern, draw_month, draw_tracker};
+use month::{
+    MonthPattern, MonthTrackerPattern, TrackerPattern, draw_month, draw_month_tracker, draw_tracker,
+};
 use ruled::{RuledPattern, draw_ruled};
 use serde::Deserialize;
 use seyes::{SeyesPattern, draw_seyes};
@@ -268,6 +270,8 @@ enum Pattern {
     Month(MonthPattern),
     Timeline(TimelinePattern),
     Tracker(TrackerPattern),
+    #[serde(rename = "month-tracker")]
+    MonthTracker(MonthTrackerPattern),
     Year(YearPattern),
 }
 
@@ -325,6 +329,13 @@ impl Pattern {
                     1
                 }
             }
+            Self::MonthTracker(p) => {
+                if p.two_page {
+                    2
+                } else {
+                    1
+                }
+            }
             Self::Timeline(p) => p.page_count(),
             Self::Year(p) => p.page_count(),
         }
@@ -344,6 +355,7 @@ impl Pattern {
             Self::Midori(p) => &p.line_color,
             Self::Seyes(p) => &p.main_color,
             Self::Month(p) => &p.line_color,
+            Self::MonthTracker(p) => &p.line_color,
             Self::Timeline(p) => &p.line_color,
             Self::Tracker(p) => &p.line_color,
             // 年历只用文字（黑/红固定色），无线条；不会走到该默认值。
@@ -365,6 +377,7 @@ impl Pattern {
             Self::Midori(_) => 0.7,
             Self::Seyes(p) => p.main_width,
             Self::Month(p) => p.line_width,
+            Self::MonthTracker(p) => p.line_width,
             Self::Timeline(p) => p.line_width,
             Self::Tracker(p) => p.line_width,
             Self::Year(_) => 0.0,
@@ -384,6 +397,7 @@ impl Pattern {
             Self::Midori(p) => p.validate(),
             Self::Seyes(p) => p.validate(),
             Self::Month(p) => p.validate(),
+            Self::MonthTracker(p) => p.validate(),
             Self::Timeline(p) => p.validate(),
             Self::Tracker(p) => p.validate(),
             Self::Year(p) => p.validate(),
@@ -738,6 +752,10 @@ fn render_page(
         }
         Pattern::Month(p) => {
             let (l, pa, t) = draw_month(geo, p, index, &doc.binding_text_font, holidays);
+            (l, vec![], pa, t)
+        }
+        Pattern::MonthTracker(p) => {
+            let (l, pa, t) = draw_month_tracker(geo, p, index, &doc.binding_text_font);
             (l, vec![], pa, t)
         }
         Pattern::Graph(p) => {
@@ -1469,7 +1487,7 @@ mod tests {
                 "output": "/tmp/bookmark-sample.pdf",
                 "sections": [
                     { "title": "月历", "pattern": { "kind": "ruled", "pages": 2 } },
-                    { "title": "八分视图", "pattern": { "kind": "eight", "start_date": "2026-08-31", "end_date": "2026-09-06" } },
+                    { "title": "八分周视图", "pattern": { "kind": "eight", "start_date": "2026-08-31", "end_date": "2026-09-06" } },
                     { "title": "Midori", "pattern": { "kind": "midori" } }
                 ]
             }"#,
@@ -2097,5 +2115,19 @@ mod tests {
                 .map(|t| (t.content.clone(), t.x))
                 .collect::<Vec<_>>()
         );
+    }
+
+    /// 手工样张：cargo test render_month_tracker_sample -- --ignored --nocapture
+    #[test]
+    #[ignore]
+    fn render_month_tracker_sample() {
+        for (name, two_page) in [("single", false), ("double", true)] {
+            let body: RunPipelineRequest = serde_json::from_str(&format!(
+            r#"{{"output": "/tmp/month-tracker-{name}.pdf", "bind": {{"mode": null}}, "sections": [{{"pattern": {{"kind": "month-tracker", "start": "2026-12", "end": "2027-12", "two_page": {two_page} }}}}]}}"#
+            ))
+            .unwrap();
+            let (path, _) = generate(body, false, None).unwrap();
+            println!("PDF: {}", path.display());
+        }
     }
 }
