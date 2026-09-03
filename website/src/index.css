@@ -248,6 +248,63 @@ html {
   letter-spacing: 0.05em;
 }
 
+/* 首屏能力条：把产品从「样张图库」明确成排版工具 */
+.hero-proof {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  max-width: 620px;
+  margin-top: 26px;
+  border-top: 1px solid var(--rule);
+  border-bottom: 1px solid var(--rule);
+}
+.hero-proof > div {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 12px 14px 11px 0;
+  border-right: 1px solid var(--rule);
+}
+.hero-proof > div + div {
+  padding-left: 14px;
+}
+.hero-proof > div:last-child {
+  border-right: 0;
+}
+.hero-proof strong {
+  font: 600 11px/1.4 var(--mono);
+  letter-spacing: 0.08em;
+  color: var(--red-ink);
+}
+.hero-proof span {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+/* 三步工作流 */
+.workflow-strip {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  margin: 30px 0 42px;
+  border: 1px solid var(--rule);
+  background: rgba(255, 255, 255, 0.28);
+}
+.workflow-strip > div {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  column-gap: 10px;
+  padding: 16px 18px;
+  border-right: 1px solid var(--rule);
+}
+.workflow-strip > div:last-child { border-right: 0; }
+.workflow-no {
+  grid-row: span 2;
+  color: var(--red-ink);
+  font: 600 11px/1.5 var(--mono);
+}
+.workflow-strip strong { font-size: 14px; font-weight: 600; }
+.workflow-strip small { color: var(--muted); font-size: 11px; line-height: 1.5; }
+
 /* Hero 右侧：切割垫上的样纸 + 角线 */
 
 .hero-art {
@@ -1033,215 +1090,259 @@ html {
   color: var(--ink);
 }
 
-/* ---------- 版面解剖 ---------- */
+/* ---------- 装订侧 / 非装订侧（静态对页示意） ---------- */
 
-/* 外层滚动容器：7 个 stage 撑出滚动空间。 */
-.anatomy-scroll {
-  position: relative;
-  height: 620vh;
-}
-
-/* sticky 内层：钉在 viewport 顶部，高度占满，内容垂直居中。 */
-.anatomy-sticky {
-  position: sticky;
-  top: 0;
-  height: 100vh;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.anatomy {
-  display: grid;
-  grid-template-columns: 1fr 1.05fr;
-  gap: 56px;
-  align-items: center;
-  width: 100%;
-  padding: 0 24px;
-}
-
-.anatomy-stage {
+.spread-stage {
   display: flex;
   justify-content: center;
-  align-items: center;
-  overflow: visible;
-  min-height: 420px;
+  align-items: flex-start;
+  gap: clamp(10px, 3vw, 44px);
 }
 
-/* 两页并排容器：固定尺寸由 inline style 注入（width: 2W+gap, height: H） */
-.book-pair {
+.sp-page {
   position: relative;
-  margin: 0 auto;
-}
-
-/* 单页矩形：trim box 外框，白纸。两页 absolute 定位，靠 margin 居中。 */
-.page-rect {
-  position: absolute;
-  top: 0;
-  left: 50%;
-  margin-left: calc(-1 * var(--page-w, 0px) / 2);
+  flex: none;
+  width: clamp(150px, 25vw, 232px);
+  aspect-ratio: 148 / 210;
+  margin: 0;
   background: var(--paper);
-  border: 1px solid #b9b4a0;
-  box-shadow: 0 26px 48px -22px rgba(38, 36, 28, 0.36);
-  transform-origin: center center;
-}
-
-/* 镜像右页：同样 absolute 居中，靠 motion x 滑到右侧 */
-.page-rect.mirror {
-  /* margin/binding 镜像：右页装订侧在右，由 JSX 内部 band 方向决定 */
-}
-/* 整本 stage 出现的红色 trim 外框 */
-.trim-frame {
-  position: absolute;
-  inset: -3px;
-  border: 1px solid var(--red);
-  pointer-events: none;
+  border: 1px solid #c8cdba;
   border-radius: 1px;
+  box-shadow:
+    0 1px 2px rgba(38, 36, 28, 0.09),
+    0 24px 44px -24px rgba(38, 36, 28, 0.4);
 }
 
-/* 四道 margin 带：半透明灰 */
-.band {
-  position: absolute;
-  background: rgba(112, 108, 94, 0.16);
-  pointer-events: none;
-}
-
-.band.top { top: 0; left: 0; right: 0; }
-.band.bottom { bottom: 0; left: 0; right: 0; }
-.band.left { top: 0; bottom: 0; left: 0; }
-.band.right { top: 0; bottom: 0; right: 0; }
-
-/* 装订侧红线：应用 colors.rs 的页边线红，只做线 */
-.bind-rule {
+/* 装订侧 / 非装订侧带：贴边竖排标签 + 内侧边界线 */
+.sp-zone {
   position: absolute;
   top: 0;
   bottom: 0;
-  width: 1px;
-  background: var(--red);
-  pointer-events: none;
-}
-
-/* 版心 content：淡虚线边框，无填充 */
-.layer.content {
-  position: absolute;
-  border: 1px dashed #9a9486;
-  pointer-events: none;
-}
-
-/* feature：版心内的版式样张（真实 pv-dots / pv-month） */
-.layer.feature {
-  position: absolute;
-  inset: 0;
-  border: 1px solid transparent;
-}
-
-/* 印刷 crop marks：trim 四角细线 */
-.crop-mk {
-  position: absolute;
-  width: 14px;
-  height: 14px;
-  pointer-events: none;
-}
-
-.crop-mk.c-tl { left: -20px; top: -16px; border-left: 1px solid rgba(38,36,28,0.45); border-top: 1px solid rgba(38,36,28,0.45); }
-.crop-mk.c-tr { right: -20px; top: -16px; border-right: 1px solid rgba(38,36,28,0.45); border-top: 1px solid rgba(38,36,28,0.45); }
-.crop-mk.c-bl { left: -20px; bottom: -16px; border-left: 1px solid rgba(38,36,28,0.45); border-bottom: 1px solid rgba(38,36,28,0.45); }
-.crop-mk.c-br { right: -20px; bottom: -16px; border-right: 1px solid rgba(38,36,28,0.45); border-bottom: 1px solid rgba(38,36,28,0.45); }
-
-/* 右侧层级清单 */
-.anatomy-side {
-  padding: 0;
-}
-
-.layer-list {
-  list-style: none;
-  margin: 0 0 22px;
-  padding: 0;
-  border-top: 1px solid var(--rule);
-}
-
-.layer-list li {
-  border-bottom: 1px solid var(--rule);
-  transition: background 0.15s ease;
-}
-
-.layer-list li.hot {
-  background: rgba(255, 253, 247, 0.8);
-}
-
-.layer-list button {
   display: grid;
-  grid-template-columns: 1fr auto;
-  grid-template-rows: auto auto;
-  grid-template-areas:
-    "name mm"
-    "latex mm";
-  width: 100%;
-  padding: 12px 4px;
-  background: none;
-  border: 0;
-  text-align: left;
-  cursor: pointer;
-  font: inherit;
-  color: inherit;
-}
-
-.layer-list .ll-name {
-  grid-area: name;
+  place-items: center;
+  font-style: normal;
+  writing-mode: vertical-rl;
   font-family: var(--serif);
-  font-weight: 700;
-  font-size: 15px;
-  letter-spacing: 0.06em;
+  font-weight: 600;
+  font-size: 13px;
+  letter-spacing: 0.24em;
 }
 
-.layer-list .ll-latex {
-  grid-area: latex;
-  font: 400 11.5px var(--mono);
-  color: var(--muted);
-  letter-spacing: 0.02em;
-}
-
-.layer-list .ll-mm {
-  grid-area: mm;
-  align-self: center;
-  font: 500 12px var(--mono);
+.sp-zone.bind {
+  width: 27%;
   color: var(--red-ink);
-  letter-spacing: 0.04em;
+}
+.sp-zone.bind::after {
+  content: "";
+  position: absolute;
+  top: 6%;
+  bottom: 6%;
+  width: 1.5px;
+  background: var(--red);
+  opacity: 0.9;
+}
+/* 偶数页在左页：装订侧在右缘（朝中缝）；奇数页在右页：装订侧在左缘 */
+.sp-page.even .bind {
+  right: 0;
+  background: linear-gradient(270deg, rgba(217, 106, 106, 0.18), rgba(217, 106, 106, 0.03));
+}
+.sp-page.even .bind::after {
+  left: 0;
+}
+.sp-page.odd .bind {
+  left: 0;
+  background: linear-gradient(90deg, rgba(217, 106, 106, 0.18), rgba(217, 106, 106, 0.03));
+}
+.sp-page.odd .bind::after {
+  right: 0;
+}
+
+.sp-zone.cut {
+  width: 15%;
+  color: var(--muted);
+}
+.sp-page.even .cut {
+  left: 0;
+  background: linear-gradient(90deg, rgba(112, 108, 94, 0.13), rgba(112, 108, 94, 0.02));
+}
+.sp-page.odd .cut {
+  right: 0;
+  background: linear-gradient(270deg, rgba(112, 108, 94, 0.13), rgba(112, 108, 94, 0.02));
+}
+.sp-zone.cut::after {
+  content: "";
+  position: absolute;
+  top: 10%;
+  bottom: 10%;
+  width: 1px;
+  background: rgba(112, 108, 94, 0.5);
+}
+.sp-page.even .cut::after {
+  right: 0;
+}
+.sp-page.odd .cut::after {
+  left: 0;
+}
+
+.sp-cap {
+  position: absolute;
+  left: 50%;
+  bottom: 8px;
+  transform: translateX(-50%);
+  margin: 0;
+  padding: 2px 9px;
+  border: 1px solid var(--rule-paper);
+  border-radius: 2px;
+  background: rgba(255, 253, 247, 0.92);
+  font: 400 10px/1.7 var(--mono);
+  letter-spacing: 0.08em;
+  color: var(--muted);
   white-space: nowrap;
 }
 
-.layer-list li.hot .ll-name {
-  color: var(--red-ink);
-}
-
-.layer-list li.hot .ll-latex::before {
-  content: "→ ";
-  color: var(--red);
-}
-
-.anatomy-note {
-  margin: 0;
-  padding: 14px 16px;
-  border-left: 2px solid var(--red);
-  background: rgba(255, 253, 247, 0.6);
-  color: var(--body-text);
+.sp-exp {
+  max-width: 60ch;
+  margin: 36px auto 0;
+  text-align: center;
   font-size: 13.5px;
-  line-height: 1.9;
+  line-height: 2.05;
+  color: var(--body-text);
 }
-
-.anatomy-note strong {
-  color: var(--ink);
+.sp-exp .term-b {
+  color: var(--red-ink);
+  font-weight: 600;
+}
+.sp-exp .term-c {
+  color: var(--muted);
   font-weight: 600;
 }
 
-@media (max-width: 920px) {
-  .anatomy {
-    grid-template-columns: 1fr;
-    gap: 28px;
-  }
+/* ---------- 整本自由补白：页序示意 ---------- */
 
-  .anatomy-stage {
-    min-height: 340px;
+.blank-fill {
+  margin-top: 64px;
+}
+.blank-fill .group-title {
+  margin-top: 0;
+}
+
+.bf-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 14px;
+  margin: 30px 0 4px;
+}
+
+/* 迷你页卡：纸面 + 奇偶装订侧红线 + 底部标签 */
+.bx {
+  position: relative;
+  display: inline-block;
+  flex: none;
+  width: clamp(66px, 7vw, 92px);
+  aspect-ratio: 148 / 210;
+  background: var(--paper);
+  border: 1px solid #c8cdba;
+  border-radius: 1px;
+  box-shadow: 0 10px 22px -14px rgba(38, 36, 28, 0.35);
+  vertical-align: top;
+}
+.bx .n {
+  position: absolute;
+  top: 5px;
+  left: 7px;
+  font: 500 11px/1 var(--serif);
+  color: var(--ink);
+}
+.bx .cap {
+  position: absolute;
+  left: 50%;
+  bottom: 4px;
+  transform: translateX(-50%);
+  max-width: calc(100% - 8px);
+  padding: 1px 5px;
+  border: 1px solid var(--rule-paper);
+  border-radius: 2px;
+  background: rgba(255, 253, 247, 0.94);
+  font: 400 8.5px/1.6 var(--mono);
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* 奇偶装订侧：奇数页在左缘、偶数页在右缘（同上面大示意） */
+.bx::after {
+  content: "";
+  position: absolute;
+  top: 6%;
+  bottom: 6%;
+  width: 2px;
+  background: var(--red);
+  opacity: 0.75;
+}
+.bx.even::after {
+  right: 0;
+}
+.bx.odd::after {
+  left: 0;
+}
+
+/* 补进去的白页：虚线框 + 淡横线 */
+.bx.blank {
+  border-style: dashed;
+  border-color: #b3b9a5;
+  background-color: var(--paper);
+  background-image: repeating-linear-gradient(180deg, transparent 0 9px, rgba(122, 122, 122, 0.16) 9px 9.8px);
+  box-shadow: none;
+}
+.bx.blank .cap {
+  color: #8a8578;
+}
+
+/* 一对对页：跨页版式（八分周视图）占住偶数 + 奇数 */
+.bf-pair {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+.bf-cap {
+  font: 400 9px/1.6 var(--mono);
+  letter-spacing: 0.14em;
+  color: var(--red-ink);
+  white-space: nowrap;
+}
+.bf-cards {
+  display: flex;
+  gap: 2px;
+}
+.bf-cards .bx {
+  box-shadow: 0 14px 26px -16px rgba(38, 36, 28, 0.42);
+}
+
+.bf-note {
+  max-width: 66ch;
+  margin: 24px auto 0;
+  text-align: center;
+  font-size: 13.5px;
+  line-height: 2.05;
+  color: var(--body-text);
+}
+.bf-note a {
+  color: var(--night);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.bf-note a:hover {
+  color: var(--ink);
+}
+
+@media (max-width: 640px) {
+  .bf-row {
+    gap: 10px;
   }
 }
 
@@ -1276,6 +1377,15 @@ html {
   .ex-list {
     grid-template-columns: 1fr;
   }
+
+  .workflow-strip {
+    grid-template-columns: 1fr;
+  }
+  .workflow-strip > div {
+    border-right: 0;
+    border-bottom: 1px solid var(--rule);
+  }
+  .workflow-strip > div:last-child { border-bottom: 0; }
 }
 
 @media (max-width: 640px) {

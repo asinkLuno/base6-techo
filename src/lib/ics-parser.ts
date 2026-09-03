@@ -15,7 +15,7 @@ export function parseICS(content: string): Record<string, string> {
   let endDate = "";
   let summary = "";
 
-const pushEvent = () => {
+  const pushEvent = () => {
     if (!startDate || !summary) return;
     const parts = startDate.match(/^(\d{4})(\d{2})(\d{2})/);
     if (!parts) return;
@@ -25,14 +25,14 @@ const pushEvent = () => {
     if (!sy || !sm || !sd) return;
     const start = new Date(sy, sm - 1, sd);
 
-let end: Date;
+    let end: Date;
     if (endDate) {
-        const parts = endDate.match(/^(\d{4})(\d{2})(\d{2})/);
-        if (!parts) return;
-        const ey = Number(parts[1]);
-        const em = Number(parts[2]);
-        const ed = Number(parts[3]);
-        if (ey && em && ed) {
+      const parts = endDate.match(/^(\d{4})(\d{2})(\d{2})/);
+      if (!parts) return;
+      const ey = Number(parts[1]);
+      const em = Number(parts[2]);
+      const ed = Number(parts[3]);
+      if (ey && em && ed) {
         // ICS DTEND 是 exclusive：结束日期当天不算
         end = new Date(ey, em - 1, ed - 1);
       } else {

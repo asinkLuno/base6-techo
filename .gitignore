@@ -13,3 +13,8 @@ out.*
 
 # Editor session files
 Session.vim
+
+# Tool/session cache
+.zcode/
+compile.log
+examples/fonts/*.ttf

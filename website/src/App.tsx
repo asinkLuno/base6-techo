@@ -1,12 +1,5 @@
-import { useRef, useState, type CSSProperties } from "react";
 import type { ReactNode } from "react";
-import {
-  motion,
-  MotionConfig,
-  useScroll,
-  useTransform,
-  useMotionValueEvent,
-} from "motion/react";
+import { motion, MotionConfig } from "motion/react";
 
 type Pattern = { code: string; name: string; en: string; desc: string; preview: string; img?: string; pos?: string; pdf: string; pages: string; params: [string, string][] };
 
@@ -286,25 +279,38 @@ const SCHEDULE_PATTERNS: Pattern[] = [
 
 const SPEC: { k: string; v: string }[] = [
   {
-    k: "整本拼版",
-    v: "一本多节，拖拽即排序。版式、水印、拼版三层独立，拼版放在最后一步：不拼版按页序直出，方便活页打孔；骑马钉整本按 4 页补齐拼版；锁线分册按每帖纸张数分组拼版——同一套版面，活页、定页本两相宜。",
+    k: "整本编排",
+    v: "把多节内容组成一本真正的书：拖拽排序、自由补白、页码顺延。版式、页序、水印与最后的拼版分开处理，先把内容排对，再决定怎么装订。",
   },
   {
-    k: "版式",
-    v: "16 种内置：点阵、方格、横线、法文格、古文竖排、美式横线；博文館・當用日記 / 懷中日記、Midori 复刻；月历、年历、八分周视图、时间轴、打卡与追踪。",
+    k: "页面几何",
+    v: "每页只描述一次：纸张尺寸、天头、地脚、装订侧（订口）与非装订侧（切口）。LaTeX 按奇偶页自动镜像，不用手动维护正反面的左右边距。",
   },
   {
-    k: "水印",
-    v: "沿装订侧 / 非装订侧页缘的两行小字，字号、两行间距、距边距离、颜色字体全部可调，按节独立开关并自动留出边距。",
+    k: "对页与补白",
+    v: "跨页版式需要从正确的偶数页开始时，在整本任意位置插入白页即可把页序推正；八分周视图、双页月历等不会因为前一节多一页而错位。",
   },
-  { k: "节假日", v: "导入 ICS 日历自动提取节假日，所有日历视图红色标注；中国法定假期可直接使用 holiday-cn 数据。" },
   {
-    k: "输出",
-    v: "整本以 LaTeX 排版，应用内置 Tectonic 引擎直接编译，无需另装 TeX 发行版；输出矢量 PDF，任意放大不糊，可直接送印刷厂。",
+    k: "LaTeX 排版",
+    v: "页面由 LaTeX 生成，不是把图片贴到纸上。字体、线宽、页眉页脚、日期、颜色和版心都进入同一套可复现的排版规则。",
   },
-  { k: "参数", v: "线色线宽线型、页眉页脚模式、中英日星期、时区、水印、衬线 / 无衬线字体……每个参数都摊开给你改。" },
-  { k: "纸张", v: "A4–A7、B5 / B6、TN 标准 / 护照、A6 各系等 17 种开本预置，也支持毫米级自定义。" },
-];
+  {
+    k: "日期与数据",
+    v: "月历、周视图与节假日都在排版时生成：可导入 ICS，切换中英日星期、日期格式与农历显示，结果随项目设置复现。",
+  },
+  {
+    k: "本地矢量输出",
+    v: "内置 Tectonic 在本地编译，无需另装 TeX 发行版，也不用上传手帐内容。输出矢量 PDF，放大不糊，直接打印或送印刷厂。",
+  },
+  {
+    k: "版式与纸张",
+    v: "点阵、方格、日历、周视图、追踪、博文館复刻等版式可以混排；A4–A7、B5 / B6、TN、A6 等纸型可直接选择，也支持毫米级自定义。",
+  },
+  {
+    k: "装订方式",
+    v: "不拼版时按页序直出，适合活页打孔；骑马钉按 4 页补齐，锁线按帖分组。内容只排一次，换装订方式不必重做版面。",
+  },
+ ];
 
 const EXAMPLES: [string, string][] = [
   ["2027 周计划（A5）", "2027-weekly.pdf"],
@@ -352,157 +358,29 @@ function SectionHead({ code, title, lede }: { code: string; title: ReactNode; le
   );
 }
 
-type Layer = "trim" | "header" | "footer" | "binding" | "non-binding" | "content" | "feature";
-
-const LAYERS: { id: Layer; name: string; latex: string; mm: string }[] = [
-  { id: "content", name: "版心 content", latex: "\\textwidth × \\textheight", mm: "125 × 190 mm" },
-  { id: "feature", name: "版式 feature", latex: "pattern in content", mm: "点阵 5 mm" },
-  { id: "header", name: "天头 header", latex: "top margin", mm: "10 mm" },
-  { id: "footer", name: "地脚 footer", latex: "bottom margin", mm: "10 mm" },
-  { id: "binding", name: "订口 binding", latex: "inner margin", mm: "15 mm" },
-  { id: "non-binding", name: "切口 non-binding", latex: "outer margin", mm: "8 mm" },
-  { id: "trim", name: "整本 trim", latex: "\\paperwidth × \\paperheight", mm: "对页 296 × 210" },
-];
-
-// 每个 stage 对应一段滚动 progress；stage 索引就是 LAYERS 顺序。
-const STAGE_COUNT = LAYERS.length; // 9
-
-function PageAnatomy() {
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const [stage, setStage] = useState(0);
-  // A5 148×210，binding 15 / non-binding 8 / header 10 / footer 10 mm
-  const px = (mm: number) => mm * 1.62;
-  const W = px(148);
-  const H = px(210);
-  const bx = px(15);
-  const nbx = px(8);
-  const hx = px(10);
-  const fx = px(10);
-
-  const { scrollYProgress } = useScroll({
-    target: scrollRef,
-    offset: ["start start", "end end"],
-  });
-  // step 是浮点 stage：0 = 版心，1 = feature，…，6 = 整本对页。
-  const step = useTransform(scrollYProgress, [0, 1], [0, STAGE_COUNT - 1]);
-  useMotionValueEvent(step, "change", (v) => setStage(Math.round(v)));
-
-  // 各层可见度：在自己的 stage 边界处从 0→1。
-  const vContent = useTransform(step, (s) => (s >= 0 ? 1 : 0));
-  const vFeature = useTransform(step, (s) => clamp01(s - 0.6));
-  const vHeader = useTransform(step, (s) => clamp01(s - 1.4));
-  const vFooter = useTransform(step, (s) => clamp01(s - 2.4));
-  const vBinding = useTransform(step, (s) => clamp01(s - 3.4));
-  const vNonBinding = useTransform(step, (s) => clamp01(s - 4.4));
-  const vTrim = useTransform(step, (s) => clamp01(s - 5.4));
-  // 整本 stage：单页缩到左、对页镜像滑入。
-  const bookT = useTransform(step, (s) => clamp01((s - 5.4) / 0.6));
-  const pageShiftX = useTransform(bookT, [0, 1], [0, -W / 2 - 12]);
-  const mirrorOpacity = bookT;
-  const mirrorShiftX = useTransform(bookT, [0, 1], [W * 1.1, W / 2 + 12]);
-
-  // 点击清单项：跳到对应 stage 的滚动位置。
-  const jumpTo = (idx: number) => {
-    const el = scrollRef.current;
-    if (!el) return;
-    const top = el.offsetTop;
-    const h = el.offsetHeight;
-    const target = top + (h * idx) / (STAGE_COUNT - 1) - window.innerHeight * 0.45;
-    window.scrollTo({ top: target, behavior: "smooth" });
-  };
-
+function StaticSpread() {
   return (
-    <div className="anatomy-scroll" ref={scrollRef}>
-      <div className="anatomy-sticky">
-        <div className="anatomy">
-          <div className="anatomy-stage">
-            <motion.div
-              className="book-pair"
-              style={{ "--page-w": `${W}px`, width: W * 2 + 24, height: H } as CSSProperties}
-            >
-              {/* 左页：单页剖面，整本 stage 时滑到左半 */}
-              <motion.div
-                className="page-rect"
-                style={{ width: W, height: H, opacity: vContent, x: pageShiftX }}
-              >
-                <motion.span className="trim-frame" style={{ opacity: vTrim }} />
-                <span className="crop-mk c-tl" />
-                <span className="crop-mk c-tr" />
-                <span className="crop-mk c-bl" />
-                <span className="crop-mk c-br" />
-                <motion.span className="band top" style={{ height: hx, opacity: vHeader }} />
-                <motion.span className="band bottom" style={{ height: fx, opacity: vFooter }} />
-                <motion.span className="band left" style={{ width: bx, opacity: vBinding }} />
-                <motion.span className="band right" style={{ width: nbx, opacity: vNonBinding }} />
-                <motion.span className="bind-rule" style={{ left: bx, opacity: vBinding }} />
-                <motion.div
-                  className="layer content"
-                  style={{ left: bx, top: hx, width: W - bx - nbx, height: H - hx - fx }}
-                >
-                  <motion.div className="layer feature pv pv-dots" style={{ opacity: vFeature }} />
-                </motion.div>
-              </motion.div>
-
-              {/* 右页：整本 stage 时从右滑入，装订侧在右（镜像） */}
-              <motion.div
-                className="page-rect mirror"
-                style={{ width: W, height: H, opacity: mirrorOpacity, x: mirrorShiftX }}
-              >
-                <span className="crop-mk c-tl" />
-                <span className="crop-mk c-tr" />
-                <span className="crop-mk c-bl" />
-                <span className="crop-mk c-br" />
-                <motion.span className="band top" style={{ height: hx, opacity: vHeader }} />
-                <motion.span className="band bottom" style={{ height: fx, opacity: vFooter }} />
-                <motion.span className="band right" style={{ width: bx, opacity: vBinding }} />
-                <motion.span className="band left" style={{ width: nbx, opacity: vNonBinding }} />
-                <motion.span className="bind-rule" style={{ right: bx, opacity: vBinding }} />
-                <motion.div
-                  className="layer content"
-                  style={{ right: bx, top: hx, width: W - bx - nbx, height: H - hx - fx }}
-                >
-                  <motion.div className="layer feature pv pv-dots" style={{ opacity: vFeature }} />
-                </motion.div>
-              </motion.div>
-            </motion.div>
-
-          </div>
-
-          <aside className="anatomy-side">
-            <ul className="layer-list">
-              {LAYERS.map((l, i) => (
-                <li key={l.id} className={stage === i ? "hot" : ""}>
-                  <button type="button" onClick={() => jumpTo(i)} aria-pressed={stage === i}>
-                    <span className="ll-name">{l.name}</span>
-                    <span className="ll-latex">{l.latex}</span>
-                    <span className="ll-mm">{l.mm}</span>
-                  </button>
-                </li>
-              ))}
-            </ul>
-            <p
-              className="anatomy-note"
-              dangerouslySetInnerHTML={{ __html: ANATOMY_CAPTIONS[stage] ?? ANATOMY_CAPTIONS[0] }}
-            />
-          </aside>
-        </div>
+    <div>
+      <div className="spread-stage">
+        <figure className="sp-page even">
+          <span className="sp-zone bind">装订侧</span>
+          <span className="sp-zone cut">非装订侧</span>
+          <figcaption className="sp-cap">左页 · 偶数 2</figcaption>
+        </figure>
+        <figure className="sp-page odd">
+          <span className="sp-zone bind">装订侧</span>
+          <span className="sp-zone cut">非装订侧</span>
+          <figcaption className="sp-cap">右页 · 奇数 3</figcaption>
+        </figure>
       </div>
+      <p className="sp-exp">
+        装订侧（<b className="term-b">订口</b>）永远朝着书脊、也就是对页的中缝：摊开的左页是偶数页、右页是奇数页，所以偶数页的装订侧在
+        <b className="term-b">右缘</b>，奇数页的装订侧在<b className="term-b">左缘</b>，两页的非装订侧（<b className="term-c">切口</b>）都在外侧。
+        单看一张纸也一样——正面（奇数页）装订在左，翻到背面（偶数页）装订就换到右；
+        排版引擎按页码奇偶决定装订侧朝向哪一边，水印、编号这类沿边竖排的内容会自动跟着镜像。
+      </p>
     </div>
   );
-}
-
-const ANATOMY_CAPTIONS: string[] = [
-  "<strong>版心 content</strong>：LaTeX \\textwidth × \\textheight 圈出的可排区域。一切版式——点阵、月历、周视图——都只在这个矩形里生成。",
-  "<strong>版式 feature</strong>：版心内填入具体版式。这里是 5 mm 点阵；换成月历、八分周视图，版心几何不变。",
-  "<strong>天头 header</strong>：版心上方的 margin 带。页眉文字、页码、Date:/No. 横线都在这条带里。",
-  "<strong>地脚 footer</strong>：版心下方的 margin 带。页脚文字、对页页码对称排布。",
-  "<strong>订口 binding</strong>：朝向书脊的一侧。装订侧水印、base6 编号沿这条边竖排；红线是应用 colors.rs 的页边线红。",
-  "<strong>切口 non-binding</strong>：朝向书外侧的一侧。切口宽度通常小于订口，留出翻页与裁切余量。",
-  "<strong>整本 trim</strong>：单页收齐四道边距成 trim box，对页镜像拼成整本。",
-];
-
-function clamp01(v: number) {
-  return v < 0 ? 0 : v > 1 ? 1 : v;
 }
 
 
@@ -548,7 +426,8 @@ export default function App() {
           base6<em>-techo</em>
         </a>
         <nav>
-          <a href="#spec">规格</a>
+          <a href="#spec">能力</a>
+          <a href="#anatomy">整本排版</a>
           <a href="#patterns">版式</a>
           <a href="#examples">样例</a>
           <a className="gh-link" href={REPO_URL} target="_blank" rel="noreferrer">
@@ -562,15 +441,15 @@ export default function App() {
       <main id="top">
         <section className="hero">
           <div className="hero-copy">
-            <motion.p className="eyebrow" initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.55, ease: "easeOut" }}>自印手帐 · 本地桌面应用</motion.p>
+            <motion.p className="eyebrow" initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.55, ease: "easeOut" }}>专业 LaTeX 排版 · 本地桌面工具</motion.p>
             <motion.h1
               initial={{ opacity: 0, y: 14 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.55, ease: "easeOut", delay: 0.06 }}
             >
-              整本手帐，
+              整本排版，
               <br />
-              一次排成。
+              一次生成。
             </motion.h1>
             <motion.p
               className="lede"
@@ -578,9 +457,8 @@ export default function App() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.55, ease: "easeOut", delay: 0.12 }}
             >
-              base6-techo 排的是<strong>整本手帐</strong>：一本多节，每节各配版式——月历、周视图、点阵、博文館日记复刻
-              ；四周水印独立叠印；最后一步才做整本拼版——不拼版直出方便活页打孔，骑马钉、锁线分册自动拼版，打印装订即是成品。
-              整本以 LaTeX 排版，内置 Tectonic 引擎本地编译出矢量 PDF，手帐内容不出本机。整个项目在 GitHub 上开源。
+              base6-techo 是一套面向整本手帐与纸本出版的<strong>专业排版工具</strong>：用 LaTeX 组织多节内容，版式、水印、页序与拼版分开处理。
+              不用手动为正反面倒腾边距——装订侧（订口）与非装订侧（切口）分别设置，排版引擎会按奇偶页自动镜像；最后直接输出适合打印的矢量 PDF。
             </motion.p>
             <motion.div
               className="hero-cta"
@@ -595,7 +473,12 @@ export default function App() {
                 GitHub
               </a>
             </motion.div>
-            <motion.p className="hero-file" initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.55, ease: "easeOut", delay: 0.24 }}>base6-techo.pdf · v{APP_VERSION} · multi-section · LaTeX · vector</motion.p>
+            <motion.p className="hero-file" initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.55, ease: "easeOut", delay: 0.24 }}>LaTeX source → Tectonic → vector PDF · local-first</motion.p>
+            <div className="hero-proof" aria-label="核心能力">
+              <div><strong>LaTeX</strong><span>专业排版引擎</span></div>
+              <div><strong>INNER / OUTER</strong><span>装订边自动镜像</span></div>
+              <div><strong>PDF</strong><span>矢量输出，直接打印</span></div>
+            </div>
           </div>
 
           <div className="hero-art">
@@ -603,7 +486,7 @@ export default function App() {
             <span className="crop tr" aria-hidden="true" />
             <span className="crop bl" aria-hidden="true" />
             <span className="crop br" aria-hidden="true" />
-            <p className="hero-tag">自印手帐・版面生成器</p>
+            <p className="hero-tag">专业排版工具・整本输出</p>
             <motion.div
               className="sheet s-seyes pv pv-seyes"
               initial={{ opacity: 0, x: 8, y: 18, rotate: 0 }}
@@ -642,10 +525,15 @@ export default function App() {
 
         <section id="spec" className="section">
           <SectionHead
-            code="SPEC"
-            title="整本手帐，从版式到装订边"
-            lede="版式、水印、拼版三层分开，各管各的；节假日、字体这些琐碎但也躲不掉的细节，一样都摊在明面上。"
+            code="WORKFLOW"
+            title="先排一本书，再决定怎么装订"
+            lede="LaTeX 负责页面，整本编排负责页序，装订方式负责最后的拼版。三件事分开，复杂的正反面边距就不再落到手工计算上。"
           />
+          <div className="workflow-strip" aria-label="排版工作流">
+            <div><span className="workflow-no">01</span><strong>组织整本</strong><small>多节内容 · 页序 · 白页</small></div>
+            <div><span className="workflow-no">02</span><strong>定义版心</strong><small>装订侧 ↔ 非装订侧</small></div>
+            <div><span className="workflow-no">03</span><strong>输出成品</strong><small>Tectonic · 矢量 PDF</small></div>
+          </div>
           <dl className="spec">
             {SPEC.map((s) => (
               <div className="spec-row" key={s.k}>
@@ -658,17 +546,61 @@ export default function App() {
 
         <section id="anatomy" className="section">
           <SectionHead
-            code="ANATOMY"
-            title="一张纸的解剖"
-            lede="版式是 feature，外面套着 header / footer / 装订侧 / 非装订侧四道边距，再往外是整本的 trim box——按 LaTeX geometry 包的层级，一层层往里收。点标签，亮一层。"
+            code="BIND SIDE"
+            title="装订侧与非装订侧"
+            lede="翻开的一本书里，中缝两侧都是装订侧，所以左右两页互为镜像。下面是对页示意：左页偶数、右页奇数，各自的装订侧与非装订侧。"
           />
-          <PageAnatomy />
+          <StaticSpread />
+
+          <div className="blank-fill">
+            <h3 className="group-title">
+              <span>整本自由补白</span>
+              <i>BLANK FILL</i>
+            </h3>
+            <div className="bf-row">
+              <div className="bx odd">
+                <span className="n">1</span>
+                <span className="cap">2027 年历</span>
+              </div>
+              <div className="bx even blank">
+                <span className="n">2</span>
+                <span className="cap">白页</span>
+              </div>
+              <div className="bx odd blank">
+                <span className="n">3</span>
+                <span className="cap">白页</span>
+              </div>
+              <div className="bx even">
+                <span className="n">4</span>
+                <span className="cap">1 月 · 月历</span>
+              </div>
+              <div className="bx odd">
+                <span className="n">5</span>
+                <span className="cap">月度打卡</span>
+              </div>
+              <div className="bf-pair">
+                <span className="bf-cap">八分周视图 · 一对对页</span>
+                <span className="bf-cards">
+                  <span className="bx even"><span className="n">6</span><span className="cap">周 · 左</span></span>
+                  <span className="bx odd"><span className="n">7</span><span className="cap">周 · 右</span></span>
+                </span>
+              </div>
+            </div>
+            <p className="bf-note">
+              整本页序不锁死：节与节之间可以自由插入白页（或换成任意版式的页），页码自动后移。
+              <a href="examples/2027-weekly.pdf" target="_blank" rel="noreferrer">2027 周计划样张</a>就是这样排的——年历之后、逐月内容之前，
+              补了两页空白横线页（样张第 2–3 页）。
+              原因是八分周视图在整本里每周横跨一对页：跨页版式必须按「偶数页在左、奇数页在右」起排，
+              若前面各节恰好凑成单数页，下一页就会落到奇数位，左右两半连同装订侧一起颠倒；
+              补一张白页把下一页推回偶数位，对页就永远端正。白页之后随时能换成月历、打卡，或直接删掉。
+            </p>
+          </div>
         </section>
         <section id="patterns" className="section">
           <SectionHead
             code="PATTERNS"
             title="版式样张"
-            lede="卡片配图即样张 PDF 的首页：统一 0xProto 字体、装订侧 base6 水印，由应用实际生成；点开看整份矢量 PDF，每个版式附参数说明。"
+            lede="样张是排版结果，不是产品本身。每一张 PDF 都由同一套 LaTeX 规则生成：版心、字体、线宽、装订侧与页序都可复现。"
           />
 
           <h3 className="group-title"><span>基础纸面</span><i>BASIC</i></h3>
@@ -697,7 +629,7 @@ export default function App() {
           <SectionHead
             code="SAMPLES"
             title="成品样例"
-            lede="以下 PDF 全部由 base6-techo 直接输出，点开即是成品效果。"
+            lede="这里放的是实际生成的 PDF：整本、多节、跨页与装订边都经过排版引擎处理，打开即可查看最终纸面。"
           />
           <ul className="ex-list">
             {EXAMPLES.map(([label, file]) => (
