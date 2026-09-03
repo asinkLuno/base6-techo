@@ -3,7 +3,7 @@ use serde::Deserialize;
 use super::colors::GRAY;
 use super::{Dot, Geometry, Line, LineStyle, centered, validate_color};
 
-/// 法文格（Séyès）：主横线 + 每格 3 条细分线 + 通页竖线（其中一根染成红色边线）。
+/// 法文格（Séyès）：8mm 主方格 + 每格 3 条 2mm 细分线 + 一根红色竖线。
 /// 横线在内容区内左右通边，竖线与边线贯穿整页高度。
 #[derive(Clone, Deserialize)]
 #[serde(default, deny_unknown_fields)]
@@ -88,18 +88,7 @@ pub(crate) fn draw_seyes(geo: Geometry, p: &SeyesPattern) -> (Vec<Line>, Vec<Dot
         }
         lines.push(line(0.0, y, geo.page.width, y, &p.fine_color, p.fine_width));
     }
-    // 通页竖线：整页高度，内容区宽度内每格一条。
-    for x in centered(geo.content.x, geo.content.width, p.spacing) {
-        lines.push(line(
-            x,
-            0.0,
-            x,
-            geo.page.height,
-            &p.vline_color,
-            p.vline_width,
-        ));
-    }
-    // 竖线：整页高度；第 margin_line 根（1 起算）用边线颜色/线宽渲染，0 为全部普通。
+    // 通页竖线：整页高度，内容区宽度内每 8mm 一条。
     for (i, x) in centered(geo.content.x, geo.content.width, p.spacing)
         .into_iter()
         .enumerate()
@@ -112,4 +101,36 @@ pub(crate) fn draw_seyes(geo: Geometry, p: &SeyesPattern) -> (Vec<Line>, Vec<Dot
         lines.push(line(x, 0.0, x, geo.page.height, color, width));
     }
     (lines, vec![])
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::backend::{PageSettings, geometry_for};
+
+    #[test]
+    fn draws_each_grid_vertical_once_and_colors_one_red() {
+        let geo = geometry_for(&PageSettings::default(), 1);
+        let pattern = SeyesPattern {
+            margin_color: "#ff0000".into(),
+            ..Default::default()
+        };
+        let (lines, _) = draw_seyes(geo, &pattern);
+        let verticals = lines
+            .iter()
+            .filter(|line| line.x1 == line.x2)
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            verticals.len(),
+            centered(geo.content.x, geo.content.width, pattern.spacing).len()
+        );
+        assert_eq!(
+            verticals
+                .iter()
+                .filter(|line| line.color.as_deref() == Some(pattern.margin_color.as_str()))
+                .count(),
+            1
+        );
+    }
 }
