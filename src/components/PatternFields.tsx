@@ -131,7 +131,7 @@ export function PatternFields({ section, set }: Props) {
         <Field label="日期字号（pt）" value={p.date_size} min={1} step={0.5} onChange={(v) => set("date_size", v)} />
         <SelectField label="表头语言" value={p.weekday_lang} options={WEEKDAY_LANG_OPTIONS} onChange={(v) => set("weekday_lang", v)} />
         <WeekdayHeaderField value={String(p.weekday_headers ?? "")} onChange={(v) => set("weekday_headers", v)} />
-        <Field label="月历标题格式" value={p.title_format} type="text" placeholder="%Y.%m" onChange={(v) => set("title_format", v)} />
+        <Field label="月历标题格式" value={p.title_format} type="text" placeholder="%Y年%-m月" onChange={(v) => set("title_format", v)} />
       </Grid>
     );
 
@@ -159,7 +159,7 @@ export function PatternFields({ section, set }: Props) {
         <Field label="列数" value={p.cols} min={1} max={12} onChange={(v) => set("cols", v)} />
         <Field label="日期字号（pt）" value={p.date_size} min={1} step={0.5} onChange={(v) => set("date_size", v)} />
         <WeekdayHeaderField value={String(p.weekday_headers ?? "")} onChange={(v) => set("weekday_headers", v)} />
-        <Field label="月历标题格式" value={p.title_format} type="text" placeholder="%Y.%m" onChange={(v) => set("title_format", v)} />
+        <Field label="月历标题格式" value={p.title_format} type="text" placeholder="%Y年%-m月" onChange={(v) => set("title_format", v)} />
         <Field label="显示节假日" value={Boolean(p.show_holidays ?? true)} type="checkbox" onChange={(v) => set("show_holidays", Boolean(v))} />
         <Field label="显示农历" value={Boolean(p.lunar)} type="checkbox" onChange={(v) => set("lunar", Boolean(v))} />
       </Grid>

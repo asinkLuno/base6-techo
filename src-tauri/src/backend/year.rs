@@ -37,7 +37,7 @@ impl Default for YearPattern {
             cols: 2,
             date_size: 6.0,
             weekday_lang: WeekdayLang::Zh,
-            title_format: "%Y.%m".into(),
+            title_format: "%Y年%-m月".into(),
             weekday_headers: "一,二,三,四,五,六,日".into(),
             show_holidays: true,
             lunar: false,
@@ -253,8 +253,8 @@ mod tests {
             r"\sffamily",
             &Some(holidays.clone()),
         );
-        assert!(texts.iter().any(|t| t.content == "2026.01"));
-        assert!(texts.iter().any(|t| t.content == "2026.02"));
+        assert!(texts.iter().any(|t| t.content == "2026年1月"));
+        assert!(texts.iter().any(|t| t.content == "2026年2月"));
         // 2026-01-01 是周四（黑色），2026-02-01 是周日（红色，周末）
         assert_eq!(
             texts
@@ -275,10 +275,10 @@ mod tests {
     #[test]
     fn year_month_title_and_headers_follow_settings() {
         let page = PageSettings::default();
-        // 默认 %Y.%m + 中文表头（与旧版一致）。
+        // 默认 %Y年%-m月（2026年1月）+ 中文表头。
         let p = year("2026-01", "2026-02");
         let texts = draw_year(geometry_for(&page, 1), &p, 0, r"\sffamily", &None);
-        assert!(texts.iter().any(|t| t.content == "2026.01"));
+        assert!(texts.iter().any(|t| t.content == "2026年1月"));
         assert!(texts.iter().any(|t| t.content == "一"));
         // 标题格式与表头串复用月历的设置方式。
         let p = YearPattern {

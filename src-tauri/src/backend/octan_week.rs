@@ -39,7 +39,7 @@ impl Default for OctanWeekPattern {
             date_format: "%-d".into(),
             date_locale: "zh-CN".into(),
             weekday_lang: WeekdayLang::Zh,
-            title_format: "%Y.%m".into(),
+            title_format: "%Y年%-m月".into(),
             weekday_headers: "一,二,三,四,五,六,日".into(),
             line_color: GRAY.into(),
             line_width: 0.4,
@@ -512,8 +512,8 @@ mod tests {
         let mini: Vec<&Text> = texts.iter().filter(|t| t.anchor == "center").collect();
         // 两个月：8 月（标题+7 表头+31 天）+ 9 月（标题+7 表头+30 天）。
         assert_eq!(mini.len(), 2 * 8 + 31 + 30);
-        assert!(mini.iter().any(|t| t.content == "2026.08"));
-        assert!(mini.iter().any(|t| t.content == "2026.09"));
+        assert!(mini.iter().any(|t| t.content == "2026年8月"));
+        assert!(mini.iter().any(|t| t.content == "2026年9月"));
         let colored =
             |s: &str, color: &str| mini.iter().any(|t| t.content == s && t.color == color);
         // 本周 8/3–8/9 红色，8/1、8/2、8/10 及 9 月黑色。
@@ -561,7 +561,7 @@ mod tests {
     #[test]
     fn mini_calendar_header_follows_settings() {
         let page = PageSettings::default();
-        // 默认中文表头 + %Y.%m 标题（与旧版一致）。
+        // 默认中文表头 + %Y年%-m月（2026年8月）标题。
         let p = pattern("2026-08-03", "2026-08-09");
         assert!(draw(&page, &p, 0).iter().any(|t| t.content == "一"));
         // 表头串与标题格式复用月历的设置方式。

@@ -45,10 +45,22 @@ export const patternNames: Record<PatternKind, string> = {
   blank: "空白页",
 };
 
-export const PATTERN_GROUPS: [string, PatternKind[]][] = [
-  ["基础", ["dots", "grid", "ruled", "seyes", "us-ruled", "vertical", "blank"]],
-  ["复刻", ["方眼罫", "hakubunkan-toyo-nikki", "hakubunkan-kaichu-nikki"]],
-  ["日程", ["month", "month-tracker", "tracker", "八分周视图", "timeline", "graph", "year"]],
+export type PatternGroup =
+  | { label: string; kinds: PatternKind[] }
+  | { label: string; subgroups: { label: string; kinds: PatternKind[] }[] };
+
+export const PATTERN_GROUPS: PatternGroup[] = [
+  { label: "基础", kinds: ["dots", "grid", "ruled", "seyes", "us-ruled", "vertical", "blank"] },
+  { label: "复刻", kinds: ["方眼罫", "hakubunkan-toyo-nikki", "hakubunkan-kaichu-nikki"] },
+  {
+    label: "日程",
+    subgroups: [
+      { label: "年", kinds: ["year", "month-tracker"] },
+      { label: "月", kinds: ["month", "tracker", "graph"] },
+      { label: "周", kinds: ["八分周视图"] },
+      { label: "日", kinds: ["timeline"] },
+    ],
+  },
 ];
 
 // 默认颜色，须与后端 src-tauri/src/backend/colors.rs 一一对应。
@@ -140,7 +152,7 @@ export const defaults: Record<PatternKind, Values & { kind: PatternKind }> = {
   "方眼罫": { kind: "方眼罫", line_color: COLORS.paleJade },
   "八分周视图": {
     kind: "八分周视图", start_date: toISODate(currentMonday), end_date: toISODate(currentSunday),
-    date_format: "%-d", date_locale: "zh-CN", weekday_lang: "zh", title_format: "%Y.%m",
+    date_format: "%-d", date_locale: "zh-CN", weekday_lang: "zh", title_format: "%Y年%-m月",
     weekday_headers: "一,二,三,四,五,六,日", line_color: COLORS.gray, line_width: 0.4,
     line_style: "solid", center_gap: 2, date_size: 10,
   },
@@ -169,7 +181,7 @@ export const defaults: Record<PatternKind, Values & { kind: PatternKind }> = {
   },
   year: {
     kind: "year", start: `${new Date().getFullYear()}-01`, end: `${new Date().getFullYear()}-12`,
-    rows: 1, cols: 2, date_size: 6, weekday_lang: "zh", title_format: "%Y.%m",
+    rows: 1, cols: 2, date_size: 6, weekday_lang: "zh", title_format: "%Y年%-m月",
     weekday_headers: "一,二,三,四,五,六,日", show_holidays: true, lunar: false,
   },
   timeline: {

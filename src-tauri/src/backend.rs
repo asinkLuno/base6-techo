@@ -1361,7 +1361,7 @@ fn render_latex(pages: &[OutputPage]) -> String {
             String::new()
         } else {
             format!(
-                "\\usepackage{{fontspec}}\n{}",
+                "\\usepackage{{fontspec}}\n{}\n\\usepackage{{xeCJK}}\n\\xeCJKsetup{{CJKecglue={{\\hskip 0.15em plus 0.04em minus 0.03em}}}}",
                 fonts
                     .iter()
                     .map(|(font, command)| font_family_definition(command, font))

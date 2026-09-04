@@ -39,7 +39,7 @@ pattern_params() {
     seyes)  echo '"kind":"seyes","pages":2,"spacing":8,"margin_line":7,"main_color":"#9db0cf","main_width":0.2,"fine_color":"#c5d0e4","fine_width":0.1,"vline_color":"#c5d0e4","vline_width":0.1,"margin_color":"#d96a6a","margin_width":0.4' ;;
     us-ruled) echo '"kind":"us-ruled","pages":2,"spacing":8.7,"rule_color":"#8fb0d8","rule_width":0.2,"margin_x":25,"margin_color":"#d96a6a","margin_width":0.4' ;;
     vertical) echo '"kind":"vertical","pages":2,"spacing":10,"color":"#000000","frame_outer_width":0.5,"frame_inner_width":0.18,"frame_gap":1.2' ;;
-    octan-week) echo '"kind":"八分周视图","start_date":"2026-08-31","end_date":"2026-09-06","date_format":"%-d","date_locale":"zh-CN","weekday_lang":"zh","title_format":"%Y.%m","weekday_headers":"一,二,三,四,五,六,日","line_color":"#7a7a7a","line_width":0.4,"line_style":"solid","center_gap":2,"date_size":10' ;;
+    octan-week) echo '"kind":"八分周视图","start_date":"2026-08-31","end_date":"2026-09-06","date_format":"%-d","date_locale":"zh-CN","weekday_lang":"zh","title_format":"%Y年%-m月","weekday_headers":"一,二,三,四,五,六,日","line_color":"#7a7a7a","line_width":0.4,"line_style":"solid","center_gap":2,"date_size":10' ;;
     hogen) echo '"kind":"方眼罫","pages":2,"line_color":"#a9d1ae"' ;;
     hakubunkan-toyo-nikki) echo '"kind":"hakubunkan-toyo-nikki","start_date":"2026-09-01","end_date":"2026-09-02","date_format":"%-m月%-d日","line_color":"#a9d1ae","line_width":0.8' ;;
     hakubunkan-kaichu-nikki) echo '"kind":"hakubunkan-kaichu-nikki","start_date":"2026-09-01","end_date":"2026-09-04","date_format":"%-m 月  %-d 日","date_locale":"zh-CN","weekday_headers":"月,火,水,木,金,土,日","lunar_style":"numeric","line_color":"#7a7a7a","line_width":0.4,"date_size":10' ;;
@@ -172,6 +172,69 @@ gen_month_all() {
   done
 }
 
+# ---- 年历（year）：全 2026，按尺寸选单/双页，按版本开关农历与节假日 ----
+YEAR_HOLIDAYS="examples/ics/holidays-2026.json"
+
+# 年历 section JSON。
+# rows×cols：a5/a6p 单页整年（3×4=12 月一页）；a7 双页视图（3×2=6 月/页，左页 1-6 月 / 右页 7-12 月拼全年）。
+# variant: plain=不开农历/节假日；holiday=开农历+节假日并注入 holidays。
+build_year_json() {
+  local w="$1" h="$2" size="$3" variant="$4"
+  read -r binding non_binding header footer <<< "$(margins "$w" "$h")"
+  local lunar show_holidays holidays_json=""
+  if [[ "$variant" == "holiday" ]]; then
+    lunar="true"; show_holidays="true"
+    holidays_json=",\"holidays\":$(cat "$YEAR_HOLIDAYS")"
+  else
+    lunar="false"; show_holidays="false"
+  fi
+  local rows cols
+  if [[ "$size" == "a7" ]]; then
+    rows=3; cols=2   # 6 个月/页，双页拼全年
+  else
+    rows=3; cols=4   # 12 个月单页整年
+  fi
+  local ypat='"kind":"year","start":"2026-01","end":"2026-12","rows":'$rows',"cols":'$cols',"date_size":6,"weekday_lang":"zh","title_format":"%Y年%-m月","weekday_headers":"一,二,三,四,五,六,日","show_holidays":'$show_holidays',"lunar":'$lunar
+  local page='"page":{"width":'$w',"height":'$h',"header":'$header',"footer":'$footer',"binding":'$binding',"non_binding":'$non_binding'}'
+  local doc='"document":{"binding_text":"'$BINDING_TEXT'","binding_text_font":"'$FONT'"}'
+  mkdir -p "$OUT_DIR"
+  {
+    echo '{'
+    echo '  "output": "'$OUT_DIR'/year-'$size'-'$variant'.pdf",'
+    echo '  "bind": { "mode": null, "sheets_per_group": 4 },'
+    echo '  "sections": ['
+    if [[ "$size" == "a7" ]]; then
+      # 双页：空白首叶 + 相邻两页（左 1-6 月 / 右 7-12 月）拼全年
+      echo '    { "title": "空白页", '$page', '$doc', "pattern": {"kind":"blank","pages":1} },'
+      echo '    { "title": "年历", '$page', '$doc', "pattern": {'$ypat'}'$holidays_json' }'
+    else
+      # 单页：整年一页
+      echo '    { "title": "年历", '$page', '$doc', "pattern": {'$ypat'}'$holidays_json' }'
+    fi
+    echo '  ]'
+    echo '}'
+  } > "/tmp/ex-year-$size-$variant.json"
+}
+
+gen_year_all() {
+  for size in "${YEAR_SIZES[@]:-a5 a6p a7}"; do
+    read -r w h <<< "${SIZES[$size]:-}"
+    [[ -n "$w" ]] || { echo "未知尺寸: $size"; continue; }
+    for variant in plain holiday; do
+      echo ">>> year · $size · $variant"
+      build_year_json "$w" "$h" "$size" "$variant" > "/tmp/ex-year-$size-$variant.json"
+      "$BIN" < "/tmp/ex-year-$size-$variant.json" >/dev/null
+      if [[ "$size" == "a7" ]]; then
+        pdftoppm -f 2 -l 3 -png -r "$RES_DPI" "$OUT_DIR/year-$size-$variant.pdf" "$OUT_DIR/year-$size-$variant-p"
+        echo "    -> $OUT_DIR/year-$size-$variant.pdf + p2/p3.png"
+      else
+        pdftoppm -singlefile -f 1 -l 1 -png -r "$RES_DPI" "$OUT_DIR/year-$size-$variant.pdf" "$OUT_DIR/year-$size-$variant"
+        echo "    -> $OUT_DIR/year-$size-$variant.pdf + single.png"
+      fi
+    done
+  done
+}
+
 
 # ---- 年度追踪（month-tracker）：A5/A6P 单页（整年平铺），A7 双页（1-15/16-31）----
 build_monthtracker_json() {
@@ -231,6 +294,11 @@ main() {
     if [[ "$kind" == "month" ]]; then
       MONTH_SIZES=("${sizes[@]}")
       gen_month_all
+      continue
+    fi
+    if [[ "$kind" == "year" ]]; then
+      YEAR_SIZES=("${sizes[@]}")
+      gen_year_all
       continue
     fi
     if [[ "$kind" == "monthtracker" ]]; then
