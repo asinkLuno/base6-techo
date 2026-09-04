@@ -286,15 +286,29 @@ export default function App() {
       <AppBar position="sticky" elevation={0} sx={{ bgcolor: "background.paper", borderBottom: "1px solid", borderColor: "divider" }}>
         <Toolbar sx={{ maxWidth: 1240, width: "100%", mx: "auto", px: { xs: 2, md: 3 }, minHeight: { xs: 56, sm: 64 } }}>
           <Stack direction="row" spacing={2} sx={{ alignItems: "baseline" }}>
-            <Typography variant="h6" sx={{ fontWeight: 700, letterSpacing: "0.04em" }}>
-              base6 <Box component="span" sx={{ color: "secondary.main" }}>techo</Box>
+            <Typography
+              variant="h6"
+              sx={{
+                fontWeight: 500,
+                letterSpacing: "0.12em",
+                fontFamily: '"Songti SC", "Noto Serif CJK SC", "SimSun", serif',
+                fontSize: "1.15rem",
+              }}
+            >
+              base<span>6</span> <Box component="span" sx={{ color: "text.secondary", fontWeight: 400 }}>· techo</Box>
             </Typography>
-            <Typography variant="caption" sx={{ color: "text.secondary", letterSpacing: "0.16em", display: { xs: "none", sm: "block" } }}>
+            <Typography variant="caption" sx={{ color: "text.secondary", letterSpacing: "0.22em", fontFamily: "monospace", display: { xs: "none", sm: "block" } }}>
               手帐排版工作台
             </Typography>
           </Stack>
           <Box sx={{ flex: 1 }} />
           <Stack direction="row" spacing={1}>
+            <IconButton size="small" title="导出预设" aria-label="导出预设" onClick={exportPreset}>
+              <Download fontSize="small" />
+            </IconButton>
+            <IconButton size="small" title="导入预设（JSON）" aria-label="导入预设" onClick={importPreset}>
+              <Upload fontSize="small" />
+            </IconButton>
             <Button
               variant="outlined"
               startIcon={preview.busy ? <Refresh sx={{ animation: "spin 1s linear infinite" }} /> : <Visibility />}
@@ -455,12 +469,6 @@ export default function App() {
               />
             </Panel>
 
-            <Panel title="预设" description="保存或载入整套设置">
-              <Stack direction="row" spacing={1}>
-                <Button size="small" startIcon={<Download />} sx={{ flex: 1 }} onClick={exportPreset}>导出预设</Button>
-                <Button size="small" startIcon={<Upload />} sx={{ flex: 1 }} onClick={importPreset}>导入预设</Button>
-              </Stack>
-            </Panel>
 
             <Panel title="状态">
               <Box sx={{ display: "grid", gap: 0.5 }}>

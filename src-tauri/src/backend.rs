@@ -7,17 +7,17 @@ use std::{
 };
 
 mod colors;
+mod daily_timeline;
 mod dots;
-mod graph;
 mod grid;
 mod hakubunkan_kaichu_nikki;
 mod hakubunkan_toyo_nikki;
 mod hogen_grid;
 mod month;
+mod month_graph;
 mod octan_week;
 mod ruled;
 mod seyes;
-mod timeline;
 mod us_ruled;
 mod vertical;
 mod year;
@@ -27,8 +27,8 @@ use chrono::{
     Locale, NaiveDate,
     format::{Item, StrftimeItems},
 };
+use daily_timeline::{DailyTimelinePattern, draw_daily_timeline};
 use dots::{DotsPattern, draw_dots};
-use graph::{GraphPattern, draw_graph};
 use grid::{GridPattern, draw_grid};
 use hakubunkan_kaichu_nikki::{HakubunkanKaichuNikkiPattern, draw_hakubunkan_kaichu_nikki};
 use hakubunkan_toyo_nikki::{HakubunkanToyoNikkiPattern, draw_hakubunkan_toyo_nikki, lunar_date};
@@ -36,12 +36,12 @@ use hogen_grid::{HogenGridPattern, draw_hogen_grid};
 use month::{
     MonthPattern, MonthTrackerPattern, TrackerPattern, draw_month, draw_month_tracker, draw_tracker,
 };
+use month_graph::{MonthGraphPattern, draw_month_graph};
 use octan_week::{OctanWeekPattern, draw_octan_week};
 use ruled::{RuledPattern, draw_ruled};
 use serde::Deserialize;
 use seyes::{SeyesPattern, draw_seyes};
 use tauri::{Emitter, Manager};
-use timeline::{TimelinePattern, draw_timeline};
 use us_ruled::{UsRuledPattern, draw_us_ruled};
 use vertical::{VerticalPattern, draw_vertical};
 use year::{YearPattern, draw_year};
@@ -263,7 +263,8 @@ enum Pattern {
     HakubunkanToyoNikki(HakubunkanToyoNikkiPattern),
     #[serde(rename = "八分周视图")]
     OctanWeek(OctanWeekPattern),
-    Graph(GraphPattern),
+    #[serde(rename = "month_graph")]
+    MonthGraph(MonthGraphPattern),
     #[serde(rename = "hakubunkan-kaichu-nikki")]
     HakubunkanKaichuNikki(HakubunkanKaichuNikkiPattern),
     #[serde(rename = "方眼罫")]
@@ -271,7 +272,8 @@ enum Pattern {
     Seyes(SeyesPattern),
     #[serde(rename = "month-calendar")]
     Month(MonthPattern),
-    Timeline(TimelinePattern),
+    #[serde(rename = "daily_timeline")]
+    DailyTimeline(DailyTimelinePattern),
     #[serde(rename = "month-tracker")]
     Tracker(TrackerPattern),
     #[serde(rename = "year-tracker")]
@@ -319,7 +321,6 @@ enum LineStyle {
     Dashed,
     Dotted,
     DashDot,
-
 }
 
 impl LineStyle {
@@ -329,7 +330,6 @@ impl LineStyle {
             Self::Dashed => "dashed",
             Self::Dotted => "dotted",
             Self::DashDot => "dash dot",
-
         }
     }
 }
@@ -346,7 +346,7 @@ impl Pattern {
             Self::OctanWeek(p) => p.weeks().len() * 2,
             Self::HakubunkanKaichuNikki(p) => p.page_count(),
             Self::HakubunkanToyoNikki(p) => p.page_count(),
-            Self::Graph(_) | Self::Tracker(_) => 1,
+            Self::MonthGraph(_) | Self::Tracker(_) => 1,
             Self::HogenGrid(p) => p.pages,
             Self::Seyes(p) => p.pages,
             Self::Month(p) => {
@@ -363,7 +363,7 @@ impl Pattern {
                     1
                 }
             }
-            Self::Timeline(p) => p.page_count(),
+            Self::DailyTimeline(p) => p.page_count(),
             Self::Year(p) => p.page_count(),
             Self::Blank(p) => p.pages,
         }
@@ -378,13 +378,13 @@ impl Pattern {
             Self::Vertical(p) => &p.color,
             Self::HakubunkanToyoNikki(p) => &p.line_color,
             Self::OctanWeek(p) => &p.line_color,
-            Self::Graph(p) => &p.line_color,
+            Self::MonthGraph(p) => &p.line_color,
             Self::HakubunkanKaichuNikki(p) => &p.line_color,
             Self::HogenGrid(p) => &p.line_color,
             Self::Seyes(p) => &p.main_color,
             Self::Month(p) => &p.line_color,
             Self::MonthTracker(p) => &p.line_color,
-            Self::Timeline(p) => &p.line_color,
+            Self::DailyTimeline(p) => &p.line_color,
             Self::Tracker(p) => &p.line_color,
             // 年历只用文字（黑/红固定色），无线条；不会走到该默认值。
             Self::Year(_) => BLACK,
@@ -400,14 +400,14 @@ impl Pattern {
             Self::Vertical(p) => p.frame_inner_width,
             Self::HakubunkanToyoNikki(p) => p.line_width,
             Self::OctanWeek(p) => p.line_width,
-            Self::Graph(p) => p.line_width,
+            Self::MonthGraph(p) => p.line_width,
             Self::HakubunkanKaichuNikki(p) => p.line_width,
             // 方眼罫 版式已把尺寸/线宽固定，只留颜色可配；默认线宽取固定值。
             Self::HogenGrid(_) => 0.7,
             Self::Seyes(p) => p.main_width,
             Self::Month(p) => p.line_width,
             Self::MonthTracker(p) => p.line_width,
-            Self::Timeline(p) => p.line_width,
+            Self::DailyTimeline(p) => p.line_width,
             Self::Tracker(p) => p.line_width,
             Self::Year(_) => 0.0,
             Self::Blank(_) => 0.0,
@@ -422,13 +422,13 @@ impl Pattern {
             Self::Vertical(p) => p.validate(),
             Self::HakubunkanToyoNikki(p) => p.validate(),
             Self::OctanWeek(p) => p.validate(),
-            Self::Graph(p) => p.validate(),
+            Self::MonthGraph(p) => p.validate(),
             Self::HakubunkanKaichuNikki(p) => p.validate(),
             Self::HogenGrid(p) => p.validate(),
             Self::Seyes(p) => p.validate(),
             Self::Month(p) => p.validate(),
             Self::MonthTracker(p) => p.validate(),
-            Self::Timeline(p) => p.validate(),
+            Self::DailyTimeline(p) => p.validate(),
             Self::Tracker(p) => p.validate(),
             Self::Year(p) => p.validate(),
             Self::Blank(p) => p.validate(),
@@ -778,8 +778,8 @@ fn render_page(
             let (l, d, pa, t) = draw_octan_week(geo, p, index, &doc.binding_text_font, holidays);
             (l, d, pa, t)
         }
-        Pattern::Timeline(p) => {
-            let (l, d, t) = draw_timeline(geo, p, index, &doc.binding_text_font);
+        Pattern::DailyTimeline(p) => {
+            let (l, d, t) = draw_daily_timeline(geo, p, index, &doc.binding_text_font);
             (l, d, vec![], t)
         }
         Pattern::Month(p) => {
@@ -790,8 +790,8 @@ fn render_page(
             let (l, pa, t) = draw_month_tracker(geo, p, index, &doc.binding_text_font);
             (l, vec![], pa, t)
         }
-        Pattern::Graph(p) => {
-            let (l, t) = draw_graph(geo, p, &doc.binding_text_font);
+        Pattern::MonthGraph(p) => {
+            let (l, t) = draw_month_graph(geo, p, &doc.binding_text_font);
             (l, vec![], vec![], t)
         }
         Pattern::HakubunkanKaichuNikki(p) => {
@@ -1620,7 +1620,7 @@ pub(crate) async fn preview_document(
 
 #[cfg(test)]
 mod tests {
-    use super::timeline::timeline_color;
+    use super::daily_timeline::daily_timeline_color;
     use super::*;
     use chrono::Utc;
 
@@ -2166,9 +2166,9 @@ mod tests {
     }
 
     #[test]
-    fn timeline_crosses_midnight() {
+    fn daily_timeline_crosses_midnight() {
         let date = NaiveDate::from_ymd_opt(2025, 6, 21).unwrap();
-        let p = TimelinePattern {
+        let p = DailyTimelinePattern {
             latitude: Some(31.23),
             longitude: Some(121.47),
             timezone: Some("Asia/Shanghai".into()),
@@ -2177,11 +2177,11 @@ mod tests {
             ..Default::default()
         };
         assert_eq!(
-            timeline_color(&p, Some(date), 28 * 60).as_deref(),
+            daily_timeline_color(&p, Some(date), 28 * 60).as_deref(),
             Some(colors::TIMELINE_NIGHT)
         );
         assert_eq!(
-            timeline_color(&p, Some(date), 29 * 60).as_deref(),
+            daily_timeline_color(&p, Some(date), 29 * 60).as_deref(),
             Some(colors::PHASE_GOLD)
         );
     }
@@ -2217,7 +2217,7 @@ mod tests {
                 { "pattern": { "kind": "hakubunkan-toyo-nikki" } },
                 { "pattern": { "kind": "八分周视图", "start_date": "2026-08-03", "end_date": "2026-08-16" } },
                 { "pattern": { "kind": "方眼罫" } },
-                { "pattern": { "kind": "timeline", "pages": 1, "start_date": "2026-08-01", "end_date": "2026-08-01", "latitude": 31.23, "longitude": 121.47, "timezone": "Asia/Shanghai" } }
+                { "pattern": { "kind": "daily_timeline", "pages": 1, "start_date": "2026-08-01", "end_date": "2026-08-01", "latitude": 31.23, "longitude": 121.47, "timezone": "Asia/Shanghai" } }
             ],
             "bind": { "mode": "booklet", "sheets_per_group": 4 }
         }))

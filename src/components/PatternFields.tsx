@@ -208,7 +208,7 @@ export function PatternFields({ section, set }: Props) {
       </Grid>
     );
 
-  if (p.kind === "graph")
+  if (p.kind === "month_graph")
     return (
       <Grid>
         <SelectField

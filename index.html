@@ -3,10 +3,44 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>base6 techo · Pipeline studio</title>
+    <meta name="theme-color" content="#eae6dc" />
+    <meta
+      name="description"
+      content="base6 · techo — 手帐排版工作台：以毫米级精度排布版式、拼版并生成可直接装订的 PDF。"
+    />
+    <title>base6 · techo — 手帐排版工作台</title>
+    <style>
+      /* 加载时的桌面纸面 —— 应用挂载前的兜底，避免白屏闪动 */
+      html,
+      body {
+        height: 100%;
+      }
+      body {
+        margin: 0;
+        background: #eae6dc;
+        color: #26231e;
+      }
+      #boot {
+        height: 100vh;
+        display: grid;
+        place-items: center;
+        font-family: "Songti SC", "Noto Serif CJK SC", "SimSun", serif;
+        letter-spacing: 0.18em;
+        font-size: 15px;
+        color: rgba(38, 35, 30, 0.45);
+        user-select: none;
+      }
+      #boot::before {
+        content: "base6 · techo";
+      }
+      body:has(#root:not(:empty)) #boot {
+        display: none;
+      }
+    </style>
   </head>
 
   <body>
+    <div id="boot" aria-hidden="true"></div>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

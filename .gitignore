@@ -15,6 +15,7 @@ out.*
 # Editor session files
 Session.vim
 
+__pycache__/
 # Tool/session cache
 .zcode/
 compile.log

@@ -8,7 +8,7 @@ export type Values = Record<string, Value>;
 export type PatternKind =
   | "dots" | "grid" | "ruled" | "seyes" | "vertical" | "us-ruled"
   | "hakubunkan-toyo-nikki" | "方眼罫" | "八分周视图" | "hakubunkan-kaichu-nikki"
-  | "year-calendar" | "month-calendar" | "month-tracker" | "year-tracker" | "graph" | "timeline" | "blank";
+  | "year-calendar" | "month-calendar" | "month-tracker" | "year-tracker" | "month_graph" | "daily_timeline" | "blank";
 
 export type Section = {
   id: string;
@@ -34,12 +34,12 @@ export const patternNames: Record<PatternKind, string> = {
   "us-ruled": "美式横线",
   "hakubunkan-toyo-nikki": "博文館・當用日記",
   "八分周视图": "八分周视图",
-  graph: "月追踪制图",
+  "month_graph": "月追踪制图",
   "hakubunkan-kaichu-nikki": "博文館・懐中日記",
   "方眼罫": "方眼罫",
   "month-calendar": "月历",
   "year-tracker": "年度追踪",
-  timeline: "时间轴",
+  "daily_timeline": "时间轴",
   "month-tracker": "月打卡",
   "year-calendar": "年历",
   blank: "空白页",
@@ -56,9 +56,9 @@ export const PATTERN_GROUPS: PatternGroup[] = [
     label: "日程",
     subgroups: [
       { label: "年", kinds: ["year-calendar", "year-tracker"] },
-      { label: "月", kinds: ["month-calendar", "month-tracker", "graph"] },
+      { label: "月", kinds: ["month-calendar", "month-tracker", "month_graph"] },
       { label: "周", kinds: ["八分周视图"] },
-      { label: "日", kinds: ["timeline"] },
+      { label: "日", kinds: ["daily_timeline"] },
     ],
   },
 ];
@@ -162,7 +162,7 @@ export const defaults: Record<PatternKind, Values & { kind: PatternKind }> = {
     date_format: "%-m 月  %-d 日", date_locale: "zh-CN", weekday_headers: "月,火,水,木,金,土,日",
     lunar_style: "numeric", line_color: COLORS.gray, line_width: 0.4, date_size: 10,
   },
-  graph: { kind: "graph", axis: "right", line_color: COLORS.gray, line_width: 0.2, date_size: 8, y_min: null, y_max: null, y_steps: 10 },
+  "month_graph": { kind: "month_graph", axis: "right", line_color: COLORS.gray, line_width: 0.2, date_size: 8, y_min: null, y_max: null, y_steps: 10 },
   "month-calendar": {
     kind: "month-calendar", year: new Date().getFullYear(), month: new Date().getMonth() + 1,
     phase_color: COLORS.phaseGold, line_color: COLORS.gray, line_width: 0.4, date_size: 8,
@@ -184,8 +184,8 @@ export const defaults: Record<PatternKind, Values & { kind: PatternKind }> = {
     rows: 1, cols: 2, date_size: 6, weekday_lang: "zh", title_format: "%Y年%-m月",
     weekday_headers: "一,二,三,四,五,六,日", show_holidays: true, lunar: false,
   },
-  timeline: {
-    kind: "timeline", start: 0, end: 26, pages: 1, start_date: toISODate(currentMonday), end_date: toISODate(currentSunday),
+  "daily_timeline": {
+    kind: "daily_timeline", start: 0, end: 24, pages: 1, start_date: toISODate(currentMonday), end_date: toISODate(currentSunday),
     title_format: "%Y年%-m月%-d日", line_color: COLORS.gray, line_width: 1.138, label_size: 10.2,
     latitude: "", longitude: "", timezone: "Etc/GMT-8", daylight_color: COLORS.phaseGold, night_color: COLORS.timelineNight,
   },

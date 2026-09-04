@@ -23,7 +23,7 @@ pub(crate) enum AxisSide {
 
 #[derive(Clone, Deserialize)]
 #[serde(default, deny_unknown_fields)]
-pub(crate) struct GraphPattern {
+pub(crate) struct MonthGraphPattern {
     pub(crate) axis: AxisSide,
     pub(crate) line_color: String,
     pub(crate) line_width: f64,
@@ -32,15 +32,15 @@ pub(crate) struct GraphPattern {
     pub(crate) y_min: Option<f64>,
     pub(crate) y_max: Option<f64>,
     /// 纵轴刻度段数，必须 ≤ 日界粗线数（rows/SUB）。
-    #[serde(default = "GraphPattern::default_y_steps")]
+    #[serde(default = "MonthGraphPattern::default_y_steps")]
     pub(crate) y_steps: usize,
 }
-impl GraphPattern {
+impl MonthGraphPattern {
     const fn default_y_steps() -> usize {
         10
     }
 }
-impl Default for GraphPattern {
+impl Default for MonthGraphPattern {
     fn default() -> Self {
         Self {
             axis: AxisSide::default(),
@@ -53,7 +53,7 @@ impl Default for GraphPattern {
         }
     }
 }
-impl GraphPattern {
+impl MonthGraphPattern {
     pub(crate) fn validate(&self) -> Result<(), String> {
         if self.line_width <= 0.0 || self.date_size <= 0.0 {
             return Err("line_width and date_size must be > 0".into());
@@ -72,7 +72,11 @@ impl GraphPattern {
     }
 }
 
-pub(crate) fn draw_graph(geo: Geometry, p: &GraphPattern, font: &str) -> (Vec<Line>, Vec<Text>) {
+pub(crate) fn draw_month_graph(
+    geo: Geometry,
+    p: &MonthGraphPattern,
+    font: &str,
+) -> (Vec<Line>, Vec<Text>) {
     let mut lines = Vec::new();
     let mut texts = Vec::new();
     let r = geo.content;
@@ -194,7 +198,7 @@ fn render_graph_sample() {
             r#"{{
                 "output": "{file}",
                 "sections": [{{
-                    "pattern": {{ "kind": "graph", "axis": "{axis}", "y_min": 0, "y_max": 100, "y_steps": 10 }},
+                    "pattern": {{ "kind": "month_graph", "axis": "{axis}", "y_min": 0, "y_max": 100, "y_steps": 10 }},
                     "document": {{ "page_number": false }}
                 }}]
             }}"#,
@@ -214,8 +218,8 @@ mod tests {
     fn grid_has_bold_lines_every_five_cells() {
         let page = PageSettings::default();
         let r = geometry_for(&page, 1).content;
-        let p = GraphPattern::default();
-        let (lines, texts) = draw_graph(geometry_for(&page, 1), &p, r"\sffamily");
+        let p = MonthGraphPattern::default();
+        let (lines, texts) = draw_month_graph(geometry_for(&page, 1), &p, r"\sffamily");
         // A5 默认页：设计区 190×125，格 190/160≈1.188mm，行数 (120/格)÷5×5=100。
         // 竖线 161（粗 33）+ 横线 101（粗 21）。
         assert_eq!(lines.len(), 161 + 101);
@@ -241,11 +245,11 @@ mod tests {
     fn left_axis_mirrors_labels() {
         let page = PageSettings::default();
         let r = geometry_for(&page, 1).content;
-        let p = GraphPattern {
+        let p = MonthGraphPattern {
             axis: AxisSide::Left,
             ..Default::default()
         };
-        let (_, texts) = draw_graph(geometry_for(&page, 1), &p, r"\sffamily");
+        let (_, texts) = draw_month_graph(geometry_for(&page, 1), &p, r"\sffamily");
         assert_eq!(texts.len(), 31);
         assert_eq!(texts[0].content, "1");
         assert_eq!(texts[0].anchor, "south");
@@ -266,13 +270,13 @@ mod tests {
         let page = PageSettings::default();
         let geo = geometry_for(&page, 1);
         let r = geo.content;
-        let p = GraphPattern {
+        let p = MonthGraphPattern {
             y_min: Some(0.0),
             y_max: Some(100.0),
             y_steps: 10,
             ..Default::default()
         };
-        let (_, texts) = draw_graph(geo, &p, r"\sffamily");
+        let (_, texts) = draw_month_graph(geo, &p, r"\sffamily");
         // 横轴 31 + 纵轴 11 刻度。
         assert_eq!(texts.len(), 31 + 11);
         let axis: Vec<String> = texts.iter().map(|t| t.content.clone()).collect();
@@ -308,14 +312,14 @@ mod tests {
         let page = PageSettings::default();
         let geo = geometry_for(&page, 1);
         let r = geo.content;
-        let p = GraphPattern {
+        let p = MonthGraphPattern {
             axis: AxisSide::Left,
             y_min: Some(0.0),
             y_max: Some(100.0),
             y_steps: 10,
             ..Default::default()
         };
-        let (_, texts) = draw_graph(geo, &p, r"\sffamily");
+        let (_, texts) = draw_month_graph(geo, &p, r"\sffamily");
         let y_texts: Vec<&Text> = texts
             .iter()
             .filter(|t| (t.y - (r.y + AXIS_H - 0.4)).abs() < 0.01)
@@ -334,10 +338,10 @@ mod tests {
 
     #[test]
     fn validate_checks_sizes_and_color() {
-        let p = GraphPattern::default();
+        let p = MonthGraphPattern::default();
         assert!(p.validate().is_ok());
         assert!(
-            GraphPattern {
+            MonthGraphPattern {
                 line_width: 0.0,
                 ..p.clone()
             }
@@ -345,7 +349,7 @@ mod tests {
             .is_err()
         );
         assert!(
-            GraphPattern {
+            MonthGraphPattern {
                 line_color: "red".into(),
                 ..p.clone()
             }

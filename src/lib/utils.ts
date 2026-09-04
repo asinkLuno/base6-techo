@@ -42,7 +42,7 @@ export function loadJSON<T>(key: string, fallback: T): T {
 }
 
 export function cleanPattern(pattern: Section["pattern"]) {
-  if (pattern.kind === "timeline")
+  if (pattern.kind === "daily_timeline")
     return {
       ...pattern,
       latitude: pattern.latitude ?? null,
@@ -58,7 +58,7 @@ export function cleanPattern(pattern: Section["pattern"]) {
 export function effectivePages(section: Section): number {
   const p = section.pattern;
   if (p.kind === "year-tracker") return p.two_page ? 2 : 1;
-  if (p.kind === "ruled" || p.kind === "dots" || p.kind === "grid" || p.kind === "us-ruled" || p.kind === "seyes" || p.kind === "timeline" || p.kind === "vertical" || p.kind === "blank")
+  if (p.kind === "ruled" || p.kind === "dots" || p.kind === "grid" || p.kind === "us-ruled" || p.kind === "seyes" || p.kind === "daily_timeline" || p.kind === "vertical" || p.kind === "blank")
     return Math.max(1, Number(p.pages) || 1);
   if (p.kind === "八分周视图") {
     const start = parseISODate(String(p.start_date));

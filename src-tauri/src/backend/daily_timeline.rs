@@ -11,7 +11,7 @@ use super::{
 
 #[derive(Clone, Deserialize)]
 #[serde(default, deny_unknown_fields)]
-pub(crate) struct TimelinePattern {
+pub(crate) struct DailyTimelinePattern {
     pub(crate) start: i32,
     pub(crate) end: i32,
     pub(crate) pages: i32,
@@ -28,11 +28,11 @@ pub(crate) struct TimelinePattern {
     /// 每页顶部日期标题格式，例如 "%Y年%-m月%-d日"。
     pub(crate) title_format: String,
 }
-impl Default for TimelinePattern {
+impl Default for DailyTimelinePattern {
     fn default() -> Self {
         Self {
             start: 0,
-            end: 26,
+            end: 24,
             pages: 1,
             line_color: GRAY.into(),
             line_width: 0.4 / MM_PER_PT,
@@ -48,7 +48,7 @@ impl Default for TimelinePattern {
         }
     }
 }
-impl TimelinePattern {
+impl DailyTimelinePattern {
     pub(crate) fn validate(&self) -> Result<(), String> {
         if !(0..30).contains(&self.start) || self.end <= self.start || self.end > 30 {
             return Err("timeline hours must satisfy 0 <= start < end <= 30".into());
@@ -98,8 +98,8 @@ impl TimelinePattern {
     }
 }
 
-pub(crate) fn timeline_color(
-    p: &TimelinePattern,
+pub(crate) fn daily_timeline_color(
+    p: &DailyTimelinePattern,
     date: Option<NaiveDate>,
     minute: i32,
 ) -> Option<String> {
@@ -151,9 +151,9 @@ pub(crate) fn solar_elevation(latitude: f64, longitude: f64, moment: chrono::Dat
         .to_degrees()
 }
 
-pub(crate) fn draw_timeline(
+pub(crate) fn draw_daily_timeline(
     geo: Geometry,
-    p: &TimelinePattern,
+    p: &DailyTimelinePattern,
     index: usize,
     font: &str,
 ) -> (Vec<Line>, Vec<Dot>, Vec<Text>) {
@@ -204,7 +204,7 @@ pub(crate) fn draw_timeline(
         });
     }
     for hour in start..=end {
-        let color = timeline_color(p, date, hour * 60);
+        let color = daily_timeline_color(p, date, hour * 60);
         let y = geo.content.y + f64::from(hour - start) / span * geo.content.height;
         let tick = axis + direction * 7.0;
         lines.push(Line {
@@ -244,7 +244,7 @@ pub(crate) fn draw_timeline(
                 y1: half,
                 x2: axis + direction * 3.0,
                 y2: half,
-                color: timeline_color(p, date, hour * 60 + 30),
+                color: daily_timeline_color(p, date, hour * 60 + 30),
                 width: Some(p.line_width),
                 style: LineStyle::Solid,
             });
@@ -261,7 +261,7 @@ mod tests {
     #[test]
     fn draws_date_heading_with_title_format() {
         let date = NaiveDate::from_ymd_opt(2025, 6, 21).unwrap();
-        let p = TimelinePattern {
+        let p = DailyTimelinePattern {
             start_date: Some(date),
             end_date: Some(date),
             ..Default::default()
@@ -281,7 +281,7 @@ mod tests {
             },
             binding_side: Side::Left,
         };
-        let (_, _, texts) = draw_timeline(geo, &p, 0, "font");
+        let (_, _, texts) = draw_daily_timeline(geo, &p, 0, "font");
         assert!(
             texts
                 .iter()
