@@ -269,11 +269,14 @@ enum Pattern {
     #[serde(rename = "方眼罫")]
     HogenGrid(HogenGridPattern),
     Seyes(SeyesPattern),
+    #[serde(rename = "month-calendar")]
     Month(MonthPattern),
     Timeline(TimelinePattern),
-    Tracker(TrackerPattern),
     #[serde(rename = "month-tracker")]
+    Tracker(TrackerPattern),
+    #[serde(rename = "year-tracker")]
     MonthTracker(MonthTrackerPattern),
+    #[serde(rename = "year-calendar")]
     Year(YearPattern),
     Blank(BlankPattern),
 }
@@ -1668,7 +1671,7 @@ mod tests {
                 "output": "/tmp/year-2026.pdf",
                 "sections": [{
                     "pattern": {
-                        "kind": "year",
+                        "kind": "year-calendar",
                         "start": "2026-01",
                         "end": "2026-12",
                         "rows": 2,
@@ -1743,7 +1746,7 @@ mod tests {
                 "output": "/tmp/year-2026-lunar.pdf",
                 "sections": [{
                     "pattern": {
-                        "kind": "year",
+                        "kind": "year-calendar",
                         "start": "2026-01",
                         "end": "2026-12",
                         "rows": 2,
@@ -1806,7 +1809,7 @@ mod tests {
                 "output": "/tmp/year-2026-lunar2.pdf",
                 "sections": [{
                     "pattern": {
-                        "kind": "year",
+                        "kind": "year-calendar",
                         "start": "2026-01",
                         "end": "2026-12",
                         "rows": 2,
@@ -1830,7 +1833,7 @@ mod tests {
                 "output": "/tmp/month-2026-01.pdf",
                 "sections": [{
                     "pattern": {
-                        "kind": "month",
+                        "kind": "month-calendar",
                         "year": 2026,
                         "month": 1,
                         "lunar": true
@@ -2268,7 +2271,7 @@ mod tests {
     fn render_month_tracker_sample() {
         for (name, two_page) in [("single", false), ("double", true)] {
             let body: RunPipelineRequest = serde_json::from_str(&format!(
-            r#"{{"output": "/tmp/month-tracker-{name}.pdf", "bind": {{"mode": null}}, "sections": [{{"pattern": {{"kind": "month-tracker", "start": "2026-12", "end": "2027-12", "two_page": {two_page} }}}}]}}"#
+            r#"{{"output": "/tmp/year-tracker-{name}.pdf", "bind": {{"mode": null}}, "sections": [{{"pattern": {{"kind": "year-tracker", "start": "2026-12", "end": "2027-12", "two_page": {two_page} }}}}]}}"#
             ))
             .unwrap();
             let (path, _) = generate(body, false, None).unwrap();

@@ -10,7 +10,7 @@ import {
   AppBar, Box, Button, Card, CardContent, Divider, IconButton, Stack, Toolbar, Typography,
 } from "@mui/material";
 import { Add, Delete, Download, FileDownload, Refresh, Upload, Visibility } from "@mui/icons-material";
-import type { Section } from "./lib/schema";
+import type { PatternKind, Section } from "./lib/schema";
 import {
   FONT_OPTIONS, PAGE_SIZE_OPTIONS, PAGE_SIZES, margins, newSection,
 } from "./lib/schema";
@@ -53,6 +53,22 @@ function Panel({ title, description, action, children }: {
 }
 
 
+// 老版本 kind 命名迁移：year→year-calendar、month→month-calendar、tracker→month-tracker、month-tracker→year-tracker。
+const MIGRATE_KIND: Record<string, string> = {
+  year: "year-calendar",
+  month: "month-calendar",
+  tracker: "month-tracker",
+  "month-tracker": "year-tracker",
+};
+function migrateSections(sections?: Section[]): Section[] {
+  if (!sections) return [newSection()];
+  return sections.map((s) => {
+    const kind = MIGRATE_KIND[String(s.pattern.kind)];
+    return kind && kind !== s.pattern.kind
+      ? { ...s, pattern: { ...s.pattern, kind: kind as PatternKind } }
+      : s;
+  });
+}
 export default function App() {
   const [saved] = useState(() =>
     loadJSON<{
@@ -65,7 +81,7 @@ export default function App() {
     } | null>("base6.state", null),
   );
 
-  const [sections, setSections] = useState<Section[]>(saved?.sections ?? [newSection()]);
+  const [sections, setSections] = useState<Section[]>(migrateSections(saved?.sections));
   const [binding, setBinding] = useState<"booklet" | "thread" | null>(saved?.binding ?? null);
   const [size, setSize] = useState(saved?.size ?? { width: 148, height: 210 });
   const [pageSize, setPageSize] = useState(saved?.pageSize ?? "A5");

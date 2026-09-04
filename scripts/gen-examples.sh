@@ -130,7 +130,7 @@ build_month_json() {
   else
     lunar="false"; show_holidays="false"
   fi
-  local mpat='"kind":"month","phase_color":"#e5b93f","line_color":"#7a7a7a","line_width":0.4,"date_size":8,"weekday_headers":"Mo,Tu,We,Th,Fr,Sa,Su","title_format":"%Y年%-m月","show_holidays":'$show_holidays',"sub_size":4.2,"sub_gap":0,"lunar":'$lunar
+  local mpat='"kind":"month-calendar","phase_color":"#e5b93f","line_color":"#7a7a7a","line_width":0.4,"date_size":8,"weekday_headers":"Mo,Tu,We,Th,Fr,Sa,Su","title_format":"%Y年%-m月","show_holidays":'$show_holidays',"sub_size":4.2,"sub_gap":0,"lunar":'$lunar
   local page='"page":{"width":'$w',"height":'$h',"header":'$header',"footer":'$footer',"binding":'$binding',"non_binding":'$non_binding'}'
   local doc='"document":{"binding_text":"'$BINDING_TEXT'","binding_text_font":"'$FONT'"}'
   mkdir -p "$OUT_DIR"
@@ -194,7 +194,7 @@ build_year_json() {
   else
     rows=3; cols=4   # 12 个月单页整年
   fi
-  local ypat='"kind":"year","start":"2026-01","end":"2026-12","rows":'$rows',"cols":'$cols',"date_size":6,"weekday_lang":"zh","title_format":"%Y年%-m月","weekday_headers":"一,二,三,四,五,六,日","show_holidays":'$show_holidays',"lunar":'$lunar
+  local ypat='"kind":"year-calendar","start":"2026-01","end":"2026-12","rows":'$rows',"cols":'$cols',"date_size":6,"weekday_lang":"zh","title_format":"%Y年%-m月","weekday_headers":"一,二,三,四,五,六,日","show_holidays":'$show_holidays',"lunar":'$lunar
   local page='"page":{"width":'$w',"height":'$h',"header":'$header',"footer":'$footer',"binding":'$binding',"non_binding":'$non_binding'}'
   local doc='"document":{"binding_text":"'$BINDING_TEXT'","binding_text_font":"'$FONT'"}'
   mkdir -p "$OUT_DIR"
@@ -242,7 +242,7 @@ build_monthtracker_json() {
   read -r binding non_binding header footer <<< "$(margins "$w" "$h")"
   local two_page="false"
   [[ "$size" == "a7" ]] && two_page="true"
-  local mpat='"kind":"month-tracker","start":"2026-01","end":"2026-12","two_page":'$two_page',"line_color":"#7a7a7a","line_width":0.4,"date_size":8'
+  local mpat='"kind":"year-tracker","start":"2026-01","end":"2026-12","two_page":'$two_page',"line_color":"#7a7a7a","line_width":0.4,"date_size":8'
   local page='"page":{"width":'$w',"height":'$h',"header":'$header',"footer":'$footer',"binding":'$binding',"non_binding":'$non_binding'}'
   local doc='"document":{"binding_text":"'$BINDING_TEXT'","binding_text_font":"'$FONT'"}'
   mkdir -p "$OUT_DIR"
@@ -291,12 +291,12 @@ main() {
   IFS=',' read -r -a sizes <<< "$size_arg"
 
   for kind in "${patterns[@]}"; do
-    if [[ "$kind" == "month" ]]; then
+    if [[ "$kind" == "month-calendar" ]]; then
       MONTH_SIZES=("${sizes[@]}")
       gen_month_all
       continue
     fi
-    if [[ "$kind" == "year" ]]; then
+    if [[ "$kind" == "year-calendar" ]]; then
       YEAR_SIZES=("${sizes[@]}")
       gen_year_all
       continue

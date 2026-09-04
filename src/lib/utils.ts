@@ -57,7 +57,7 @@ export function cleanPattern(pattern: Section["pattern"]) {
 // 页数由版式真实参数决定：是多少页就算多少页。
 export function effectivePages(section: Section): number {
   const p = section.pattern;
-  if (p.kind === "month-tracker") return p.two_page ? 2 : 1;
+  if (p.kind === "year-tracker") return p.two_page ? 2 : 1;
   if (p.kind === "ruled" || p.kind === "dots" || p.kind === "grid" || p.kind === "us-ruled" || p.kind === "seyes" || p.kind === "timeline" || p.kind === "vertical" || p.kind === "blank")
     return Math.max(1, Number(p.pages) || 1);
   if (p.kind === "八分周视图") {
@@ -75,7 +75,7 @@ export function effectivePages(section: Section): number {
     const end = parseISODate(String(p.end_date));
     if (start && end && start <= end) return Math.ceil((Math.round((end.getTime() - start.getTime()) / 86400000) + 1) / 2);
   }
-  if (p.kind === "year") {
+  if (p.kind === "year-calendar") {
     const [sy, sm] = String(p.start).split("-").map(Number);
     const [ey, em] = String(p.end).split("-").map(Number);
     if (sy && sm && ey && em) {

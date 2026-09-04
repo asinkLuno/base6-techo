@@ -150,7 +150,7 @@ export function PatternFields({ section, set }: Props) {
       </Grid>
     );
 
-  if (p.kind === "year")
+  if (p.kind === "year-calendar")
     return (
       <Grid>
         <Field label="开始月份" value={p.start} type="month" onChange={(v) => set("start", v)} />
@@ -165,7 +165,7 @@ export function PatternFields({ section, set }: Props) {
       </Grid>
     );
 
-  if (p.kind === "month")
+  if (p.kind === "month-calendar")
     return (
       <Grid>
         <Field label="年" value={p.year} min={1900} max={2100} onChange={(v) => set("year", v)} />
@@ -184,7 +184,7 @@ export function PatternFields({ section, set }: Props) {
       </Grid>
     );
 
-  if (p.kind === "tracker")
+  if (p.kind === "month-tracker")
     return (
       <Grid>
         <Field label="年" value={p.year} min={1900} max={2100} onChange={(v) => set("year", v)} />
@@ -196,7 +196,7 @@ export function PatternFields({ section, set }: Props) {
       </Grid>
     );
 
-  if (p.kind === "month-tracker")
+  if (p.kind === "year-tracker")
     return (
       <Grid>
         <Field label="开始月份" value={p.start} type="month" onChange={(v) => set("start", v)} />

@@ -8,7 +8,7 @@ export type Values = Record<string, Value>;
 export type PatternKind =
   | "dots" | "grid" | "ruled" | "seyes" | "vertical" | "us-ruled"
   | "hakubunkan-toyo-nikki" | "方眼罫" | "八分周视图" | "hakubunkan-kaichu-nikki"
-  | "year" | "month" | "tracker" | "month-tracker" | "graph" | "timeline" | "blank";
+  | "year-calendar" | "month-calendar" | "month-tracker" | "year-tracker" | "graph" | "timeline" | "blank";
 
 export type Section = {
   id: string;
@@ -37,11 +37,11 @@ export const patternNames: Record<PatternKind, string> = {
   graph: "月追踪制图",
   "hakubunkan-kaichu-nikki": "博文館・懐中日記",
   "方眼罫": "方眼罫",
-  month: "月历",
-  "month-tracker": "年度追踪",
+  "month-calendar": "月历",
+  "year-tracker": "年度追踪",
   timeline: "时间轴",
-  tracker: "月打卡",
-  year: "年历",
+  "month-tracker": "月打卡",
+  "year-calendar": "年历",
   blank: "空白页",
 };
 
@@ -55,8 +55,8 @@ export const PATTERN_GROUPS: PatternGroup[] = [
   {
     label: "日程",
     subgroups: [
-      { label: "年", kinds: ["year", "month-tracker"] },
-      { label: "月", kinds: ["month", "tracker", "graph"] },
+      { label: "年", kinds: ["year-calendar", "year-tracker"] },
+      { label: "月", kinds: ["month-calendar", "month-tracker", "graph"] },
       { label: "周", kinds: ["八分周视图"] },
       { label: "日", kinds: ["timeline"] },
     ],
@@ -163,24 +163,24 @@ export const defaults: Record<PatternKind, Values & { kind: PatternKind }> = {
     lunar_style: "numeric", line_color: COLORS.gray, line_width: 0.4, date_size: 10,
   },
   graph: { kind: "graph", axis: "right", line_color: COLORS.gray, line_width: 0.2, date_size: 8, y_min: null, y_max: null, y_steps: 10 },
-  month: {
-    kind: "month", year: new Date().getFullYear(), month: new Date().getMonth() + 1,
+  "month-calendar": {
+    kind: "month-calendar", year: new Date().getFullYear(), month: new Date().getMonth() + 1,
     phase_color: COLORS.phaseGold, line_color: COLORS.gray, line_width: 0.4, date_size: 8,
     weekday_headers: "Mo,Tu,We,Th,Fr,Sa,Su", title_format: "%Y年%-m月", two_page: false,
     show_holidays: true, sub_size: 4.2, sub_gap: 0, lunar: false,
   },
-  tracker: {
-    kind: "tracker", year: new Date().getFullYear(), month: new Date().getMonth() + 1, items: 4,
+  "month-tracker": {
+    kind: "month-tracker", year: new Date().getFullYear(), month: new Date().getMonth() + 1, items: 4,
     line_color: COLORS.gray, line_width: 0.4, date_size: 8,
   },
-  "month-tracker": {
-    kind: "month-tracker",
+  "year-tracker": {
+    kind: "year-tracker",
     start: `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}`,
     end: `${new Date().getFullYear() + 1}-${String(new Date().getMonth() + 1).padStart(2, "0")}`,
     two_page: false, line_color: COLORS.gray, line_width: 0.4, date_size: 8,
   },
-  year: {
-    kind: "year", start: `${new Date().getFullYear()}-01`, end: `${new Date().getFullYear()}-12`,
+  "year-calendar": {
+    kind: "year-calendar", start: `${new Date().getFullYear()}-01`, end: `${new Date().getFullYear()}-12`,
     rows: 1, cols: 2, date_size: 6, weekday_lang: "zh", title_format: "%Y年%-m月",
     weekday_headers: "一,二,三,四,五,六,日", show_holidays: true, lunar: false,
   },
