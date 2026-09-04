@@ -1,0 +1,60 @@
+---
+import { TITLE, ENDPOINT } from "../data/site";
+import "../styles/global.css";
+
+interface Props {
+  title?: string;
+}
+const { title = TITLE } = Astro.props;
+---
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+    <meta
+      name="description"
+      content="base6-techo 生成的手帐版式样张：9 种版式 × 3 种尺寸，按真实比例展示；每份样张可导入桌面应用继续微调。"
+    />
+    <link rel="preload" href="/showcase/fonts/kinghwa-subset.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="/showcase/fonts/chenyuluoyan-thin.woff2" as="font" type="font/woff2" crossorigin />
+  </head>
+  <body>
+    <div class="spine" aria-hidden="true">base6 · techo — 版式样张集</div>
+
+    <nav>
+      <div class="nav-in">
+        <a class="wordmark" href="#top"><b>base<span>6</span></b>&ensp;techo</a>
+        <a class="link" href="#intro">介绍</a>
+        <a class="link" href="#gallery">版式</a>
+        <a class="link gh mono" href={ENDPOINT} target="_blank" rel="noopener">GitHub ↗</a>
+      </div>
+    </nav>
+
+    <slot />
+
+    <section class="wrap">
+      <div class="cta-block reveal">
+        <div class="cta-sheet paper">
+          <h2>想要自己的版式？</h2>
+          <p>样张只是默认参数。日期范围、行距、线色、字体、拼版方式——一切皆可调。用 base6-techo 桌面应用排版你自己的那一本。</p>
+          <div class="btns">
+            <a class="btn primary" href={ENDPOINT} target="_blank" rel="noopener">获取 base6-techo</a>
+            <a class="btn ghost" href={`${ENDPOINT}/blob/master/scripts/gen-examples.py`} target="_blank" rel="noopener">查看样张脚本</a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <footer class="wrap">
+      <div class="fin">
+        <span class="sig">base6 techo</span>
+        <span>Tauri 桌面应用 · LaTeX（tectonic）排版 · TikZ 绘版</span>
+        <span>样张与数据由仓库脚本生成</span>
+        <span>展示字体：京華老宋体</span>
+        <a href="#top">回到顶部 ↑</a>
+      </div>
+    </footer>
+  </body>
+</html>

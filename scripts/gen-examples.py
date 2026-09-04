@@ -40,7 +40,7 @@ SIZES = {
     "a7": (80, 120),
 }
 
-DEFAULT_PATTERNS = ["ruled", "dots", "grid", "seyes", "us-ruled", "vertical", "octan-week"]
+DEFAULT_PATTERNS = ["ruled", "dots", "grid", "seyes", "us-ruled", "vertical", "octan-week", "month_graph", "daily_timeline", "month-tracker"]
 
 # 基础版式默认参数（与前端 schema.ts defaults 一致）
 PATTERN_PARAMS = {
@@ -57,12 +57,19 @@ PATTERN_PARAMS = {
                  "margin_width": 0.4},
     "vertical": {"kind": "vertical", "pages": 2, "spacing": 10, "color": "#000000",
                  "frame_outer_width": 0.5, "frame_inner_width": 0.18, "frame_gap": 1.2},
+    "daily_timeline": {"kind": "daily_timeline", "start": 0, "end": 24, "pages": 1,
+                        "line_color": "#7a7a7a", "line_width": 0.4, "label_size": 10.2,
+                        "start_date": "2026-08-31", "end_date": "2026-09-06",
+                        "latitude": 31.23, "longitude": 121.47, "timezone": "Asia/Shanghai",
+                        "title_format": "%Y年%-m月%-d日"},
     "octan-week": {"kind": "八分周视图", "start_date": "2026-08-31", "end_date": "2026-09-06",
                    "date_format": "%-d", "date_locale": "zh-CN", "weekday_lang": "zh",
                    "title_format": "%Y年%-m月", "weekday_headers": "一,二,三,四,五,六,日",
                    "line_color": "#7a7a7a", "line_width": 0.4, "line_style": "solid",
                    "center_gap": 2, "date_size": 10},
     "hogen": {"kind": "方眼罫", "pages": 2, "line_color": "#a9d1ae"},
+    "month-tracker": {"kind": "month-tracker", "year": 2026, "month": 9, "items": 4,
+                         "line_color": "#7a7a7a", "line_width": 0.4, "date_size": 8},
     "hakubunkan-toyo-nikki": {"kind": "hakubunkan-toyo-nikki", "start_date": "2026-09-01",
                               "end_date": "2026-09-02", "date_format": "%-m月%-d日",
                               "line_color": "#a9d1ae", "line_width": 0.8},
@@ -77,6 +84,11 @@ PATTERN_PARAMS = {
 # 装订水印颜色：日记 / 方眼罫用主线玉色，其余保持空（后端缺省灰）。
 WATERMARK_COLOR = {"hakubunkan-toyo-nikki": "#a9d1ae", "hogen": "#a9d1ae"}
 
+# month_graph 纵轴预设：睡眠（22→32，32=次日 8 点）/ 体重（60→70）。
+MONTH_GRAPH_PRESETS = {
+    "sleep":  {"title": "睡眠追踪", "y_min": 22, "y_max": 32, "y_steps": 5},
+    "weight": {"title": "体重追踪", "y_min": 60, "y_max": 70, "y_steps": 5},
+}
 
 def margins(w, h):
     """按纸张尺寸算谐和页边距 (mm)：装订=宽×9%（≥8），非装订=宽×12%（≥7），
@@ -128,6 +140,21 @@ def basic_request(kind, width, height, size):
     )
 
 
+def month_graph_request(kind, width, height, size, variant):
+    """month_graph：空白首叶 + 内容页（纵轴按预设 range）。"""
+    pat = {"kind": "month_graph", "axis": "right",
+           "line_color": "#7a7a7a", "line_width": 0.2, "date_size": 8}
+    pat.update({k: MONTH_GRAPH_PRESETS[variant][k] for k in ("y_min", "y_max", "y_steps")})
+    return request(
+        f"{OUT_DIR}/{kind}/{size}/{kind}-{size}-{variant}.pdf",
+        [blank_section(width, height),
+         {"title": MONTH_GRAPH_PRESETS[variant]["title"],
+          "page": page_obj(width, height), "document": doc_obj(width, height),
+          "pattern": pat}],
+    )
+
+
+
 def calendar_pattern(kind, size, variant):
     if kind == "month-calendar":
         mpat = {"kind": "month-calendar", "phase_color": "#e5b93f", "line_color": "#7a7a7a",
@@ -168,6 +195,8 @@ def calendar_request(kind, width, height, size, variant):
     return request(f"{OUT_DIR}/{kind}/{size}/{base}.pdf", sections)
 
 def build_request(kind, width, height, size, variant=""):
+    if kind == "month_graph":
+        return month_graph_request(kind, width, height, size, variant)
     if kind in ("month-calendar", "year-calendar", "year-tracker"):
         return calendar_request(kind, width, height, size, variant)
     return basic_request(kind, width, height, size)
@@ -222,6 +251,11 @@ def task_list(patterns, sizes):
             for size in sizes:
                 w, h = SIZES[size]
                 for variant in ("plain", "holiday"):
+                    tasks.append((kind, size, w, h, variant))
+        elif kind == "month_graph":
+            for size in sizes:
+                w, h = SIZES[size]
+                for variant in MONTH_GRAPH_PRESETS:
                     tasks.append((kind, size, w, h, variant))
         elif kind == "year-tracker":
             for size in sizes:

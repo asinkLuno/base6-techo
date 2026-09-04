@@ -1,8 +1,13 @@
+# 多阶段构建：Dockerfile 内先 yarn build 出 dist/，再以 nginx 服务。
+# 运行时仅挂载 examples/（构建产物 dist/ 与 nginx.conf 已打进镜像）。
 services:
   showcase:
     build:
       context: ..
       dockerfile: showcase/Dockerfile
+    image: base6-techo-showcase:latest
     ports:
       - "8080:80"
+    volumes:
+      - ../examples:/usr/share/nginx/html/examples:ro
     restart: unless-stopped

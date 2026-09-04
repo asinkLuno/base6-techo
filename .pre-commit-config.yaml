@@ -7,6 +7,8 @@ repos:
       - id: check-yaml
       - id: check-toml
       - id: check-added-large-files
+        # vendored 第三方单文件（OpenCC 简繁转换，运行时使用）允许超过 500 KB
+        exclude: ^showcase/vendor/
 
   - repo: local
     hooks:

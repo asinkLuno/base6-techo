@@ -1,0 +1,76 @@
+---
+// 首屏：介绍 + 样例对页 + 装订图解
+const nPatterns = 9;
+const nSizes = 3;
+const nSamples = 27;
+---
+<header id="intro" class="wrap">
+  <div class="intro-grid">
+    <div>
+      <p class="eyebrow">手帐版式生成器 · LATEX / TIKZ</p>
+      <h1>一版既成，<br />整本装订。</h1>
+      <p class="lead">
+        base6-techo 用 LaTeX 排出毫米级精度的手帐内页：<em>装订边与外翻边自动区分</em>，
+        页码、页眉、水印随奇偶页镜像，多个版式按序拼成一本可直接装订的 PDF。
+        本页陈列它的全部基础与复刻版式——按真实比例展示，每份样张
+        都可一键导入桌面应用继续微调。
+      </p>
+      <ul class="facts">
+        <li><b>{nPatterns}</b>种版式</li>
+        <li><b>{nSizes}</b>种尺寸</li>
+        <li><b>{nSamples}</b>份样张</li>
+        <li><b>mm</b>级版面控制</li>
+      </ul>
+    </div>
+
+    <figure class="hero-spread">
+      <div class="spread">
+        <img
+          src="/examples/hakubunkan-kaichu-nikki/a5/hakubunkan-kaichu-nikki-a5-p-2.png"
+          width="875" height="1241" alt="博文館・懐中日記 A5 样张第 2 页" class="page left" />
+        <img
+          src="/examples/hakubunkan-kaichu-nikki/a5/hakubunkan-kaichu-nikki-a5-p-3.png"
+          width="875" height="1241" alt="博文館・懐中日記 A5 样张第 3 页" class="page right" />
+        <i class="gutter" aria-hidden="true"></i>
+      </div>
+      <figcaption>
+        <span class="mono cap-label">hakubunkan-kaichu-nikki · A5 对页</span>
+        <span class="cap-text">装订侧的 <span class="mono">base6</span> 水印随页码奇偶镜像，居于中缝两侧——摊开即是一本装订好的手帐。</span>
+      </figcaption>
+    </figure>
+  </div>
+
+  <div class="binding-demo">
+    <div class="demo-pages">
+      <div class="demo-page">
+        <i class="strip outer"></i>
+        <span class="demo-fill"></span>
+        <i class="strip binding"></i>
+      </div>
+      <div class="demo-page">
+        <i class="strip binding"></i>
+        <span class="demo-fill"></span>
+        <i class="strip outer"></i>
+      </div>
+    </div>
+    <div class="demo-labels-row" aria-hidden="true">
+      <div class="demo-labels mono" aria-hidden="true">
+        <span class="l-outer">外</span>
+        <span></span>
+        <span class="l-binding">内</span>
+      </div>
+      <div class="demo-labels mono" aria-hidden="true">
+        <span class="l-binding">内</span>
+        <span></span>
+        <span class="l-outer">外</span>
+      </div>
+    </div>
+    <div class="demo-legend mono">
+      <span><i class="swatch binding"></i>装订边（内）· 窄</span>
+      <span><i class="swatch outer"></i>外翻边（外）· 宽</span>
+    </div>
+    <p class="demo-note">
+      装订边向内让位、外翻边向外放宽；页码、页眉与装订侧水印随页码奇偶自动镜像。
+    </p>
+  </div>
+</header>
