@@ -1,9 +1,29 @@
 ---
 import BaseLayout from "../layouts/BaseLayout.astro";
 import Hero from "../components/Hero.astro";
+import BookFlip from "../components/BookFlip.tsx";
 import Gallery from "../components/Gallery.tsx";
 ---
 <BaseLayout>
   <Hero />
+  <section class="wrap bookflip-section">
+    <div class="sec-head">
+      <h2>整本成书，翻得动</h2>
+      <span class="mono">WEEKLY · DAILY</span>
+    </div>
+    <p class="sec-note">
+      真实的多页整本书——2026 周历与日记各成一本：点击或拖拽翻页，装订线、页码、水印随奇偶页镜像。
+    </p>
+    <div class="bookflip-grid">
+      <div class="bookflip-col">
+        <p class="bookflip-label mono">2026 周历 · 12 页</p>
+        <BookFlip base="/examples/weekly/weekly-2026" pages={12} startPad={4} client:load />
+      </div>
+      <div class="bookflip-col">
+        <p class="bookflip-label mono">2026 日记 · 10 页</p>
+        <BookFlip base="/examples/daily/daily-2026" pages={10} startPad={6} client:load />
+      </div>
+    </div>
+  </section>
   <Gallery client:load />
 </BaseLayout>

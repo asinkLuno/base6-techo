@@ -328,9 +328,11 @@ __metadata:
   resolution: "@base6/showcase@workspace:showcase"
   dependencies:
     "@astrojs/react": "npm:^5.0.7"
+    "@types/page-flip": "npm:^2"
     "@types/react": "npm:^19.0.0"
     "@types/react-dom": "npm:^19.0.0"
     astro: "npm:^6.4.8"
+    page-flip: "npm:^2.0.7"
     react: "npm:^19.0.0"
     react-dom: "npm:^19.0.0"
   languageName: unknown
@@ -2342,6 +2344,13 @@ __metadata:
   dependencies:
     "@types/unist": "npm:*"
   checksum: 10c0/d83549aaee59681ae8fa2a78d8a1b968a41eb7c0422773dff12acbf3661e4b2b2859740c3effdad9d0cd12ea14a0ec33ca302da12106476b627e09d2a029d3c1
+  languageName: node
+  linkType: hard
+
+"@types/page-flip@npm:^2":
+  version: 2.0.4
+  resolution: "@types/page-flip@npm:2.0.4"
+  checksum: 10c0/bb7e585f9ea48083a16045655e9c213d67934a9b05975919e0edb944ee497aa57a9baaded97e5635206999cafb36d93cf888d7ab0a3bb894204cbc4a8fbc81a1
   languageName: node
   linkType: hard
 
@@ -4562,6 +4571,13 @@ __metadata:
   version: 1.8.0
   resolution: "package-manager-detector@npm:1.8.0"
   checksum: 10c0/4c8e2c47fdc874465d3b3b11934401db9d73470ccbdabeb092e46cb94abbc491d5befc8c271b5ea1ae9c6a881f44c2997e011873365bde9fd6c3dc001221ff7a
+  languageName: node
+  linkType: hard
+
+"page-flip@npm:^2.0.7":
+  version: 2.0.7
+  resolution: "page-flip@npm:2.0.7"
+  checksum: 10c0/bc3538ae85679356c263d2a8e50f6338c2769511825d6112da8958e8f2eef8e29ae8d6cbd7f664af08dad4d86727ffe9dc09d72783182097f69eea3edf4012d5
   languageName: node
   linkType: hard
 

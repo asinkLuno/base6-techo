@@ -151,6 +151,30 @@ h1 {
 .sec-head h2 { font-family: var(--serif); font-weight: 400; font-size: clamp(26px, 3vw, 34px); letter-spacing: 0.06em; }
 .sec-head .mono { font-size: 12px; color: var(--ink2); }
 .sec-note { font-size: 13.5px; color: var(--ink2); margin-bottom: 18px; }
+
+.bookflip-section { padding-top: clamp(56px, 9vh, 110px); }
+/* ---- 整本周历翻书 ---- */
+.bookflip { margin: 0 auto; max-width: 900px; }
+.bf-host { position: relative; margin: 0 auto; }
+.bf-host .page { filter: drop-shadow(0 2px 4px rgba(38,35,30,0.12)); }
+.bf-page { background: var(--paper); }
+.bf-page img { display: block; width: 100%; height: auto; user-select: none; }
+.bf-controls {
+.bookflip-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: clamp(24px, 4vw, 48px);
+}
+.bookflip-col { min-width: 0; }
+.bookflip-label { font-size: 11.5px; letter-spacing: 0.18em; color: var(--zhu); margin: 0 0 14px; text-align: center; }
+@media (max-width: 960px) { .bookflip-grid { grid-template-columns: 1fr; } }
+  display: flex; align-items: center; justify-content: center; gap: 22px; margin-top: 20px;
+}
+.bf-controls button {
+  appearance: none; font: 12.5px/1 var(--mono); letter-spacing: 0.08em; color: var(--ink);
+  background: var(--paper); border: 1px solid var(--line); border-radius: 2px;
+  padding: 8px 18px; cursor: pointer;
+}
+.bf-controls button:hover { color: var(--zhu); border-color: var(--zhu); }
+.bf-count { font-size: 12px; color: var(--ink2); letter-spacing: 0.12em; }
 .group { margin-bottom: clamp(40px, 6vh, 64px); }
 
 /* 复刻区 —— 档案夹页 */
