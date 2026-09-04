@@ -17,4 +17,6 @@ Session.vim
 # Tool/session cache
 .zcode/
 compile.log
-examples/fonts/*.ttf
+# Generated example assets (regenerate via scripts/gen-examples.sh)
+examples/*
+!examples/ics/
