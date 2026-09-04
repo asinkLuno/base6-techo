@@ -60,7 +60,7 @@ export function effectivePages(section: Section): number {
   if (p.kind === "month-tracker") return p.two_page ? 2 : 1;
   if (p.kind === "ruled" || p.kind === "dots" || p.kind === "grid" || p.kind === "us-ruled" || p.kind === "seyes" || p.kind === "timeline" || p.kind === "vertical" || p.kind === "blank")
     return Math.max(1, Number(p.pages) || 1);
-  if (p.kind === "eight") {
+  if (p.kind === "八分周视图") {
     const start = parseISODate(String(p.start_date));
     const end = parseISODate(String(p.end_date));
     if (start && end && start <= end) return (Math.floor((end.getTime() - start.getTime()) / 86400000 / 7) + 1) * 2;

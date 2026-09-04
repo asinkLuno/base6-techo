@@ -117,7 +117,7 @@ export function PatternFields({ section, set }: Props) {
       </Grid>
     );
 
-  if (p.kind === "eight")
+  if (p.kind === "八分周视图")
     return (
       <Grid>
         <Field label="开始日期" value={p.start_date} type="date" onChange={(v) => set("start_date", v)} />

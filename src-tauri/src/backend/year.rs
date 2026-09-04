@@ -5,9 +5,9 @@ use chrono::{Datelike, NaiveDate, Utc};
 use serde::Deserialize;
 
 use super::{
-    Geometry, HashMap, Rect, Text, WeekdayLang,
-    eight::{MINI_PAD, push_one_month, weekday_locale},
-    format_date, validate_title_format, validate_weekday_headers,
+    Geometry, HashMap, Rect, Text, WeekdayLang, format_date,
+    octan_week::{MINI_PAD, push_one_month, weekday_locale},
+    validate_title_format, validate_weekday_headers,
 };
 
 #[derive(Clone, Deserialize)]

@@ -8,13 +8,13 @@ use std::{
 
 mod colors;
 mod dots;
-mod eight;
 mod graph;
 mod grid;
 mod hakubunkan_kaichu_nikki;
 mod hakubunkan_toyo_nikki;
 mod midori;
 mod month;
+mod octan_week;
 mod ruled;
 mod seyes;
 mod timeline;
@@ -28,7 +28,6 @@ use chrono::{
     format::{Item, StrftimeItems},
 };
 use dots::{DotsPattern, draw_dots};
-use eight::{EightPattern, draw_eight};
 use graph::{GraphPattern, draw_graph};
 use grid::{GridPattern, draw_grid};
 use hakubunkan_kaichu_nikki::{HakubunkanKaichuNikkiPattern, draw_hakubunkan_kaichu_nikki};
@@ -37,6 +36,7 @@ use midori::{MidoriPattern, draw_midori};
 use month::{
     MonthPattern, MonthTrackerPattern, TrackerPattern, draw_month, draw_month_tracker, draw_tracker,
 };
+use octan_week::{OctanWeekPattern, draw_octan_week};
 use ruled::{RuledPattern, draw_ruled};
 use serde::Deserialize;
 use seyes::{SeyesPattern, draw_seyes};
@@ -261,7 +261,8 @@ enum Pattern {
     Vertical(VerticalPattern),
     #[serde(rename = "hakubunkan-toyo-nikki")]
     HakubunkanToyoNikki(HakubunkanToyoNikkiPattern),
-    Eight(EightPattern),
+    #[serde(rename = "八分周视图")]
+    OctanWeek(OctanWeekPattern),
     Graph(GraphPattern),
     #[serde(rename = "hakubunkan-kaichu-nikki")]
     HakubunkanKaichuNikki(HakubunkanKaichuNikkiPattern),
@@ -338,7 +339,7 @@ impl Pattern {
             Self::Ruled(p) => p.pages,
             Self::UsRuled(p) => p.pages,
             Self::Vertical(p) => p.pages,
-            Self::Eight(p) => p.weeks().len() * 2,
+            Self::OctanWeek(p) => p.weeks().len() * 2,
             Self::HakubunkanKaichuNikki(p) => p.page_count(),
             Self::HakubunkanToyoNikki(p) => p.page_count(),
             Self::Graph(_) | Self::Tracker(_) => 1,
@@ -372,7 +373,7 @@ impl Pattern {
             Self::UsRuled(p) => &p.rule_color,
             Self::Vertical(p) => &p.color,
             Self::HakubunkanToyoNikki(p) => &p.line_color,
-            Self::Eight(p) => &p.line_color,
+            Self::OctanWeek(p) => &p.line_color,
             Self::Graph(p) => &p.line_color,
             Self::HakubunkanKaichuNikki(p) => &p.line_color,
             Self::Midori(p) => &p.line_color,
@@ -394,7 +395,7 @@ impl Pattern {
             Self::UsRuled(p) => p.rule_width,
             Self::Vertical(p) => p.frame_inner_width,
             Self::HakubunkanToyoNikki(p) => p.line_width,
-            Self::Eight(p) => p.line_width,
+            Self::OctanWeek(p) => p.line_width,
             Self::Graph(p) => p.line_width,
             Self::HakubunkanKaichuNikki(p) => p.line_width,
             // midori 版式已把尺寸/线宽固定，只留颜色可配；默认线宽取固定值。
@@ -416,7 +417,7 @@ impl Pattern {
             Self::UsRuled(p) => p.validate(),
             Self::Vertical(p) => p.validate(),
             Self::HakubunkanToyoNikki(p) => p.validate(),
-            Self::Eight(p) => p.validate(),
+            Self::OctanWeek(p) => p.validate(),
             Self::Graph(p) => p.validate(),
             Self::HakubunkanKaichuNikki(p) => p.validate(),
             Self::Midori(p) => p.validate(),
@@ -769,8 +770,8 @@ fn render_page(
             let (l, d) = draw_seyes(geo, p);
             (l, d, vec![], vec![])
         }
-        Pattern::Eight(p) => {
-            let (l, d, pa, t) = draw_eight(geo, p, index, &doc.binding_text_font, holidays);
+        Pattern::OctanWeek(p) => {
+            let (l, d, pa, t) = draw_octan_week(geo, p, index, &doc.binding_text_font, holidays);
             (l, d, pa, t)
         }
         Pattern::Timeline(p) => {
@@ -1628,7 +1629,7 @@ mod tests {
                 "output": "/tmp/bookmark-sample.pdf",
                 "sections": [
                     { "title": "月历", "pattern": { "kind": "ruled", "pages": 2 } },
-                    { "title": "八分周视图", "pattern": { "kind": "eight", "start_date": "2026-08-31", "end_date": "2026-09-06" } },
+                    { "title": "八分周视图", "pattern": { "kind": "八分周视图", "start_date": "2026-08-31", "end_date": "2026-09-06" } },
                     { "title": "Midori", "pattern": { "kind": "midori" } }
                 ]
             }"#,
@@ -1647,7 +1648,7 @@ mod tests {
                 "output": "/tmp/week-2026-08-31.pdf",
                 "sections": [{
                     "pattern": {
-                        "kind": "eight",
+                        "kind": "八分周视图",
                         "start_date": "2026-08-31",
                         "end_date": "2026-09-06",
                         "weekday_lang": "ja"
@@ -1851,13 +1852,13 @@ mod tests {
     }
 
     #[test]
-    fn render_eight_with_holidays_and_lunar() {
+    fn render_octan_week_with_holidays_and_lunar() {
         let body: RunPipelineRequest = serde_json::from_str(
             r#"{
-                "output": "/tmp/eight-2026-01.pdf",
+                "output": "/tmp/octan-week-2026-01.pdf",
                 "sections": [{
                     "pattern": {
-                        "kind": "eight",
+                        "kind": "八分周视图",
                         "start_date": "2026-01-05",
                         "end_date": "2026-01-11",
                         "weekday_lang": "zh",
@@ -1877,7 +1878,7 @@ mod tests {
         )
         .unwrap();
         let (path, _) = generate(body, false, None).unwrap();
-        println!("Eight PDF: {}", path.display());
+        println!("OctanWeek PDF: {}", path.display());
     }
 
     #[test]
@@ -2210,7 +2211,7 @@ mod tests {
             "sections": [
                 { "document": { "binding_text": "[base-6]" }, "pattern": { "kind": "ruled", "pages": 1 } },
                 { "pattern": { "kind": "hakubunkan-toyo-nikki" } },
-                { "pattern": { "kind": "eight", "start_date": "2026-08-03", "end_date": "2026-08-16" } },
+                { "pattern": { "kind": "八分周视图", "start_date": "2026-08-03", "end_date": "2026-08-16" } },
                 { "pattern": { "kind": "midori" } },
                 { "pattern": { "kind": "timeline", "pages": 1, "start_date": "2026-08-01", "end_date": "2026-08-01", "latitude": 31.23, "longitude": 121.47, "timezone": "Asia/Shanghai" } }
             ],
@@ -2232,10 +2233,12 @@ mod tests {
             ..Default::default()
         };
         let pattern = Pattern::Ruled(RuledPattern::default());
-        let mut document = DocumentSettings::default();
-        document.page_number = false;
-        document.non_binding_text = Some("base-6".into());
-        document.non_binding_text_2 = Some("since 2026".into());
+        let document = DocumentSettings {
+            page_number: false,
+            non_binding_text: Some("base-6".into()),
+            non_binding_text_2: Some("since 2026".into()),
+            ..Default::default()
+        };
         // 奇数页：装订边在左，外侧水印必须在右半页。
         let draw = render_page(&page, &pattern, 1, &document, 0, None, &None);
         assert!(

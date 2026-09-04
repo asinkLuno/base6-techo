@@ -7,7 +7,7 @@ export type Values = Record<string, Value>;
 
 export type PatternKind =
   | "dots" | "grid" | "ruled" | "seyes" | "vertical" | "us-ruled"
-  | "hakubunkan-toyo-nikki" | "midori" | "eight" | "hakubunkan-kaichu-nikki"
+  | "hakubunkan-toyo-nikki" | "midori" | "八分周视图" | "hakubunkan-kaichu-nikki"
   | "year" | "month" | "tracker" | "month-tracker" | "graph" | "timeline" | "blank";
 
 export type Section = {
@@ -33,7 +33,7 @@ export const patternNames: Record<PatternKind, string> = {
   vertical: "古文竖排",
   "us-ruled": "美式横线",
   "hakubunkan-toyo-nikki": "博文館・當用日記",
-  eight: "八分周视图",
+  "八分周视图": "八分周视图",
   graph: "月追踪制图",
   "hakubunkan-kaichu-nikki": "博文館・懐中日記",
   midori: "Midori",
@@ -48,7 +48,7 @@ export const patternNames: Record<PatternKind, string> = {
 export const PATTERN_GROUPS: [string, PatternKind[]][] = [
   ["基础", ["dots", "grid", "ruled", "seyes", "us-ruled", "vertical", "blank"]],
   ["复刻", ["midori", "hakubunkan-toyo-nikki", "hakubunkan-kaichu-nikki"]],
-  ["日程", ["month", "month-tracker", "tracker", "eight", "timeline", "graph", "year"]],
+  ["日程", ["month", "month-tracker", "tracker", "八分周视图", "timeline", "graph", "year"]],
 ];
 
 // 默认颜色，须与后端 src-tauri/src/backend/colors.rs 一一对应。
@@ -138,8 +138,8 @@ export const defaults: Record<PatternKind, Values & { kind: PatternKind }> = {
     date_format: "%-m月%-d日", line_color: COLORS.paleJade, line_width: 0.4,
   },
   midori: { kind: "midori", line_color: COLORS.paleJade },
-  eight: {
-    kind: "eight", start_date: toISODate(currentMonday), end_date: toISODate(currentSunday),
+  "八分周视图": {
+    kind: "八分周视图", start_date: toISODate(currentMonday), end_date: toISODate(currentSunday),
     date_format: "%-d", date_locale: "zh-CN", weekday_lang: "zh", title_format: "%Y.%m",
     weekday_headers: "一,二,三,四,五,六,日", line_color: COLORS.gray, line_width: 0.4,
     line_style: "solid", center_gap: 2, date_size: 10,

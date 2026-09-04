@@ -12,7 +12,7 @@ use super::{
 
 #[derive(Clone, Deserialize)]
 #[serde(default, deny_unknown_fields)]
-pub(crate) struct EightPattern {
+pub(crate) struct OctanWeekPattern {
     pub(crate) start_date: NaiveDate,
     pub(crate) end_date: NaiveDate,
     pub(crate) date_format: String,
@@ -29,7 +29,7 @@ pub(crate) struct EightPattern {
     pub(crate) date_size: f64,
     pub(crate) lunar: bool,
 }
-impl Default for EightPattern {
+impl Default for OctanWeekPattern {
     fn default() -> Self {
         let today = Utc::now().date_naive();
         let monday = today - Duration::days(i64::from(today.weekday().num_days_from_monday()));
@@ -50,7 +50,7 @@ impl Default for EightPattern {
         }
     }
 }
-impl EightPattern {
+impl OctanWeekPattern {
     pub(crate) fn validate(&self) -> Result<(), String> {
         if self.end_date < self.start_date {
             return Err("结束日期必须晚于或等于开始日期".into());
@@ -118,7 +118,7 @@ fn push_mini_calendar(
     texts: &mut Vec<Text>,
     quad: Rect,
     week_start: NaiveDate,
-    p: &EightPattern,
+    p: &OctanWeekPattern,
     font: &str,
     holidays: &Option<HashMap<String, String>>,
 ) {
@@ -172,6 +172,7 @@ fn push_mini_calendar(
 
 /// 单个月历：月份标题 + 星期表头 + 日期（周一为首的 7 列，仅文字无框线），
 /// 落在 highlight 区间内的日期红色（年历等无本周概念时传 None）。八分周视图与年历共用。
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn push_one_month(
     texts: &mut Vec<Text>,
     rect: Rect,
@@ -194,6 +195,7 @@ pub(crate) fn push_one_month(
     let rows = (first_wd + days).div_ceil(7);
     let cell_w = (rect.width - 2.0 * MINI_PAD) / 7.0;
     let cell_h = (rect.height - 2.0 * MINI_PAD) / (rows + 2) as f64;
+    #[allow(clippy::too_many_arguments)]
     fn push_text(
         texts: &mut Vec<Text>,
         rect: Rect,
@@ -288,9 +290,9 @@ pub(crate) fn push_one_month(
 
 /// `index`：section 内 0 起的页序（即第 index+1 页）；第 1、3、5… 页画整周前半
 /// （空/周一/周四/周五），第 2、4、6… 页画后半（周二/周三/周六/周日），保证顺序。
-pub(crate) fn draw_eight(
+pub(crate) fn draw_octan_week(
     geo: Geometry,
-    p: &EightPattern,
+    p: &OctanWeekPattern,
     index: usize,
     font: &str,
     holidays: &Option<HashMap<String, String>>,
@@ -420,8 +422,8 @@ mod tests {
     use super::super::{PageSettings, geometry_for};
     use super::*;
 
-    fn pattern(start: &str, end: &str) -> EightPattern {
-        EightPattern {
+    fn pattern(start: &str, end: &str) -> OctanWeekPattern {
+        OctanWeekPattern {
             start_date: NaiveDate::parse_from_str(start, "%F").unwrap(),
             end_date: NaiveDate::parse_from_str(end, "%F").unwrap(),
             ..Default::default()
@@ -472,8 +474,8 @@ mod tests {
             .collect()
     }
 
-    fn draw(page: &PageSettings, p: &EightPattern, index: usize) -> Vec<Text> {
-        draw_eight(geometry_for(page, index + 1), p, index, r"\sffamily", &None).3
+    fn draw(page: &PageSettings, p: &OctanWeekPattern, index: usize) -> Vec<Text> {
+        draw_octan_week(geometry_for(page, index + 1), p, index, r"\sffamily", &None).3
     }
 
     #[test]
@@ -563,7 +565,7 @@ mod tests {
         let p = pattern("2026-08-03", "2026-08-09");
         assert!(draw(&page, &p, 0).iter().any(|t| t.content == "一"));
         // 表头串与标题格式复用月历的设置方式。
-        let p = EightPattern {
+        let p = OctanWeekPattern {
             weekday_headers: "Mo,Tu,We,Th,Fr,Sa,Su".into(),
             title_format: "%Y年%-m月".into(),
             ..pattern("2026-08-03", "2026-08-09")
@@ -579,7 +581,7 @@ mod tests {
         let page = PageSettings::default();
         let p = pattern("2026-08-03", "2026-08-09");
         let (lines, dots, _paths, texts) =
-            draw_eight(geometry_for(&page, 5), &p, 4, r"\sffamily", &None);
+            draw_octan_week(geometry_for(&page, 5), &p, 4, r"\sffamily", &None);
         assert_eq!(lines.len(), 4);
         assert_eq!(dots.len(), 1);
         assert!(texts.is_empty());
