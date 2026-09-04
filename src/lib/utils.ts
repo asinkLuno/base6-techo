@@ -1,5 +1,5 @@
 import type { Section, Values } from "./schema";
-import { patternNames } from "./schema";
+import { patternNames, COLORS } from "./schema";
 
 export function stripNulls<T>(obj: T): T {
   if (obj === null || typeof obj !== "object" || Array.isArray(obj)) return obj;
@@ -133,4 +133,69 @@ export function sectionRequest(section: Section, holidays: Record<string, string
     pattern: cleanPattern(section.pattern),
     holidays,
   });
+}
+
+// 把后端请求格式的 section（gen-examples.py 生成的下载 JSON）转回前端 Section，供导入微调。
+export function renderToSection(rs: Record<string, unknown>): Section {
+  const pg = (rs.page ?? {}) as Record<string, unknown>;
+  const doc = (rs.document ?? {}) as Record<string, unknown>;
+  const hd = (doc.header ?? {}) as Record<string, unknown>;
+  const ft = (doc.footer ?? {}) as Record<string, unknown>;
+  const band = (p: "header" | "footer", b: Record<string, unknown>) => ({
+    [`${p}_text`]: b.text ?? null,
+    [`${p}_text_2`]: b.text_2 ?? null,
+    [`${p}_text_size`]: b.text_size ?? 8,
+    [`${p}_text_2_size`]: b.text_2_size ?? 8,
+    [`${p}_text_spacing`]: b.text_spacing ?? 5,
+    [`${p}_text_color`]: b.text_color ?? COLORS.gray,
+  });
+  return {
+    id: crypto.randomUUID(),
+    expanded: true,
+    headerEnabled: !!hd.text || hd.page_number === true,
+    headerMode: hd.text ? "text" : "number",
+    footerEnabled: !!ft.text || ft.page_number === true,
+    footerMode: ft.text ? "text" : "number",
+    pageNumber: doc.page_number !== false,
+    watermarkEnabled: !!doc.binding_text,
+    nonBindingEnabled: !!doc.non_binding_text,
+    page: {
+      width: pg.width ?? 148,
+      height: pg.height ?? 210,
+      header: pg.header ?? 8,
+      footer: pg.footer ?? 10,
+      binding: pg.binding ?? 13,
+      non_binding: pg.non_binding ?? 18,
+    },
+    document: {
+      ...band("header", hd),
+      ...band("footer", ft),
+      binding_text: doc.binding_text ?? null,
+      binding_text_2: doc.binding_text_2 ?? null,
+      binding_text_size: doc.binding_text_size ?? 8,
+      binding_text_2_size: doc.binding_text_2_size ?? 8,
+      binding_text_spacing: doc.binding_text_spacing ?? 5,
+      binding_text_edge: doc.binding_text_edge ?? null,
+      binding_text_font: doc.binding_text_font ?? null,
+      binding_text_color: doc.binding_text_color ?? COLORS.gray,
+      non_binding_text: doc.non_binding_text ?? null,
+      non_binding_text_2: doc.non_binding_text_2 ?? null,
+      non_binding_text_size: doc.non_binding_text_size ?? 8,
+      non_binding_text_2_size: doc.non_binding_text_2_size ?? 8,
+      non_binding_text_spacing: doc.non_binding_text_spacing ?? 5,
+      non_binding_text_edge: doc.non_binding_text_edge ?? null,
+      non_binding_text_color: doc.non_binding_text_color ?? COLORS.gray,
+    },
+    pattern: cleanPattern((rs.pattern ?? { kind: "ruled" }) as Section["pattern"]),
+  } as unknown as Section;
+}
+
+// 是否为 gen-examples.py 生成的后端请求格式（带 bind 的顶层，且 section 无前端 id/expanded）。
+export function isRenderRequest(data: Record<string, unknown>): boolean {
+  return Array.isArray(data.sections) &&
+    data.sections.length > 0 &&
+    typeof data.sections[0] === "object" &&
+    data.sections[0] !== null &&
+    "pattern" in (data.sections[0] as Record<string, unknown>) &&
+    !("id" in (data.sections[0] as Record<string, unknown>));
 }

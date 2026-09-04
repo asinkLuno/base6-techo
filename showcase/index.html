@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>base6 techo · 版式样张集</title>
-<meta name="description" content="base6-techo 生成的手帐版式样张：9 种版式 × 3 种尺寸，按真实比例展示，可下载 PDF 自行打印装订。">
+<meta name="description" content="base6-techo 生成的手帐版式样张：9 种版式 × 3 种尺寸，按真实比例展示，可下载预设 JSON 导入桌面应用。">
 <style>
 @font-face {
   font-family: "KingHwa OldSong";
@@ -272,7 +272,7 @@ footer .fin .sig { font-family: var(--serif); font-size: 14px; color: var(--ink)
     <a class="wordmark" href="#top"><b>base<span>6</span></b>&ensp;techo</a>
     <a class="link" href="#intro">介绍</a>
     <a class="link" href="#gallery">版式</a>
-    <a class="link" href="#download">下载</a>
+    <a class="link" href="#download">导入</a>
     <a class="link gh mono" href="https://github.com/asinkLuno/base6-techo" target="_blank" rel="noopener">GitHub ↗</a>
   </div>
 </nav>
@@ -285,8 +285,8 @@ footer .fin .sig { font-family: var(--serif); font-size: 14px; color: var(--ink)
       <p class="lead">
         base6-techo 用 LaTeX 排出毫米级精度的手帐内页：<em>装订边与外翻边自动区分</em>，
         页码、页眉、水印随奇偶页镜像，多个版式按序拼成一本可直接装订的 PDF。
-        本页是它的全部基础与复刻版式样张——按真实比例陈列，可按尺寸取走打印。
-      </p>
+        本页陈列它的全部基础与复刻版式——按真实比例展示，每份预设 JSON
+        都可一键导入桌面应用继续微调。
       <ul class="facts">
         <li><b>9</b>种版式</li>
         <li><b>3</b>种尺寸</li>
@@ -297,8 +297,8 @@ footer .fin .sig { font-family: var(--serif); font-size: 14px; color: var(--ink)
 
     <figure class="hero-spread">
       <div class="spread">
-        <img src="../examples/hakubunkan-kaichu-nikki-a5-p-2.png" width="875" height="1241" alt="博文館・懐中日記 A5 样张第 2 页" class="page left">
-        <img src="../examples/hakubunkan-kaichu-nikki-a5-p-3.png" width="875" height="1241" alt="博文館・懐中日記 A5 样张第 3 页" class="page right">
+        <img src="../examples/hakubunkan-kaichu-nikki/a5/hakubunkan-kaichu-nikki-a5-p-2.png" width="875" height="1241" alt="博文館・懐中日記 A5 样张第 2 页" class="page left">
+        <img src="../examples/hakubunkan-kaichu-nikki/a5/hakubunkan-kaichu-nikki-a5-p-3.png" width="875" height="1241" alt="博文館・懐中日記 A5 样张第 3 页" class="page right">
         <i class="gutter" aria-hidden="true"></i>
       </div>
       <figcaption>
@@ -365,24 +365,24 @@ footer .fin .sig { font-family: var(--serif); font-size: 14px; color: var(--ink)
       title="A6 口袋 · 95 × 171 mm">A6 口袋</button><button type="button" data-size="a7" data-spread="54.1"
       data-mm="80 × 120" aria-pressed="false"
       title="A7 · 80 × 120 mm">A7</button></div>
-        <a class="pdf-link mono" href="../examples/ruled-a5.pdf" download>下载 PDF ↓</a>
+        <a class="pdf-link mono" href="../examples/ruled/a5/ruled-a5.json" download="base6-ruled.json">导入 JSON ↓</a>
       </div>
     </div>
     <figure class="spec-fig">
       <div class="spread">
         <div class="pages">
 
-      <img src="../examples/ruled-a5-p-2.png" width="875" height="1241" data-size="a5"
+      <img src="../examples/ruled/a5/ruled-a5-p-2.png" width="875" height="1241" data-size="a5"
         alt="横线 A5样张第 2 页" class="page left" >
-      <img src="../examples/ruled-a5-p-3.png" width="875" height="1241" data-size="a5"
+      <img src="../examples/ruled/a5/ruled-a5-p-3.png" width="875" height="1241" data-size="a5"
         alt="横线 A5样张第 3 页" class="page right" >
-      <img src="../examples/ruled-a6p-p-2.png" width="562" height="1010" data-size="a6p"
+      <img src="../examples/ruled/a6p/ruled-a6p-p-2.png" width="562" height="1010" data-size="a6p"
         alt="横线 A6 口袋样张第 2 页" class="page left" hidden>
-      <img src="../examples/ruled-a6p-p-3.png" width="562" height="1010" data-size="a6p"
+      <img src="../examples/ruled/a6p/ruled-a6p-p-3.png" width="562" height="1010" data-size="a6p"
         alt="横线 A6 口袋样张第 3 页" class="page right" hidden>
-      <img src="../examples/ruled-a7-p-2.png" width="473" height="709" data-size="a7"
+      <img src="../examples/ruled/a7/ruled-a7-p-2.png" width="473" height="709" data-size="a7"
         alt="横线 A7样张第 2 页" class="page left" hidden>
-      <img src="../examples/ruled-a7-p-3.png" width="473" height="709" data-size="a7"
+      <img src="../examples/ruled/a7/ruled-a7-p-3.png" width="473" height="709" data-size="a7"
         alt="横线 A7样张第 3 页" class="page right" hidden>
           <i class="gutter" aria-hidden="true"></i>
         </div>
@@ -406,24 +406,24 @@ footer .fin .sig { font-family: var(--serif); font-size: 14px; color: var(--ink)
       title="A6 口袋 · 95 × 171 mm">A6 口袋</button><button type="button" data-size="a7" data-spread="54.1"
       data-mm="80 × 120" aria-pressed="false"
       title="A7 · 80 × 120 mm">A7</button></div>
-        <a class="pdf-link mono" href="../examples/dots-a5.pdf" download>下载 PDF ↓</a>
+        <a class="pdf-link mono" href="../examples/dots/a5/dots-a5.json" download="base6-dots.json">导入 JSON ↓</a>
       </div>
     </div>
     <figure class="spec-fig">
       <div class="spread">
         <div class="pages">
 
-      <img src="../examples/dots-a5-p-2.png" width="875" height="1241" data-size="a5"
+      <img src="../examples/dots/a5/dots-a5-p-2.png" width="875" height="1241" data-size="a5"
         alt="点阵 A5样张第 2 页" class="page left" >
-      <img src="../examples/dots-a5-p-3.png" width="875" height="1241" data-size="a5"
+      <img src="../examples/dots/a5/dots-a5-p-3.png" width="875" height="1241" data-size="a5"
         alt="点阵 A5样张第 3 页" class="page right" >
-      <img src="../examples/dots-a6p-p-2.png" width="562" height="1010" data-size="a6p"
+      <img src="../examples/dots/a6p/dots-a6p-p-2.png" width="562" height="1010" data-size="a6p"
         alt="点阵 A6 口袋样张第 2 页" class="page left" hidden>
-      <img src="../examples/dots-a6p-p-3.png" width="562" height="1010" data-size="a6p"
+      <img src="../examples/dots/a6p/dots-a6p-p-3.png" width="562" height="1010" data-size="a6p"
         alt="点阵 A6 口袋样张第 3 页" class="page right" hidden>
-      <img src="../examples/dots-a7-p-2.png" width="473" height="709" data-size="a7"
+      <img src="../examples/dots/a7/dots-a7-p-2.png" width="473" height="709" data-size="a7"
         alt="点阵 A7样张第 2 页" class="page left" hidden>
-      <img src="../examples/dots-a7-p-3.png" width="473" height="709" data-size="a7"
+      <img src="../examples/dots/a7/dots-a7-p-3.png" width="473" height="709" data-size="a7"
         alt="点阵 A7样张第 3 页" class="page right" hidden>
           <i class="gutter" aria-hidden="true"></i>
         </div>
@@ -447,24 +447,24 @@ footer .fin .sig { font-family: var(--serif); font-size: 14px; color: var(--ink)
       title="A6 口袋 · 95 × 171 mm">A6 口袋</button><button type="button" data-size="a7" data-spread="54.1"
       data-mm="80 × 120" aria-pressed="false"
       title="A7 · 80 × 120 mm">A7</button></div>
-        <a class="pdf-link mono" href="../examples/grid-a5.pdf" download>下载 PDF ↓</a>
+        <a class="pdf-link mono" href="../examples/grid/a5/grid-a5.json" download="base6-grid.json">导入 JSON ↓</a>
       </div>
     </div>
     <figure class="spec-fig">
       <div class="spread">
         <div class="pages">
 
-      <img src="../examples/grid-a5-p-2.png" width="875" height="1241" data-size="a5"
+      <img src="../examples/grid/a5/grid-a5-p-2.png" width="875" height="1241" data-size="a5"
         alt="网格 A5样张第 2 页" class="page left" >
-      <img src="../examples/grid-a5-p-3.png" width="875" height="1241" data-size="a5"
+      <img src="../examples/grid/a5/grid-a5-p-3.png" width="875" height="1241" data-size="a5"
         alt="网格 A5样张第 3 页" class="page right" >
-      <img src="../examples/grid-a6p-p-2.png" width="562" height="1010" data-size="a6p"
+      <img src="../examples/grid/a6p/grid-a6p-p-2.png" width="562" height="1010" data-size="a6p"
         alt="网格 A6 口袋样张第 2 页" class="page left" hidden>
-      <img src="../examples/grid-a6p-p-3.png" width="562" height="1010" data-size="a6p"
+      <img src="../examples/grid/a6p/grid-a6p-p-3.png" width="562" height="1010" data-size="a6p"
         alt="网格 A6 口袋样张第 3 页" class="page right" hidden>
-      <img src="../examples/grid-a7-p-2.png" width="473" height="709" data-size="a7"
+      <img src="../examples/grid/a7/grid-a7-p-2.png" width="473" height="709" data-size="a7"
         alt="网格 A7样张第 2 页" class="page left" hidden>
-      <img src="../examples/grid-a7-p-3.png" width="473" height="709" data-size="a7"
+      <img src="../examples/grid/a7/grid-a7-p-3.png" width="473" height="709" data-size="a7"
         alt="网格 A7样张第 3 页" class="page right" hidden>
           <i class="gutter" aria-hidden="true"></i>
         </div>
@@ -488,24 +488,24 @@ footer .fin .sig { font-family: var(--serif); font-size: 14px; color: var(--ink)
       title="A6 口袋 · 95 × 171 mm">A6 口袋</button><button type="button" data-size="a7" data-spread="54.1"
       data-mm="80 × 120" aria-pressed="false"
       title="A7 · 80 × 120 mm">A7</button></div>
-        <a class="pdf-link mono" href="../examples/seyes-a5.pdf" download>下载 PDF ↓</a>
+        <a class="pdf-link mono" href="../examples/seyes/a5/seyes-a5.json" download="base6-seyes.json">导入 JSON ↓</a>
       </div>
     </div>
     <figure class="spec-fig">
       <div class="spread">
         <div class="pages">
 
-      <img src="../examples/seyes-a5-p-2.png" width="875" height="1241" data-size="a5"
+      <img src="../examples/seyes/a5/seyes-a5-p-2.png" width="875" height="1241" data-size="a5"
         alt="法文格 A5样张第 2 页" class="page left" >
-      <img src="../examples/seyes-a5-p-3.png" width="875" height="1241" data-size="a5"
+      <img src="../examples/seyes/a5/seyes-a5-p-3.png" width="875" height="1241" data-size="a5"
         alt="法文格 A5样张第 3 页" class="page right" >
-      <img src="../examples/seyes-a6p-p-2.png" width="562" height="1010" data-size="a6p"
+      <img src="../examples/seyes/a6p/seyes-a6p-p-2.png" width="562" height="1010" data-size="a6p"
         alt="法文格 A6 口袋样张第 2 页" class="page left" hidden>
-      <img src="../examples/seyes-a6p-p-3.png" width="562" height="1010" data-size="a6p"
+      <img src="../examples/seyes/a6p/seyes-a6p-p-3.png" width="562" height="1010" data-size="a6p"
         alt="法文格 A6 口袋样张第 3 页" class="page right" hidden>
-      <img src="../examples/seyes-a7-p-2.png" width="473" height="709" data-size="a7"
+      <img src="../examples/seyes/a7/seyes-a7-p-2.png" width="473" height="709" data-size="a7"
         alt="法文格 A7样张第 2 页" class="page left" hidden>
-      <img src="../examples/seyes-a7-p-3.png" width="473" height="709" data-size="a7"
+      <img src="../examples/seyes/a7/seyes-a7-p-3.png" width="473" height="709" data-size="a7"
         alt="法文格 A7样张第 3 页" class="page right" hidden>
           <i class="gutter" aria-hidden="true"></i>
         </div>
@@ -529,24 +529,24 @@ footer .fin .sig { font-family: var(--serif); font-size: 14px; color: var(--ink)
       title="A6 口袋 · 95 × 171 mm">A6 口袋</button><button type="button" data-size="a7" data-spread="54.1"
       data-mm="80 × 120" aria-pressed="false"
       title="A7 · 80 × 120 mm">A7</button></div>
-        <a class="pdf-link mono" href="../examples/us-ruled-a5.pdf" download>下载 PDF ↓</a>
+        <a class="pdf-link mono" href="../examples/us-ruled/a5/us-ruled-a5.json" download="base6-us-ruled.json">导入 JSON ↓</a>
       </div>
     </div>
     <figure class="spec-fig">
       <div class="spread">
         <div class="pages">
 
-      <img src="../examples/us-ruled-a5-p-2.png" width="875" height="1241" data-size="a5"
+      <img src="../examples/us-ruled/a5/us-ruled-a5-p-2.png" width="875" height="1241" data-size="a5"
         alt="美式横线 A5样张第 2 页" class="page left" >
-      <img src="../examples/us-ruled-a5-p-3.png" width="875" height="1241" data-size="a5"
+      <img src="../examples/us-ruled/a5/us-ruled-a5-p-3.png" width="875" height="1241" data-size="a5"
         alt="美式横线 A5样张第 3 页" class="page right" >
-      <img src="../examples/us-ruled-a6p-p-2.png" width="562" height="1010" data-size="a6p"
+      <img src="../examples/us-ruled/a6p/us-ruled-a6p-p-2.png" width="562" height="1010" data-size="a6p"
         alt="美式横线 A6 口袋样张第 2 页" class="page left" hidden>
-      <img src="../examples/us-ruled-a6p-p-3.png" width="562" height="1010" data-size="a6p"
+      <img src="../examples/us-ruled/a6p/us-ruled-a6p-p-3.png" width="562" height="1010" data-size="a6p"
         alt="美式横线 A6 口袋样张第 3 页" class="page right" hidden>
-      <img src="../examples/us-ruled-a7-p-2.png" width="473" height="709" data-size="a7"
+      <img src="../examples/us-ruled/a7/us-ruled-a7-p-2.png" width="473" height="709" data-size="a7"
         alt="美式横线 A7样张第 2 页" class="page left" hidden>
-      <img src="../examples/us-ruled-a7-p-3.png" width="473" height="709" data-size="a7"
+      <img src="../examples/us-ruled/a7/us-ruled-a7-p-3.png" width="473" height="709" data-size="a7"
         alt="美式横线 A7样张第 3 页" class="page right" hidden>
           <i class="gutter" aria-hidden="true"></i>
         </div>
@@ -570,24 +570,24 @@ footer .fin .sig { font-family: var(--serif); font-size: 14px; color: var(--ink)
       title="A6 口袋 · 95 × 171 mm">A6 口袋</button><button type="button" data-size="a7" data-spread="54.1"
       data-mm="80 × 120" aria-pressed="false"
       title="A7 · 80 × 120 mm">A7</button></div>
-        <a class="pdf-link mono" href="../examples/vertical-a5.pdf" download>下载 PDF ↓</a>
+        <a class="pdf-link mono" href="../examples/vertical/a5/vertical-a5.json" download="base6-vertical.json">导入 JSON ↓</a>
       </div>
     </div>
     <figure class="spec-fig">
       <div class="spread">
         <div class="pages">
 
-      <img src="../examples/vertical-a5-p-2.png" width="875" height="1241" data-size="a5"
+      <img src="../examples/vertical/a5/vertical-a5-p-2.png" width="875" height="1241" data-size="a5"
         alt="古文竖排 A5样张第 2 页" class="page left" >
-      <img src="../examples/vertical-a5-p-3.png" width="875" height="1241" data-size="a5"
+      <img src="../examples/vertical/a5/vertical-a5-p-3.png" width="875" height="1241" data-size="a5"
         alt="古文竖排 A5样张第 3 页" class="page right" >
-      <img src="../examples/vertical-a6p-p-2.png" width="562" height="1010" data-size="a6p"
+      <img src="../examples/vertical/a6p/vertical-a6p-p-2.png" width="562" height="1010" data-size="a6p"
         alt="古文竖排 A6 口袋样张第 2 页" class="page left" hidden>
-      <img src="../examples/vertical-a6p-p-3.png" width="562" height="1010" data-size="a6p"
+      <img src="../examples/vertical/a6p/vertical-a6p-p-3.png" width="562" height="1010" data-size="a6p"
         alt="古文竖排 A6 口袋样张第 3 页" class="page right" hidden>
-      <img src="../examples/vertical-a7-p-2.png" width="473" height="709" data-size="a7"
+      <img src="../examples/vertical/a7/vertical-a7-p-2.png" width="473" height="709" data-size="a7"
         alt="古文竖排 A7样张第 2 页" class="page left" hidden>
-      <img src="../examples/vertical-a7-p-3.png" width="473" height="709" data-size="a7"
+      <img src="../examples/vertical/a7/vertical-a7-p-3.png" width="473" height="709" data-size="a7"
         alt="古文竖排 A7样张第 3 页" class="page right" hidden>
           <i class="gutter" aria-hidden="true"></i>
         </div>
@@ -601,11 +601,11 @@ footer .fin .sig { font-family: var(--serif); font-size: 14px; color: var(--ink)
     <div class="sec-head reveal"><h2>复刻</h2><span class="mono">3 种版式</span></div>
     <p class="sec-note reveal">对照实物复刻的笔记本内页与旧式日记 layouts。</p>
 
-  <article class="specimen reveal" id="p-midori" data-kind="midori" style="--pat-ink: #A9D1AE">
+  <article class="specimen reveal" id="p-hogen" data-kind="hogen" style="--pat-ink: #A9D1AE">
     <div class="meta">
-      <p class="id mono">midori</p>
-      <h3 class="name">Midori</h3>
-      <p class="desc">复刻 Midori 笔记内页：5 mm 格，偶数格线向外伸出，每十格以点相连。</p>
+      <p class="id mono">hogen</p>
+      <h3 class="name">方眼罫</h3>
+      <p class="desc">复刻 Midori(MD) 笔记内页的方眼罫：5 mm 格，偶数格线向外伸出，每十格以点相连。</p>
       <p class="spec mono">间距 5 mm · 格隙 1 mm · 线宽 0.7</p>
       <p class="ink-line mono"><i class="ink-chip" aria-hidden="true"></i>线色 <span class="ink-code">#A9D1AE</span></p>
       <div class="controls">
@@ -616,25 +616,25 @@ footer .fin .sig { font-family: var(--serif); font-size: 14px; color: var(--ink)
       title="A6 口袋 · 95 × 171 mm">A6 口袋</button><button type="button" data-size="a7" data-spread="54.1"
       data-mm="80 × 120" aria-pressed="false"
       title="A7 · 80 × 120 mm">A7</button></div>
-        <a class="pdf-link mono" href="../examples/midori-a5.pdf" download>下载 PDF ↓</a>
+        <a class="pdf-link mono" href="../examples/hogen/a5/hogen-a5.json" download="base6-hogen.json">导入 JSON ↓</a>
       </div>
     </div>
     <figure class="spec-fig">
       <div class="spread">
         <div class="pages">
 
-      <img src="../examples/midori-a5-p-2.png" width="875" height="1241" data-size="a5"
-        alt="Midori A5样张第 2 页" class="page left" >
-      <img src="../examples/midori-a5-p-3.png" width="875" height="1241" data-size="a5"
-        alt="Midori A5样张第 3 页" class="page right" >
-      <img src="../examples/midori-a6p-p-2.png" width="562" height="1010" data-size="a6p"
-        alt="Midori A6 口袋样张第 2 页" class="page left" hidden>
-      <img src="../examples/midori-a6p-p-3.png" width="562" height="1010" data-size="a6p"
-        alt="Midori A6 口袋样张第 3 页" class="page right" hidden>
-      <img src="../examples/midori-a7-p-2.png" width="473" height="709" data-size="a7"
-        alt="Midori A7样张第 2 页" class="page left" hidden>
-      <img src="../examples/midori-a7-p-3.png" width="473" height="709" data-size="a7"
-        alt="Midori A7样张第 3 页" class="page right" hidden>
+      <img src="../examples/hogen/a5/hogen-a5-p-2.png" width="875" height="1241" data-size="a5"
+        alt="方眼罫 A5样张第 2 页" class="page left" >
+      <img src="../examples/hogen/a5/hogen-a5-p-3.png" width="875" height="1241" data-size="a5"
+        alt="方眼罫 A5样张第 3 页" class="page right" >
+      <img src="../examples/hogen/a6p/hogen-a6p-p-2.png" width="562" height="1010" data-size="a6p"
+        alt="方眼罫 A6 口袋样张第 2 页" class="page left" hidden>
+      <img src="../examples/hogen/a6p/hogen-a6p-p-3.png" width="562" height="1010" data-size="a6p"
+        alt="方眼罫 A6 口袋样张第 3 页" class="page right" hidden>
+      <img src="../examples/hogen/a7/hogen-a7-p-2.png" width="473" height="709" data-size="a7"
+        alt="方眼罫 A7样张第 2 页" class="page left" hidden>
+      <img src="../examples/hogen/a7/hogen-a7-p-3.png" width="473" height="709" data-size="a7"
+        alt="方眼罫 A7样张第 3 页" class="page right" hidden>
           <i class="gutter" aria-hidden="true"></i>
         </div>
       </div>
@@ -657,24 +657,24 @@ footer .fin .sig { font-family: var(--serif); font-size: 14px; color: var(--ink)
       title="A6 口袋 · 95 × 171 mm">A6 口袋</button><button type="button" data-size="a7" data-spread="54.1"
       data-mm="80 × 120" aria-pressed="false"
       title="A7 · 80 × 120 mm">A7</button></div>
-        <a class="pdf-link mono" href="../examples/hakubunkan-toyo-nikki-a5.pdf" download>下载 PDF ↓</a>
+        <a class="pdf-link mono" href="../examples/hakubunkan-toyo-nikki/a5/hakubunkan-toyo-nikki-a5.json" download="base6-hakubunkan-toyo-nikki.json">导入 JSON ↓</a>
       </div>
     </div>
     <figure class="spec-fig">
       <div class="spread">
         <div class="pages">
 
-      <img src="../examples/hakubunkan-toyo-nikki-a5-p-2.png" width="875" height="1241" data-size="a5"
+      <img src="../examples/hakubunkan-toyo-nikki/a5/hakubunkan-toyo-nikki-a5-p-2.png" width="875" height="1241" data-size="a5"
         alt="博文館・當用日記 A5样张第 2 页" class="page left" >
-      <img src="../examples/hakubunkan-toyo-nikki-a5-p-3.png" width="875" height="1241" data-size="a5"
+      <img src="../examples/hakubunkan-toyo-nikki/a5/hakubunkan-toyo-nikki-a5-p-3.png" width="875" height="1241" data-size="a5"
         alt="博文館・當用日記 A5样张第 3 页" class="page right" >
-      <img src="../examples/hakubunkan-toyo-nikki-a6p-p-2.png" width="562" height="1010" data-size="a6p"
+      <img src="../examples/hakubunkan-toyo-nikki/a6p/hakubunkan-toyo-nikki-a6p-p-2.png" width="562" height="1010" data-size="a6p"
         alt="博文館・當用日記 A6 口袋样张第 2 页" class="page left" hidden>
-      <img src="../examples/hakubunkan-toyo-nikki-a6p-p-3.png" width="562" height="1010" data-size="a6p"
+      <img src="../examples/hakubunkan-toyo-nikki/a6p/hakubunkan-toyo-nikki-a6p-p-3.png" width="562" height="1010" data-size="a6p"
         alt="博文館・當用日記 A6 口袋样张第 3 页" class="page right" hidden>
-      <img src="../examples/hakubunkan-toyo-nikki-a7-p-2.png" width="473" height="709" data-size="a7"
+      <img src="../examples/hakubunkan-toyo-nikki/a7/hakubunkan-toyo-nikki-a7-p-2.png" width="473" height="709" data-size="a7"
         alt="博文館・當用日記 A7样张第 2 页" class="page left" hidden>
-      <img src="../examples/hakubunkan-toyo-nikki-a7-p-3.png" width="473" height="709" data-size="a7"
+      <img src="../examples/hakubunkan-toyo-nikki/a7/hakubunkan-toyo-nikki-a7-p-3.png" width="473" height="709" data-size="a7"
         alt="博文館・當用日記 A7样张第 3 页" class="page right" hidden>
           <i class="gutter" aria-hidden="true"></i>
         </div>
@@ -698,24 +698,24 @@ footer .fin .sig { font-family: var(--serif); font-size: 14px; color: var(--ink)
       title="A6 口袋 · 95 × 171 mm">A6 口袋</button><button type="button" data-size="a7" data-spread="54.1"
       data-mm="80 × 120" aria-pressed="false"
       title="A7 · 80 × 120 mm">A7</button></div>
-        <a class="pdf-link mono" href="../examples/hakubunkan-kaichu-nikki-a5.pdf" download>下载 PDF ↓</a>
+        <a class="pdf-link mono" href="../examples/hakubunkan-kaichu-nikki/a5/hakubunkan-kaichu-nikki-a5.json" download="base6-hakubunkan-kaichu-nikki.json">导入 JSON ↓</a>
       </div>
     </div>
     <figure class="spec-fig">
       <div class="spread">
         <div class="pages">
 
-      <img src="../examples/hakubunkan-kaichu-nikki-a5-p-2.png" width="875" height="1241" data-size="a5"
+      <img src="../examples/hakubunkan-kaichu-nikki/a5/hakubunkan-kaichu-nikki-a5-p-2.png" width="875" height="1241" data-size="a5"
         alt="博文館・懐中日記 A5样张第 2 页" class="page left" >
-      <img src="../examples/hakubunkan-kaichu-nikki-a5-p-3.png" width="875" height="1241" data-size="a5"
+      <img src="../examples/hakubunkan-kaichu-nikki/a5/hakubunkan-kaichu-nikki-a5-p-3.png" width="875" height="1241" data-size="a5"
         alt="博文館・懐中日記 A5样张第 3 页" class="page right" >
-      <img src="../examples/hakubunkan-kaichu-nikki-a6p-p-2.png" width="562" height="1010" data-size="a6p"
+      <img src="../examples/hakubunkan-kaichu-nikki/a6p/hakubunkan-kaichu-nikki-a6p-p-2.png" width="562" height="1010" data-size="a6p"
         alt="博文館・懐中日記 A6 口袋样张第 2 页" class="page left" hidden>
-      <img src="../examples/hakubunkan-kaichu-nikki-a6p-p-3.png" width="562" height="1010" data-size="a6p"
+      <img src="../examples/hakubunkan-kaichu-nikki/a6p/hakubunkan-kaichu-nikki-a6p-p-3.png" width="562" height="1010" data-size="a6p"
         alt="博文館・懐中日記 A6 口袋样张第 3 页" class="page right" hidden>
-      <img src="../examples/hakubunkan-kaichu-nikki-a7-p-2.png" width="473" height="709" data-size="a7"
+      <img src="../examples/hakubunkan-kaichu-nikki/a7/hakubunkan-kaichu-nikki-a7-p-2.png" width="473" height="709" data-size="a7"
         alt="博文館・懐中日記 A7样张第 2 页" class="page left" hidden>
-      <img src="../examples/hakubunkan-kaichu-nikki-a7-p-3.png" width="473" height="709" data-size="a7"
+      <img src="../examples/hakubunkan-kaichu-nikki/a7/hakubunkan-kaichu-nikki-a7-p-3.png" width="473" height="709" data-size="a7"
         alt="博文館・懐中日記 A7样张第 3 页" class="page right" hidden>
           <i class="gutter" aria-hidden="true"></i>
         </div>
@@ -727,23 +727,25 @@ footer .fin .sig { font-family: var(--serif); font-size: 14px; color: var(--ink)
 </main>
 
 <section id="download" class="wrap">
-  <div class="sec-head reveal"><h2>下载样张</h2><span class="mono">SAMPLE PDF</span></div>
-  <p class="dl-lead reveal">同一版式的三种尺寸由同一套参数生成，仅版心随纸面缩放；样张由
-  <a class="mono" href="https://github.com/asinkLuno/base6-techo/blob/master/scripts/gen-examples.sh" target="_blank" rel="noopener">scripts/gen-examples.sh</a>
+  <div class="sec-head reveal"><h2>导入预设</h2><span class="mono">IMPORT JSON</span></div>
+  <p class="dl-lead reveal">下载的是该版式×尺寸的<strong>预设 JSON</strong>，可在 base6-techo 桌面应用内直接导入，
+  装订边、行距、线色、日历范围等参数都保持与样张一致，导入后即可继续微调。
+  同一版式的三种尺寸由同一套参数生成，仅版心随纸面缩放；预设由
+  <a class="mono" href="https://github.com/asinkLuno/base6-techo/blob/master/scripts/gen-examples.py" target="_blank" rel="noopener">scripts/gen-examples.py</a>
   输出，参数与前端默认值一致。</p>
   <table class="dl-table">
     <thead><tr><th scope="col">版式</th><th scope="col" class="mono">A5<em>148 × 210 mm</em></th><th scope="col" class="mono">A6 口袋<em>95 × 171 mm</em></th><th scope="col" class="mono">A7<em>80 × 120 mm</em></th></tr></thead>
     <tbody><tr class="group-row"><th colspan="4">基础<span class="mono">6 种</span></th></tr>
-<tr><th scope="row"><span class="dl-name">横线</span><span class="mono dl-id">ruled</span></th><td><a class="mono" href="../examples/ruled-a5.pdf" download>PDF <em>13 KB</em></a></td><td><a class="mono" href="../examples/ruled-a6p.pdf" download>PDF <em>13 KB</em></a></td><td><a class="mono" href="../examples/ruled-a7.pdf" download>PDF <em>13 KB</em></a></td></tr>
-<tr><th scope="row"><span class="dl-name">点阵</span><span class="mono dl-id">dots</span></th><td><a class="mono" href="../examples/dots-a5.pdf" download>PDF <em>88 KB</em></a></td><td><a class="mono" href="../examples/dots-a6p.pdf" download>PDF <em>55 KB</em></a></td><td><a class="mono" href="../examples/dots-a7.pdf" download>PDF <em>40 KB</em></a></td></tr>
-<tr><th scope="row"><span class="dl-name">网格</span><span class="mono dl-id">grid</span></th><td><a class="mono" href="../examples/grid-a5.pdf" download>PDF <em>14 KB</em></a></td><td><a class="mono" href="../examples/grid-a6p.pdf" download>PDF <em>14 KB</em></a></td><td><a class="mono" href="../examples/grid-a7.pdf" download>PDF <em>13 KB</em></a></td></tr>
-<tr><th scope="row"><span class="dl-name">法文格</span><span class="mono dl-id">seyes</span></th><td><a class="mono" href="../examples/seyes-a5.pdf" download>PDF <em>15 KB</em></a></td><td><a class="mono" href="../examples/seyes-a6p.pdf" download>PDF <em>14 KB</em></a></td><td><a class="mono" href="../examples/seyes-a7.pdf" download>PDF <em>14 KB</em></a></td></tr>
-<tr><th scope="row"><span class="dl-name">美式横线</span><span class="mono dl-id">us-ruled</span></th><td><a class="mono" href="../examples/us-ruled-a5.pdf" download>PDF <em>13 KB</em></a></td><td><a class="mono" href="../examples/us-ruled-a6p.pdf" download>PDF <em>13 KB</em></a></td><td><a class="mono" href="../examples/us-ruled-a7.pdf" download>PDF <em>13 KB</em></a></td></tr>
-<tr><th scope="row"><span class="dl-name">古文竖排</span><span class="mono dl-id">vertical</span></th><td><a class="mono" href="../examples/vertical-a5.pdf" download>PDF <em>13 KB</em></a></td><td><a class="mono" href="../examples/vertical-a6p.pdf" download>PDF <em>13 KB</em></a></td><td><a class="mono" href="../examples/vertical-a7.pdf" download>PDF <em>13 KB</em></a></td></tr>
+<tr><th scope="row"><span class="dl-name">横线</span><span class="mono dl-id">ruled</span></th><td><a class="mono" href="../examples/ruled/a5/ruled-a5.json" download="base6-ruled-a5.json">JSON <em>1 KB</em></a></td><td><a class="mono" href="../examples/ruled/a6p/ruled-a6p.json" download="base6-ruled-a6p.json">JSON <em>1 KB</em></a></td><td><a class="mono" href="../examples/ruled/a7/ruled-a7.json" download="base6-ruled-a7.json">JSON <em>1 KB</em></a></td></tr>
+<tr><th scope="row"><span class="dl-name">点阵</span><span class="mono dl-id">dots</span></th><td><a class="mono" href="../examples/dots/a5/dots-a5.json" download="base6-dots-a5.json">JSON <em>1 KB</em></a></td><td><a class="mono" href="../examples/dots/a6p/dots-a6p.json" download="base6-dots-a6p.json">JSON <em>1 KB</em></a></td><td><a class="mono" href="../examples/dots/a7/dots-a7.json" download="base6-dots-a7.json">JSON <em>1 KB</em></a></td></tr>
+<tr><th scope="row"><span class="dl-name">网格</span><span class="mono dl-id">grid</span></th><td><a class="mono" href="../examples/grid/a5/grid-a5.json" download="base6-grid-a5.json">JSON <em>1 KB</em></a></td><td><a class="mono" href="../examples/grid/a6p/grid-a6p.json" download="base6-grid-a6p.json">JSON <em>1 KB</em></a></td><td><a class="mono" href="../examples/grid/a7/grid-a7.json" download="base6-grid-a7.json">JSON <em>1 KB</em></a></td></tr>
+<tr><th scope="row"><span class="dl-name">法文格</span><span class="mono dl-id">seyes</span></th><td><a class="mono" href="../examples/seyes/a5/seyes-a5.json" download="base6-seyes-a5.json">JSON <em>1 KB</em></a></td><td><a class="mono" href="../examples/seyes/a6p/seyes-a6p.json" download="base6-seyes-a6p.json">JSON <em>1 KB</em></a></td><td><a class="mono" href="../examples/seyes/a7/seyes-a7.json" download="base6-seyes-a7.json">JSON <em>1 KB</em></a></td></tr>
+<tr><th scope="row"><span class="dl-name">美式横线</span><span class="mono dl-id">us-ruled</span></th><td><a class="mono" href="../examples/us-ruled/a5/us-ruled-a5.json" download="base6-us-ruled-a5.json">JSON <em>1 KB</em></a></td><td><a class="mono" href="../examples/us-ruled/a6p/us-ruled-a6p.json" download="base6-us-ruled-a6p.json">JSON <em>1 KB</em></a></td><td><a class="mono" href="../examples/us-ruled/a7/us-ruled-a7.json" download="base6-us-ruled-a7.json">JSON <em>1 KB</em></a></td></tr>
+<tr><th scope="row"><span class="dl-name">古文竖排</span><span class="mono dl-id">vertical</span></th><td><a class="mono" href="../examples/vertical/a5/vertical-a5.json" download="base6-vertical-a5.json">JSON <em>1 KB</em></a></td><td><a class="mono" href="../examples/vertical/a6p/vertical-a6p.json" download="base6-vertical-a6p.json">JSON <em>1 KB</em></a></td><td><a class="mono" href="../examples/vertical/a7/vertical-a7.json" download="base6-vertical-a7.json">JSON <em>1 KB</em></a></td></tr>
 <tr class="group-row"><th colspan="4">复刻<span class="mono">3 种</span></th></tr>
-<tr><th scope="row"><span class="dl-name">Midori</span><span class="mono dl-id">midori</span></th><td><a class="mono" href="../examples/midori-a5.pdf" download>PDF <em>25 KB</em></a></td><td><a class="mono" href="../examples/midori-a6p.pdf" download>PDF <em>20 KB</em></a></td><td><a class="mono" href="../examples/midori-a7.pdf" download>PDF <em>17 KB</em></a></td></tr>
-<tr><th scope="row"><span class="dl-name">博文館・當用日記</span><span class="mono dl-id">hakubunkan-toyo-nikki</span></th><td><a class="mono" href="../examples/hakubunkan-toyo-nikki-a5.pdf" download>PDF <em>18 KB</em></a></td><td><a class="mono" href="../examples/hakubunkan-toyo-nikki-a6p.pdf" download>PDF <em>18 KB</em></a></td><td><a class="mono" href="../examples/hakubunkan-toyo-nikki-a7.pdf" download>PDF <em>18 KB</em></a></td></tr>
-<tr><th scope="row"><span class="dl-name">博文館・懐中日記</span><span class="mono dl-id">hakubunkan-kaichu-nikki</span></th><td><a class="mono" href="../examples/hakubunkan-kaichu-nikki-a5.pdf" download>PDF <em>17 KB</em></a></td><td><a class="mono" href="../examples/hakubunkan-kaichu-nikki-a6p.pdf" download>PDF <em>17 KB</em></a></td><td><a class="mono" href="../examples/hakubunkan-kaichu-nikki-a7.pdf" download>PDF <em>17 KB</em></a></td></tr></tbody>
+<tr><th scope="row"><span class="dl-name">方眼罫</span><span class="mono dl-id">hogen</span></th><td><a class="mono" href="../examples/hogen/a5/hogen-a5.json" download="base6-hogen-a5.json">JSON <em>1 KB</em></a></td><td><a class="mono" href="../examples/hogen/a6p/hogen-a6p.json" download="base6-hogen-a6p.json">JSON <em>1 KB</em></a></td><td><a class="mono" href="../examples/hogen/a7/hogen-a7.json" download="base6-hogen-a7.json">JSON <em>1 KB</em></a></td></tr>
+<tr><th scope="row"><span class="dl-name">博文館・當用日記</span><span class="mono dl-id">hakubunkan-toyo-nikki</span></th><td><a class="mono" href="../examples/hakubunkan-toyo-nikki/a5/hakubunkan-toyo-nikki-a5.json" download="base6-hakubunkan-toyo-nikki-a5.json">JSON <em>1 KB</em></a></td><td><a class="mono" href="../examples/hakubunkan-toyo-nikki/a6p/hakubunkan-toyo-nikki-a6p.json" download="base6-hakubunkan-toyo-nikki-a6p.json">JSON <em>1 KB</em></a></td><td><a class="mono" href="../examples/hakubunkan-toyo-nikki/a7/hakubunkan-toyo-nikki-a7.json" download="base6-hakubunkan-toyo-nikki-a7.json">JSON <em>1 KB</em></a></td></tr>
+<tr><th scope="row"><span class="dl-name">博文館・懐中日記</span><span class="mono dl-id">hakubunkan-kaichu-nikki</span></th><td><a class="mono" href="../examples/hakubunkan-kaichu-nikki/a5/hakubunkan-kaichu-nikki-a5.json" download="base6-hakubunkan-kaichu-nikki-a5.json">JSON <em>1 KB</em></a></td><td><a class="mono" href="../examples/hakubunkan-kaichu-nikki/a6p/hakubunkan-kaichu-nikki-a6p.json" download="base6-hakubunkan-kaichu-nikki-a6p.json">JSON <em>1 KB</em></a></td><td><a class="mono" href="../examples/hakubunkan-kaichu-nikki/a7/hakubunkan-kaichu-nikki-a7.json" download="base6-hakubunkan-kaichu-nikki-a7.json">JSON <em>1 KB</em></a></td></tr></tbody>
   </table>
 
   <div class="cta-block reveal">
@@ -752,7 +754,7 @@ footer .fin .sig { font-family: var(--serif); font-size: 14px; color: var(--ink)
       <p>样张只是默认参数。日期范围、行距、线色、字体、拼版方式——一切皆可调。用 base6-techo 桌面应用排版你自己的那一本。</p>
       <div class="btns">
         <a class="btn primary" href="https://github.com/asinkLuno/base6-techo" target="_blank" rel="noopener">获取 base6-techo</a>
-        <a class="btn ghost" href="https://github.com/asinkLuno/base6-techo/blob/master/scripts/gen-examples.sh" target="_blank" rel="noopener">查看样张脚本</a>
+        <a class="btn ghost" href="https://github.com/asinkLuno/base6-techo/blob/master/scripts/gen-examples.py" target="_blank" rel="noopener">查看样张脚本</a>
       </div>
     </div>
   </div>
@@ -782,7 +784,8 @@ footer .fin .sig { font-family: var(--serif); font-size: 14px; color: var(--ink)
       art.querySelector(".spec-fig").style.setProperty("--spread", btn.dataset.spread + "%");
       art.querySelector(".spec-cap").textContent =
         btn.textContent.trim() + " · " + btn.dataset.mm + " mm";
-      link.href = "../examples/" + art.dataset.kind + "-" + btn.dataset.size + ".pdf";
+      link.href = "../examples/" + art.dataset.kind + "/" + btn.dataset.size + "/" +
+        art.dataset.kind + "-" + btn.dataset.size + ".json";
     }));
   }
   // 滚动淡入

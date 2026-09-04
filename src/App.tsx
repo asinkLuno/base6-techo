@@ -14,7 +14,7 @@ import type { PatternKind, Section } from "./lib/schema";
 import {
   FONT_OPTIONS, PAGE_SIZE_OPTIONS, PAGE_SIZES, margins, newSection,
 } from "./lib/schema";
-import { effectivePages, loadJSON, sectionRequest } from "./lib/utils";
+import { effectivePages, loadJSON, sectionRequest, renderToSection, isRenderRequest } from "./lib/utils";
 import { parseICS } from "./lib/ics-parser";
 import { Field, FontPicker, SelectField } from "./components/controls";
 import { SectionCard } from "./components/SectionCard";
@@ -173,26 +173,47 @@ export default function App() {
     if (!input || Array.isArray(input)) return;
     try {
       const content = await invoke<string>("read_text_file", { path: input });
-      const data = JSON.parse(content) as {
-        sections?: unknown;
-        binding?: unknown;
-        sheetsPerGroup?: unknown;
-        size?: unknown;
-        pageSize?: unknown;
-        holidays?: unknown;
-      };
-      if (!data || !Array.isArray(data.sections)) {
+      const data: unknown = JSON.parse(content);
+      const obj = (data ?? {}) as Record<string, unknown>;
+      if (!Array.isArray(obj.sections)) {
         setStatus("预设文件格式不正确");
         return;
       }
-      setSections(data.sections as Section[]);
-      if (data.binding === "booklet" || data.binding === "thread" || data.binding === null) setBinding(data.binding);
-      if (typeof data.sheetsPerGroup === "number") setSheetsPerGroup(data.sheetsPerGroup);
-      if (data.size && typeof data.size === "object" && "width" in data.size && "height" in data.size)
-        setSize(data.size as { width: number; height: number });
-      if (typeof data.pageSize === "string") setPageSize(data.pageSize);
-      if (data.holidays && typeof data.holidays === "object") setHolidays(data.holidays as Record<string, string>);
-      setStatus("预设已导入");
+      // 支持两种格式：桌面应用导出的预设（前端 Section），或 gen-examples.py
+      // 生成的后端请求 JSON（展示页下载的版本）。
+      if (isRenderRequest(obj)) {
+        const raw = obj as {
+          sections: Record<string, unknown>[];
+          bind?: { mode?: unknown; sheets_per_group?: unknown };
+          holidays?: unknown;
+        };
+        setSections(raw.sections.map((rs) => renderToSection(rs)));
+        const { mode, sheets_per_group } = raw.bind ?? {};
+        if (mode === "booklet" || mode === "thread" || mode === null) setBinding(mode);
+        if (typeof sheets_per_group === "number") setSheetsPerGroup(sheets_per_group);
+        if (raw.holidays && typeof raw.holidays === "object")
+          setHolidays(raw.holidays as Record<string, string>);
+        setStatus("预设已导入（样张）");
+      } else {
+        const preset = obj as {
+          sections: Section[];
+          binding?: unknown;
+          sheetsPerGroup?: unknown;
+          size?: unknown;
+          pageSize?: unknown;
+          holidays?: unknown;
+        };
+        setSections(preset.sections);
+        if (preset.binding === "booklet" || preset.binding === "thread" || preset.binding === null)
+          setBinding(preset.binding);
+        if (typeof preset.sheetsPerGroup === "number") setSheetsPerGroup(preset.sheetsPerGroup);
+        if (preset.size && typeof preset.size === "object" && "width" in preset.size && "height" in preset.size)
+          setSize(preset.size as { width: number; height: number });
+        if (typeof preset.pageSize === "string") setPageSize(preset.pageSize);
+        if (preset.holidays && typeof preset.holidays === "object")
+          setHolidays(preset.holidays as Record<string, string>);
+        setStatus("预设已导入");
+      }
     } catch (error) {
       setStatus(`导入失败：${String(error)}`);
     }

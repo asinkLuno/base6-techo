@@ -17,6 +17,6 @@ Session.vim
 # Tool/session cache
 .zcode/
 compile.log
-# Generated example assets (regenerate via scripts/gen-examples.sh)
+# Generated example assets (regenerate via scripts/gen-examples.py)
 examples/*
 !examples/ics/

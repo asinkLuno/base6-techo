@@ -196,7 +196,7 @@ export const defaults: Record<PatternKind, Values & { kind: PatternKind }> = {
 // base6 设计准则：由纸张尺寸自动计算页边距（mm）
 //   Inner(装订边)=宽×9%（8mm 物理下限）< Outer(非装订边)=宽×12%
 //   Head(页头)=高×7% < Foot(页脚)=高×9%
-//   页面尺寸变化时据此自动重算（与 scripts/gen-examples.sh 的 margins 一致）。
+//   页面尺寸变化时据此自动重算（与 scripts/gen-examples.py 的 margins 一致）。
 export function margins(width: number, height: number) {
   return {
     binding: Math.max(8, Math.round(width * 0.09)),

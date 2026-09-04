@@ -1,0 +1,14 @@
+# 构建 showcase 镜像时不必要的仓库内容
+node_modules
+.yarn
+target
+dist
+.git
+src-tauri/target
+.vscode
+.zcode
+.venv
+Session.vim
+build.log
+compile.log
+*.pdf

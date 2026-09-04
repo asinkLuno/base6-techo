@@ -28,7 +28,7 @@ yarn tauri dev
 
 ```sh
 # 1. 生成样张（PDF + 对页 PNG）
-./scripts/gen-examples.sh
+./scripts/gen-examples.py
 
 # 2. 生成展示页
 node scripts/gen-showcase.mjs

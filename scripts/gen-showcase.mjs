@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // 生成版式样张展示页（介绍 + 画廊 + 下载，单文件零依赖）：
-//   - 扫描 examples/ 下的 PDF 与对页 PNG（由 scripts/gen-examples.sh 生成）
+//   - 扫描 examples/ 下的 PDF 与对页 PNG（由 scripts/gen-examples.py 生成）
 //   - 产出 showcase/index.html，资源以相对路径 ../examples/ 引用，不复制文件
 //   - 展示层字体 showcase/fonts/kinghwa-subset.woff2 由仓库根目录的京華老宋体
 //     子集化而来（33 MB → ~291 KB）。重新子集化的方法：
@@ -12,7 +12,7 @@
 //
 // 用法：node scripts/gen-showcase.mjs
 
-import { readdir, stat, readFile, writeFile, mkdir } from "node:fs/promises";
+import { stat, readFile, writeFile, mkdir } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 
@@ -21,14 +21,14 @@ const EXAMPLES = path.join(ROOT, "examples");
 const OUT_DIR = path.join(ROOT, "showcase");
 const REPO = "https://github.com/asinkLuno/base6-techo";
 
-// ---- 尺寸表（与 gen-examples.sh 一致；w/h 为毫米，用于真实比例展示）----
+// ---- 尺寸表（与 gen-examples.py 一致；w/h 为毫米，用于真实比例展示）----
 const SIZES = [
   { id: "a5", label: "A5", mm: "148 × 210", w: 148, h: 210 },
   { id: "a6p", label: "A6 口袋", mm: "95 × 171", w: 95, h: 171 },
   { id: "a7", label: "A7", mm: "80 × 120", w: 80, h: 120 },
 ];
 
-// ---- 版式元数据（中文名与分组同前端 schema.ts；参数说明同 gen-examples.sh 默认值）----
+// ---- 版式元数据（中文名与分组同前端 schema.ts；参数说明同 gen-examples.py 默认值）----
 const GROUPS = [
   {
     id: "basic",
@@ -125,28 +125,34 @@ async function pngSize(file) {
 }
 
 async function collectAssets() {
-  const files = new Set(await readdir(EXAMPLES));
   const assets = new Map(); // "kind|size" -> {pdf, p2, p3}
   const missing = [];
   for (const g of GROUPS)
     for (const p of g.patterns)
       for (const s of SIZES) {
+        const rel = `${p.id}/${s.id}`;
+        const dir = path.join(EXAMPLES, rel);
         const pdf = `${p.id}-${s.id}.pdf`;
+        const js = `${p.id}-${s.id}.json`;
         const p2 = `${p.id}-${s.id}-p-2.png`;
         const p3 = `${p.id}-${s.id}-p-3.png`;
-        for (const f of [pdf, p2, p3]) if (!files.has(f)) missing.push(f);
-        const [pdfStat, p2Dim, p3Dim] = await Promise.all([
-          stat(path.join(EXAMPLES, pdf)),
-          pngSize(path.join(EXAMPLES, p2)),
-          pngSize(path.join(EXAMPLES, p3)),
-        ]);
-        assets.set(`${p.id}|${s.id}`, {
-          pdf: { name: pdf, bytes: pdfStat.size },
-          p2: { name: p2, ...p2Dim },
-          p3: { name: p3, ...p3Dim },
-        });
+        try {
+          const [pdfStat, jsStat, p2Dim, p3Dim] = await Promise.all([
+            stat(path.join(dir, pdf)),
+            stat(path.join(dir, js)),
+            pngSize(path.join(dir, p2)),
+            pngSize(path.join(dir, p3)),
+          ]);
+          assets.set(`${p.id}|${s.id}`, {
+            js: { rel: `${rel}/${js}`, bytes: jsStat.size },
+            p2: { rel: `${rel}/${p2}`, ...p2Dim },
+            p3: { rel: `${rel}/${p3}`, ...p3Dim },
+          });
+        } catch {
+          missing.push(`${rel}/${pdf}`);
+        }
       }
-  if (missing.length) throw new Error(`examples/ 缺少以下文件，请先运行 scripts/gen-examples.sh：\n  ${missing.join("\n  ")}`);
+  if (missing.length) throw new Error(`examples/ 缺少以下文件，请先运行 scripts/gen-examples.py：\n  ${missing.join("\n  ")}`);
   return assets;
 }
 
@@ -160,8 +166,8 @@ function heroSpread(assets) {
   return `
     <figure class="hero-spread">
       <div class="spread">
-        <img src="../examples/${a.p2.name}" width="${a.p2.w}" height="${a.p2.h}" alt="${esc(p.name)} A5 样张第 2 页" class="page left">
-        <img src="../examples/${a.p3.name}" width="${a.p3.w}" height="${a.p3.h}" alt="${esc(p.name)} A5 样张第 3 页" class="page right">
+        <img src="../examples/${a.p2.rel}" width="${a.p2.w}" height="${a.p2.h}" alt="${esc(p.name)} A5 样张第 2 页" class="page left">
+        <img src="../examples/${a.p3.rel}" width="${a.p3.w}" height="${a.p3.h}" alt="${esc(p.name)} A5 样张第 3 页" class="page right">
         <i class="gutter" aria-hidden="true"></i>
       </div>
       <figcaption>
@@ -211,13 +217,13 @@ function specimenArticle(p, group, assets) {
   const pages = SIZES.map((s, i) => {
     const a = assets.get(`${p.id}|${s.id}`);
     return `
-      <img src="../examples/${a.p2.name}" width="${a.p2.w}" height="${a.p2.h}" data-size="${s.id}"
+      <img src="../examples/${a.p2.rel}" width="${a.p2.w}" height="${a.p2.h}" data-size="${s.id}"
         alt="${esc(p.name)} ${s.label}样张第 2 页" class="page left" ${i ? "hidden" : ""}>
-      <img src="../examples/${a.p3.name}" width="${a.p3.w}" height="${a.p3.h}" data-size="${s.id}"
+      <img src="../examples/${a.p3.rel}" width="${a.p3.w}" height="${a.p3.h}" data-size="${s.id}"
         alt="${esc(p.name)} ${s.label}样张第 3 页" class="page right" ${i ? "hidden" : ""}>`;
   }).join("");
 
-  const pdf0 = assets.get(`${p.id}|a5`).pdf;
+  const js0 = assets.get(`${p.id}|a5`).js;
   return `
   <article class="specimen reveal" id="p-${esc(p.id)}" data-kind="${esc(p.id)}" style="--pat-ink: ${esc(p.ink)}">
     <div class="meta">
@@ -228,7 +234,7 @@ function specimenArticle(p, group, assets) {
       <p class="ink-line mono"><i class="ink-chip" aria-hidden="true"></i>线色 <span class="ink-code">${esc(p.ink)}</span></p>
       <div class="controls">
         <div class="sizes" role="group" aria-label="选择尺寸">${toggles}</div>
-        <a class="pdf-link mono" href="../examples/${esc(pdf0.name)}" download>下载 PDF ↓</a>
+        <a class="pdf-link mono" href="../examples/${esc(js0.rel)}" download="base6-${esc(p.id)}.json">导入 JSON ↓</a>
       </div>
     </div>
     <figure class="spec-fig">
@@ -250,7 +256,7 @@ function downloadTable(assets) {
       .map((p) => {
         const cells = SIZES.map((s) => {
           const a = assets.get(`${p.id}|${s.id}`);
-          return `<td><a class="mono" href="../examples/${esc(a.pdf.name)}" download>PDF <em>${fmtSize(a.pdf.bytes)}</em></a></td>`;
+          return `<td><a class="mono" href="../examples/${esc(a.js.rel)}" download="base6-${esc(p.id)}-${s.id}.json">JSON <em>${fmtSize(a.js.bytes)}</em></a></td>`;
         }).join("");
         return `<tr><th scope="row"><span class="dl-name">${esc(p.name)}</span><span class="mono dl-id">${esc(p.id)}</span></th>${cells}</tr>`;
       })
@@ -539,7 +545,8 @@ const JS = `
       art.querySelector(".spec-fig").style.setProperty("--spread", btn.dataset.spread + "%");
       art.querySelector(".spec-cap").textContent =
         btn.textContent.trim() + " · " + btn.dataset.mm + " mm";
-      link.href = "../examples/" + art.dataset.kind + "-" + btn.dataset.size + ".pdf";
+      link.href = "../examples/" + art.dataset.kind + "/" + btn.dataset.size + "/" +
+        art.dataset.kind + "-" + btn.dataset.size + ".json";
     }));
   }
   // 滚动淡入
@@ -575,7 +582,7 @@ async function main() {
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>base6 techo · 版式样张集</title>
-<meta name="description" content="base6-techo 生成的手帐版式样张：${nPatterns} 种版式 × ${SIZES.length} 种尺寸，按真实比例展示，可下载 PDF 自行打印装订。">
+<meta name="description" content="base6-techo 生成的手帐版式样张：${nPatterns} 种版式 × ${SIZES.length} 种尺寸，按真实比例展示，可下载预设 JSON 导入桌面应用。">
 <style>${CSS}</style>
 </head>
 <body>
@@ -586,7 +593,7 @@ async function main() {
     <a class="wordmark" href="#top"><b>base<span>6</span></b>&ensp;techo</a>
     <a class="link" href="#intro">介绍</a>
     <a class="link" href="#gallery">版式</a>
-    <a class="link" href="#download">下载</a>
+    <a class="link" href="#download">导入</a>
     <a class="link gh mono" href="${REPO}" target="_blank" rel="noopener">GitHub ↗</a>
   </div>
 </nav>
@@ -599,8 +606,8 @@ async function main() {
       <p class="lead">
         base6-techo 用 LaTeX 排出毫米级精度的手帐内页：<em>装订边与外翻边自动区分</em>，
         页码、页眉、水印随奇偶页镜像，多个版式按序拼成一本可直接装订的 PDF。
-        本页是它的全部基础与复刻版式样张——按真实比例陈列，可按尺寸取走打印。
-      </p>
+        本页陈列它的全部基础与复刻版式——按真实比例展示，每份预设 JSON
+        都可一键导入桌面应用继续微调。
       <ul class="facts">
         <li><b>${nPatterns}</b>种版式</li>
         <li><b>${SIZES.length}</b>种尺寸</li>
@@ -621,9 +628,11 @@ async function main() {
 </main>
 
 <section id="download" class="wrap">
-  <div class="sec-head reveal"><h2>下载样张</h2><span class="mono">SAMPLE PDF</span></div>
-  <p class="dl-lead reveal">同一版式的三种尺寸由同一套参数生成，仅版心随纸面缩放；样张由
-  <a class="mono" href="${REPO}/blob/master/scripts/gen-examples.sh" target="_blank" rel="noopener">scripts/gen-examples.sh</a>
+  <div class="sec-head reveal"><h2>导入预设</h2><span class="mono">IMPORT JSON</span></div>
+  <p class="dl-lead reveal">下载的是该版式×尺寸的<strong>预设 JSON</strong>，可在 base6-techo 桌面应用内直接导入，
+  装订边、行距、线色、日历范围等参数都保持与样张一致，导入后即可继续微调。
+  同一版式的三种尺寸由同一套参数生成，仅版心随纸面缩放；预设由
+  <a class="mono" href="${REPO}/blob/master/scripts/gen-examples.py" target="_blank" rel="noopener">scripts/gen-examples.py</a>
   输出，参数与前端默认值一致。</p>
   ${downloadTable(assets)}
 
@@ -633,7 +642,7 @@ async function main() {
       <p>样张只是默认参数。日期范围、行距、线色、字体、拼版方式——一切皆可调。用 base6-techo 桌面应用排版你自己的那一本。</p>
       <div class="btns">
         <a class="btn primary" href="${REPO}" target="_blank" rel="noopener">获取 base6-techo</a>
-        <a class="btn ghost" href="${REPO}/blob/master/scripts/gen-examples.sh" target="_blank" rel="noopener">查看样张脚本</a>
+        <a class="btn ghost" href="${REPO}/blob/master/scripts/gen-examples.py" target="_blank" rel="noopener">查看样张脚本</a>
       </div>
     </div>
   </div>
