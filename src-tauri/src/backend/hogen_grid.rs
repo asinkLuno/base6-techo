@@ -5,12 +5,12 @@ use super::{Dot, Geometry, Line, LineStyle, region, validate_color};
 
 #[derive(Clone, Deserialize)]
 #[serde(default, deny_unknown_fields)]
-pub(crate) struct MidoriPattern {
+pub(crate) struct HogenGridPattern {
     pub(crate) pages: usize,
     pub(crate) line_color: String,
 }
 
-impl Default for MidoriPattern {
+impl Default for HogenGridPattern {
     fn default() -> Self {
         Self {
             pages: 1,
@@ -19,7 +19,7 @@ impl Default for MidoriPattern {
     }
 }
 
-impl MidoriPattern {
+impl HogenGridPattern {
     pub(crate) fn validate(&self) -> Result<(), String> {
         if !(1..=500).contains(&self.pages) {
             return Err("pages must be in 1..=500".into());
@@ -28,7 +28,7 @@ impl MidoriPattern {
     }
 }
 
-pub(crate) fn draw_midori(geo: Geometry, p: &MidoriPattern) -> (Vec<Line>, Vec<Dot>) {
+pub(crate) fn draw_hogen_grid(geo: Geometry, p: &HogenGridPattern) -> (Vec<Line>, Vec<Dot>) {
     let r = region(geo, false, false, false, false);
     let spacing = 5.0;
     let gap = 1.0;
@@ -124,7 +124,7 @@ mod tests {
     #[test]
     fn pages_bounds_1_to_500() {
         assert!(
-            MidoriPattern {
+            HogenGridPattern {
                 pages: 0,
                 ..Default::default()
             }
@@ -132,7 +132,7 @@ mod tests {
             .is_err()
         );
         assert!(
-            MidoriPattern {
+            HogenGridPattern {
                 pages: 501,
                 ..Default::default()
             }
@@ -140,7 +140,7 @@ mod tests {
             .is_err()
         );
         assert!(
-            MidoriPattern {
+            HogenGridPattern {
                 pages: 2,
                 ..Default::default()
             }

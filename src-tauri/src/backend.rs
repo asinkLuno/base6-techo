@@ -12,7 +12,7 @@ mod graph;
 mod grid;
 mod hakubunkan_kaichu_nikki;
 mod hakubunkan_toyo_nikki;
-mod midori;
+mod hogen_grid;
 mod month;
 mod octan_week;
 mod ruled;
@@ -32,7 +32,7 @@ use graph::{GraphPattern, draw_graph};
 use grid::{GridPattern, draw_grid};
 use hakubunkan_kaichu_nikki::{HakubunkanKaichuNikkiPattern, draw_hakubunkan_kaichu_nikki};
 use hakubunkan_toyo_nikki::{HakubunkanToyoNikkiPattern, draw_hakubunkan_toyo_nikki, lunar_date};
-use midori::{MidoriPattern, draw_midori};
+use hogen_grid::{HogenGridPattern, draw_hogen_grid};
 use month::{
     MonthPattern, MonthTrackerPattern, TrackerPattern, draw_month, draw_month_tracker, draw_tracker,
 };
@@ -266,7 +266,8 @@ enum Pattern {
     Graph(GraphPattern),
     #[serde(rename = "hakubunkan-kaichu-nikki")]
     HakubunkanKaichuNikki(HakubunkanKaichuNikkiPattern),
-    Midori(MidoriPattern),
+    #[serde(rename = "方眼罫")]
+    HogenGrid(HogenGridPattern),
     Seyes(SeyesPattern),
     Month(MonthPattern),
     Timeline(TimelinePattern),
@@ -343,7 +344,7 @@ impl Pattern {
             Self::HakubunkanKaichuNikki(p) => p.page_count(),
             Self::HakubunkanToyoNikki(p) => p.page_count(),
             Self::Graph(_) | Self::Tracker(_) => 1,
-            Self::Midori(p) => p.pages,
+            Self::HogenGrid(p) => p.pages,
             Self::Seyes(p) => p.pages,
             Self::Month(p) => {
                 if p.two_page {
@@ -376,7 +377,7 @@ impl Pattern {
             Self::OctanWeek(p) => &p.line_color,
             Self::Graph(p) => &p.line_color,
             Self::HakubunkanKaichuNikki(p) => &p.line_color,
-            Self::Midori(p) => &p.line_color,
+            Self::HogenGrid(p) => &p.line_color,
             Self::Seyes(p) => &p.main_color,
             Self::Month(p) => &p.line_color,
             Self::MonthTracker(p) => &p.line_color,
@@ -398,8 +399,8 @@ impl Pattern {
             Self::OctanWeek(p) => p.line_width,
             Self::Graph(p) => p.line_width,
             Self::HakubunkanKaichuNikki(p) => p.line_width,
-            // midori 版式已把尺寸/线宽固定，只留颜色可配；默认线宽取固定值。
-            Self::Midori(_) => 0.7,
+            // 方眼罫 版式已把尺寸/线宽固定，只留颜色可配；默认线宽取固定值。
+            Self::HogenGrid(_) => 0.7,
             Self::Seyes(p) => p.main_width,
             Self::Month(p) => p.line_width,
             Self::MonthTracker(p) => p.line_width,
@@ -420,7 +421,7 @@ impl Pattern {
             Self::OctanWeek(p) => p.validate(),
             Self::Graph(p) => p.validate(),
             Self::HakubunkanKaichuNikki(p) => p.validate(),
-            Self::Midori(p) => p.validate(),
+            Self::HogenGrid(p) => p.validate(),
             Self::Seyes(p) => p.validate(),
             Self::Month(p) => p.validate(),
             Self::MonthTracker(p) => p.validate(),
@@ -762,8 +763,8 @@ fn render_page(
             let (l, t) = draw_hakubunkan_toyo_nikki(geo, p, index, &doc.binding_text_font);
             (l, vec![], vec![], t)
         }
-        Pattern::Midori(p) => {
-            let (l, d) = draw_midori(geo, p);
+        Pattern::HogenGrid(p) => {
+            let (l, d) = draw_hogen_grid(geo, p);
             (l, d, vec![], vec![])
         }
         Pattern::Seyes(p) => {
@@ -1630,7 +1631,7 @@ mod tests {
                 "sections": [
                     { "title": "月历", "pattern": { "kind": "ruled", "pages": 2 } },
                     { "title": "八分周视图", "pattern": { "kind": "八分周视图", "start_date": "2026-08-31", "end_date": "2026-09-06" } },
-                    { "title": "Midori", "pattern": { "kind": "midori" } }
+                    { "title": "方眼罫", "pattern": { "kind": "方眼罫" } }
                 ]
             }"#,
         )
@@ -2212,7 +2213,7 @@ mod tests {
                 { "document": { "binding_text": "[base-6]" }, "pattern": { "kind": "ruled", "pages": 1 } },
                 { "pattern": { "kind": "hakubunkan-toyo-nikki" } },
                 { "pattern": { "kind": "八分周视图", "start_date": "2026-08-03", "end_date": "2026-08-16" } },
-                { "pattern": { "kind": "midori" } },
+                { "pattern": { "kind": "方眼罫" } },
                 { "pattern": { "kind": "timeline", "pages": 1, "start_date": "2026-08-01", "end_date": "2026-08-01", "latitude": 31.23, "longitude": 121.47, "timezone": "Asia/Shanghai" } }
             ],
             "bind": { "mode": "booklet", "sheets_per_group": 4 }

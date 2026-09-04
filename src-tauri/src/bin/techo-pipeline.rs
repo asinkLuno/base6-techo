@@ -28,7 +28,6 @@ fn main() {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
 
     #[test]
     fn rejects_unknown_field() {

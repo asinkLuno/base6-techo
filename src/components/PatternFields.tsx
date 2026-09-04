@@ -110,7 +110,7 @@ export function PatternFields({ section, set }: Props) {
       </Grid>
     );
 
-  if (p.kind === "midori")
+  if (p.kind === "方眼罫")
     return (
       <Grid>
         <Field label="线条颜色" value={p.line_color} type="color" onChange={(v) => set("line_color", v)} />

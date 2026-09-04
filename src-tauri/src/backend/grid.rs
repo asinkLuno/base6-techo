@@ -55,12 +55,13 @@ pub(crate) fn draw_grid(geo: Geometry, p: &GridPattern) -> (Vec<Line>, Vec<Dot>)
         width: Some(p.width),
         style: LineStyle::Solid,
     };
-    let mut lines = Vec::new();
     // 锁边：四条边框。
-    lines.push(line(sx, sy, sx + w, sy));
-    lines.push(line(sx, sy + h, sx + w, sy + h));
-    lines.push(line(sx, sy, sx, sy + h));
-    lines.push(line(sx + w, sy, sx + w, sy + h));
+    let mut lines = vec![
+        line(sx, sy, sx + w, sy),
+        line(sx, sy + h, sx + w, sy + h),
+        line(sx, sy, sx, sy + h),
+        line(sx + w, sy, sx + w, sy + h),
+    ];
     // 内部横线与竖线。
     for row in 1..ny as usize {
         let y = sy + row as f64 * p.spacing;

@@ -7,7 +7,7 @@ export type Values = Record<string, Value>;
 
 export type PatternKind =
   | "dots" | "grid" | "ruled" | "seyes" | "vertical" | "us-ruled"
-  | "hakubunkan-toyo-nikki" | "midori" | "八分周视图" | "hakubunkan-kaichu-nikki"
+  | "hakubunkan-toyo-nikki" | "方眼罫" | "八分周视图" | "hakubunkan-kaichu-nikki"
   | "year" | "month" | "tracker" | "month-tracker" | "graph" | "timeline" | "blank";
 
 export type Section = {
@@ -36,7 +36,7 @@ export const patternNames: Record<PatternKind, string> = {
   "八分周视图": "八分周视图",
   graph: "月追踪制图",
   "hakubunkan-kaichu-nikki": "博文館・懐中日記",
-  midori: "Midori",
+  "方眼罫": "方眼罫",
   month: "月历",
   "month-tracker": "年度追踪",
   timeline: "时间轴",
@@ -47,7 +47,7 @@ export const patternNames: Record<PatternKind, string> = {
 
 export const PATTERN_GROUPS: [string, PatternKind[]][] = [
   ["基础", ["dots", "grid", "ruled", "seyes", "us-ruled", "vertical", "blank"]],
-  ["复刻", ["midori", "hakubunkan-toyo-nikki", "hakubunkan-kaichu-nikki"]],
+  ["复刻", ["方眼罫", "hakubunkan-toyo-nikki", "hakubunkan-kaichu-nikki"]],
   ["日程", ["month", "month-tracker", "tracker", "八分周视图", "timeline", "graph", "year"]],
 ];
 
@@ -137,7 +137,7 @@ export const defaults: Record<PatternKind, Values & { kind: PatternKind }> = {
     kind: "hakubunkan-toyo-nikki", start_date: toISODate(new Date()), end_date: toISODate(new Date()),
     date_format: "%-m月%-d日", line_color: COLORS.paleJade, line_width: 0.4,
   },
-  midori: { kind: "midori", line_color: COLORS.paleJade },
+  "方眼罫": { kind: "方眼罫", line_color: COLORS.paleJade },
   "八分周视图": {
     kind: "八分周视图", start_date: toISODate(currentMonday), end_date: toISODate(currentSunday),
     date_format: "%-d", date_locale: "zh-CN", weekday_lang: "zh", title_format: "%Y.%m",
