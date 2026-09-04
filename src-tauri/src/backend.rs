@@ -319,7 +319,7 @@ enum LineStyle {
     Dashed,
     Dotted,
     DashDot,
-    DoubleSolid,
+
 }
 
 impl LineStyle {
@@ -329,7 +329,7 @@ impl LineStyle {
             Self::Dashed => "dashed",
             Self::Dotted => "dotted",
             Self::DashDot => "dash dot",
-            Self::DoubleSolid => "double",
+
         }
     }
 }

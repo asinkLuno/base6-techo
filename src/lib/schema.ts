@@ -105,7 +105,7 @@ export const FONT_OPTIONS: [string, string][] = [
 ];
 
 export const LINE_STYLE_OPTIONS: [string, string][] = [
-  ["solid", "实线"], ["dashed", "虚线"], ["dotted", "点线"], ["dash-dot", "点虚线"], ["double-solid", "双实线"],
+  ["solid", "实线"], ["dashed", "虚线"], ["dotted", "点线"], ["dash-dot", "点虚线"],
 ];
 
 export const WEEKDAY_LANG_OPTIONS: [string, string][] = [["zh", "中文"], ["en", "English"], ["ja", "日本語"]];
