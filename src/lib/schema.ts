@@ -166,7 +166,7 @@ export const defaults: Record<PatternKind, Values & { kind: PatternKind }> = {
   "month-calendar": {
     kind: "month-calendar", year: new Date().getFullYear(), month: new Date().getMonth() + 1,
     phase_color: COLORS.phaseGold, line_color: COLORS.gray, line_width: 0.4, date_size: 8,
-    weekday_headers: "Mo,Tu,We,Th,Fr,Sa,Su", title_format: "%Y年%-m月", two_page: false,
+    weekday_headers: "一,二,三,四,五,六,日", title_format: "%Y年%-m月", two_page: false,
     show_holidays: true, sub_size: 4.2, sub_gap: 0, lunar: false,
   },
   "month-tracker": {

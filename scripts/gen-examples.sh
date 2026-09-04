@@ -113,7 +113,7 @@ gen_one() {
   echo "    -> $OUT_DIR/$kind-$size.pdf + p2/p3.png"
 }
 
-# ---- 月历（month）：按尺寸选择单/双页，按版本开关农历与节假日 ----
+# ---- 月历（month-calendar）：按尺寸选择单/双页，按版本开关农历与节假日 ----
 MONTH_HOLIDAYS="examples/ics/holidays-2026.json"
 
 # 月历 section JSON：空白首叶 + 2 内容页对页。
@@ -130,13 +130,13 @@ build_month_json() {
   else
     lunar="false"; show_holidays="false"
   fi
-  local mpat='"kind":"month-calendar","phase_color":"#e5b93f","line_color":"#7a7a7a","line_width":0.4,"date_size":8,"weekday_headers":"Mo,Tu,We,Th,Fr,Sa,Su","title_format":"%Y年%-m月","show_holidays":'$show_holidays',"sub_size":4.2,"sub_gap":0,"lunar":'$lunar
+  local mpat='"kind":"month-calendar","phase_color":"#e5b93f","line_color":"#7a7a7a","line_width":0.4,"date_size":8,"weekday_headers":"一,二,三,四,五,六,日","title_format":"%Y年%-m月","show_holidays":'$show_holidays',"sub_size":4.2,"sub_gap":0,"lunar":'$lunar
   local page='"page":{"width":'$w',"height":'$h',"header":'$header',"footer":'$footer',"binding":'$binding',"non_binding":'$non_binding'}'
   local doc='"document":{"binding_text":"'$BINDING_TEXT'","binding_text_font":"'$FONT'"}'
   mkdir -p "$OUT_DIR"
   {
     echo '{'
-    echo '  "output": "'$OUT_DIR'/month-'$size'-'$variant'.pdf",'
+    echo '  "output": "'$OUT_DIR'/month-calendar-'$size'-'$variant'.pdf",'
     echo '  "bind": { "mode": null, "sheets_per_group": 4 },'
     echo '  "sections": ['
     if [[ "$size" == "a7" ]]; then
@@ -149,7 +149,7 @@ build_month_json() {
     fi
     echo '  ]'
     echo '}'
-  } > "/tmp/ex-month-$size-$variant.json"
+  } > "/tmp/ex-month-calendar-$size-$variant.json"
 }
 
 gen_month_all() {
@@ -158,21 +158,21 @@ gen_month_all() {
     [[ -n "$w" ]] || { echo "未知尺寸: $size"; continue; }
     for variant in plain holiday; do
       echo ">>> month · $size · $variant"
-      build_month_json "$w" "$h" "$size" "$variant" > "/tmp/ex-month-$size-$variant.json"
-      "$BIN" < "/tmp/ex-month-$size-$variant.json" >/dev/null
+      build_month_json "$w" "$h" "$size" "$variant" > "/tmp/ex-month-calendar-$size-$variant.json"
+      "$BIN" < "/tmp/ex-month-calendar-$size-$variant.json" >/dev/null
       if [[ "$size" == "a7" ]]; then
-        pdftoppm -f 2 -l 3 -png -r "$RES_DPI" "$OUT_DIR/month-$size-$variant.pdf" "$OUT_DIR/month-$size-$variant-p"
-        echo "    -> $OUT_DIR/month-$size-$variant.pdf + p2/p3.png"
+        pdftoppm -f 2 -l 3 -png -r "$RES_DPI" "$OUT_DIR/month-calendar-$size-$variant.pdf" "$OUT_DIR/month-calendar-$size-$variant-p"
+        echo "    -> $OUT_DIR/month-calendar-$size-$variant.pdf + p2/p3.png"
       else
-        pdftoppm -f 1 -l 1 -png -r "$RES_DPI" "$OUT_DIR/month-$size-$variant.pdf" "$OUT_DIR/month-$size-$variant"
-        mv -f "$OUT_DIR/month-$size-$variant-1.png" "$OUT_DIR/month-$size-$variant.png"
-        echo "    -> $OUT_DIR/month-$size-$variant.pdf + single.png"
+        pdftoppm -f 1 -l 1 -png -r "$RES_DPI" "$OUT_DIR/month-calendar-$size-$variant.pdf" "$OUT_DIR/month-calendar-$size-$variant"
+        mv -f "$OUT_DIR/month-calendar-$size-$variant-1.png" "$OUT_DIR/month-calendar-$size-$variant.png"
+        echo "    -> $OUT_DIR/month-calendar-$size-$variant.pdf + single.png"
       fi
     done
   done
 }
 
-# ---- 年历（year）：全 2026，按尺寸选单/双页，按版本开关农历与节假日 ----
+# ---- 年历（year-calendar）：全 2026，按尺寸选单/双页，按版本开关农历与节假日 ----
 YEAR_HOLIDAYS="examples/ics/holidays-2026.json"
 
 # 年历 section JSON。
@@ -200,7 +200,7 @@ build_year_json() {
   mkdir -p "$OUT_DIR"
   {
     echo '{'
-    echo '  "output": "'$OUT_DIR'/year-'$size'-'$variant'.pdf",'
+    echo '  "output": "'$OUT_DIR'/year-calendar-'$size'-'$variant'.pdf",'
     echo '  "bind": { "mode": null, "sheets_per_group": 4 },'
     echo '  "sections": ['
     if [[ "$size" == "a7" ]]; then
@@ -213,7 +213,7 @@ build_year_json() {
     fi
     echo '  ]'
     echo '}'
-  } > "/tmp/ex-year-$size-$variant.json"
+  } > "/tmp/ex-year-calendar-$size-$variant.json"
 }
 
 gen_year_all() {
@@ -221,23 +221,23 @@ gen_year_all() {
     read -r w h <<< "${SIZES[$size]:-}"
     [[ -n "$w" ]] || { echo "未知尺寸: $size"; continue; }
     for variant in plain holiday; do
-      echo ">>> year · $size · $variant"
-      build_year_json "$w" "$h" "$size" "$variant" > "/tmp/ex-year-$size-$variant.json"
-      "$BIN" < "/tmp/ex-year-$size-$variant.json" >/dev/null
+      echo ">>> year-calendar · $size · $variant"
+      build_year_json "$w" "$h" "$size" "$variant" > "/tmp/ex-year-calendar-$size-$variant.json"
+      "$BIN" < "/tmp/ex-year-calendar-$size-$variant.json" >/dev/null
       if [[ "$size" == "a7" ]]; then
-        pdftoppm -f 2 -l 3 -png -r "$RES_DPI" "$OUT_DIR/year-$size-$variant.pdf" "$OUT_DIR/year-$size-$variant-p"
-        echo "    -> $OUT_DIR/year-$size-$variant.pdf + p2/p3.png"
+        pdftoppm -f 2 -l 3 -png -r "$RES_DPI" "$OUT_DIR/year-calendar-$size-$variant.pdf" "$OUT_DIR/year-calendar-$size-$variant-p"
+        echo "    -> $OUT_DIR/year-calendar-$size-$variant.pdf + p2/p3.png"
       else
-        pdftoppm -singlefile -f 1 -l 1 -png -r "$RES_DPI" "$OUT_DIR/year-$size-$variant.pdf" "$OUT_DIR/year-$size-$variant"
-        echo "    -> $OUT_DIR/year-$size-$variant.pdf + single.png"
+        pdftoppm -singlefile -f 1 -l 1 -png -r "$RES_DPI" "$OUT_DIR/year-calendar-$size-$variant.pdf" "$OUT_DIR/year-calendar-$size-$variant"
+        echo "    -> $OUT_DIR/year-calendar-$size-$variant.pdf + single.png"
       fi
     done
   done
 }
 
 
-# ---- 年度追踪（month-tracker）：A5/A6P 单页（整年平铺），A7 双页（1-15/16-31）----
-build_monthtracker_json() {
+# ---- 年度追踪（year-tracker）：A5/A6P 单页（整年平铺），A7 双页（1-15/16-31）----
+build_yeartracker_json() {
   local w="$1" h="$2" size="$3"
   read -r binding non_binding header footer <<< "$(margins "$w" "$h")"
   local two_page="false"
@@ -248,7 +248,7 @@ build_monthtracker_json() {
   mkdir -p "$OUT_DIR"
   {
     echo '{'
-    echo '  "output": "'$OUT_DIR'/monthtracker-'$size'.pdf",'
+    echo '  "output": "'$OUT_DIR'/year-tracker-'$size'.pdf",'
     echo '  "bind": { "mode": null, "sheets_per_group": 4 },'
     echo '  "sections": ['
     if [[ "$size" == "a7" ]]; then
@@ -259,22 +259,22 @@ build_monthtracker_json() {
     fi
     echo '  ]'
     echo '}'
-  } > "/tmp/ex-monthtracker-$size.json"
+  } > "/tmp/ex-year-tracker-$size.json"
 }
 
-gen_monthtracker_all() {
-  for size in "${MTRACKER_SIZES[@]:-a5 a6p a7}"; do
+gen_yeartracker_all() {
+  for size in "${YEARTRACKER_SIZES[@]:-a5 a6p a7}"; do
     read -r w h <<< "${SIZES[$size]:-}"
     [[ -n "$w" ]] || { echo "未知尺寸: $size"; continue; }
-    echo ">>> monthtracker · $size"
-    build_monthtracker_json "$w" "$h" "$size" > "/tmp/ex-monthtracker-$size.json"
-    "$BIN" < "/tmp/ex-monthtracker-$size.json" >/dev/null
+    echo ">>> year-tracker · $size"
+    build_yeartracker_json "$w" "$h" "$size" > "/tmp/ex-year-tracker-$size.json"
+    "$BIN" < "/tmp/ex-year-tracker-$size.json" >/dev/null
     if [[ "$size" == "a7" ]]; then
-      pdftoppm -f 2 -l 3 -png -r "$RES_DPI" "$OUT_DIR/monthtracker-$size.pdf" "$OUT_DIR/monthtracker-$size-p"
-      echo "    -> $OUT_DIR/monthtracker-$size.pdf + p2/p3.png"
+      pdftoppm -f 2 -l 3 -png -r "$RES_DPI" "$OUT_DIR/year-tracker-$size.pdf" "$OUT_DIR/year-tracker-$size-p"
+      echo "    -> $OUT_DIR/year-tracker-$size.pdf + p2/p3.png"
     else
-      pdftoppm -singlefile -f 1 -l 1 -png -r "$RES_DPI" "$OUT_DIR/monthtracker-$size.pdf" "$OUT_DIR/monthtracker-$size"
-      echo "    -> $OUT_DIR/monthtracker-$size.pdf + single.png"
+      pdftoppm -singlefile -f 1 -l 1 -png -r "$RES_DPI" "$OUT_DIR/year-tracker-$size.pdf" "$OUT_DIR/year-tracker-$size"
+      echo "    -> $OUT_DIR/year-tracker-$size.pdf + single.png"
     fi
   done
 }
@@ -301,9 +301,9 @@ main() {
       gen_year_all
       continue
     fi
-    if [[ "$kind" == "monthtracker" ]]; then
-      MTRACKER_SIZES=("${sizes[@]}")
-      gen_monthtracker_all
+    if [[ "$kind" == "year-tracker" ]]; then
+      YEARTRACKER_SIZES=("${sizes[@]}")
+      gen_yeartracker_all
       continue
     fi
     pattern_params "$kind" >/dev/null || { echo "未知版式: $kind"; exit 1; }
