@@ -1,9 +1,14 @@
 import { useEffect, useRef, useState } from "react";
-// page-flip 是 CommonJS（运行时仅 default 导出），SSR 需走 default 导入避免 named-export 报错
-import PageFlipPkg from "page-flip";
+// page-flip 2.x 的 ESM/UMD 构建都只有 named 导出（PageFlip），没有 default：
+// 必须按 namespace 导入再取 named——浏览器（Vite 预打包 ESM）与 SSR（Node 把
+// CJS 的 module.exports 放进 default）两种互操作下都能拿到构造器；
+// 写成 `import PageFlip from "page-flip"` 会在客户端模块链接时失败、island 水合崩溃。
+import * as PageFlipNS from "page-flip";
 import type { PageFlip as PageFlipType, SizeType } from "page-flip";
 
-const { PageFlip } = PageFlipPkg as unknown as { PageFlip: typeof PageFlipType };
+const PageFlip =
+  (PageFlipNS as unknown as { default?: { PageFlip?: typeof PageFlipType } }).default?.PageFlip ??
+  PageFlipNS.PageFlip;
 
 const BASE_W = 640;
 const BASE_H = 905;
@@ -31,11 +36,12 @@ export default function BookFlip({ base, pages, startPad }: Props) {
       size: "stretch" as SizeType,
       // 首页不再单独当封面展示；对页从第一组 [衬页|第1页] 开始
       showCover: false,
-      // 样张是全平的纸面：翻页时不往静止页上叠任何阴影
-      drawShadow: false,
-      flippingTime: 600,
-      mobileScrollSupport: true,
       usePortrait: false,
+      // 翻页时叠上书页阴影（装订侧渐变 + 纸面投影），配 maxShadowOpacity 压淡
+      drawShadow: true,
+      maxShadowOpacity: 0.6,
+      flippingTime: 650,
+      mobileScrollSupport: true,
     });
     book.loadFromHTML(
       Array.from(hostRef.current.querySelectorAll<HTMLElement>(".bf-page")),
@@ -76,6 +82,8 @@ export default function BookFlip({ base, pages, startPad }: Props) {
             </div>
           );
         })}
+        {/* 静态中缝阴影：与下方样张的 .gutter 同一渐变，盖在书脊上（不拦截点击/拖拽） */}
+        <i className="bf-gutter" aria-hidden="true" />
       </div>
       <div className="bf-controls">
         <button type="button" onClick={() => bookRef.current?.flipPrev()}>

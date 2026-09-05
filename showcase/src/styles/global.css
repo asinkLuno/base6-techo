@@ -17,6 +17,11 @@
   --ink2: #6e6960;
   --line: #d7d2c6;
   --zhu: #9e3b2b;
+  /* 中缝装订阴影（对页样张与整本翻书共用） */
+  --gutter-shade: linear-gradient(90deg,
+    rgba(38, 35, 30, 0) 0%, rgba(38, 35, 30, 0.045) 26%, rgba(38, 35, 30, 0.16) 48%,
+    rgba(38, 35, 30, 0.21) 50%, rgba(38, 35, 30, 0.16) 52%, rgba(38, 35, 30, 0.045) 74%,
+    rgba(38, 35, 30, 0) 100%);
 
   --sched: #3f6f86; /* 日程 · 靛青 */
   --sched-rule: #c6d7df;
@@ -112,10 +117,7 @@ h1 {
 .gutter {
   position: absolute; top: 0; bottom: 0; left: 50%; width: clamp(22px, 8.5%, 46px);
   transform: translateX(-50%); pointer-events: none;
-  background: linear-gradient(90deg,
-    rgba(38, 35, 30, 0) 0%, rgba(38, 35, 30, 0.045) 26%, rgba(38, 35, 30, 0.16) 48%,
-    rgba(38, 35, 30, 0.21) 50%, rgba(38, 35, 30, 0.16) 52%, rgba(38, 35, 30, 0.045) 74%,
-    rgba(38, 35, 30, 0) 100%);
+  background: var(--gutter-shade);
 }
 .spec-cap { margin-top: 12px; text-align: center; font-size: 11px; letter-spacing: 0.1em; color: var(--ink2); }
 .hero-spread { margin: 0; }
@@ -156,9 +158,23 @@ h1 {
 .bookflip-section { padding-top: clamp(56px, 9vh, 110px); }
 /* ---- 整本周历翻书 ---- */
 .bookflip { margin: 0 auto; max-width: 900px; }
-.bf-host { position: relative; margin: 0 auto; }
+/* 书影：与下方样张一致 */
+.bf-host {
+  position: relative; margin: 0 auto;
+  box-shadow: 0 1px 2px rgba(38, 35, 30, 0.08), 0 20px 44px -26px rgba(38, 35, 30, 0.38);
+}
+/* 水合前：按对页比例垫一张纸占位，藏起原始页堆叠，避免骨架跳变 */
+.bf-host:not(.stf__parent) {
+  aspect-ratio: 1280 / 905; background: var(--paper); overflow: hidden;
+}
+.bf-host:not(.stf__parent) .bf-page { display: none; }
 .bf-page { background: var(--paper); }
-.bf-page img { display: block; width: 100%; height: auto; user-select: none; }
+.bf-page img { display: block; width: 100%; height: 100%; user-select: none; }
+.bf-gutter {
+  position: absolute; top: 0; bottom: 0; left: 50%; width: clamp(22px, 8.5%, 46px);
+  transform: translateX(-50%); z-index: 30; pointer-events: none;
+  background: var(--gutter-shade);
+}
 .bookflip-grid { display: grid; grid-template-columns: 1fr 1fr; gap: clamp(24px, 4vw, 48px); }
 .bookflip-col { min-width: 0; }
 .bookflip-label { font-size: 11.5px; letter-spacing: 0.18em; color: var(--zhu); margin: 0 0 14px; text-align: center; }
