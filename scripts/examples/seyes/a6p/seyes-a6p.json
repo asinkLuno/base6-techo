@@ -1,0 +1,57 @@
+{
+  "output": "examples/seyes/a6p/seyes-a6p.pdf",
+  "bind": {
+    "mode": null,
+    "sheets_per_group": 4
+  },
+  "sections": [
+    {
+      "title": "空白页",
+      "page": {
+        "width": 95,
+        "height": 171,
+        "header": 12,
+        "footer": 15,
+        "binding": 9,
+        "non_binding": 11
+      },
+      "document": {
+        "binding_text": "base6",
+        "binding_text_font": "Sarasa UI SC"
+      },
+      "pattern": {
+        "kind": "blank",
+        "pages": 1
+      }
+    },
+    {
+      "title": "seyes",
+      "page": {
+        "width": 95,
+        "height": 171,
+        "header": 12,
+        "footer": 15,
+        "binding": 9,
+        "non_binding": 11
+      },
+      "document": {
+        "binding_text": "base6",
+        "binding_text_font": "Sarasa UI SC"
+      },
+      "pattern": {
+        "kind": "seyes",
+        "pages": 2,
+        "spacing": 8,
+        "margin_line": 7,
+        "main_color": "#9db0cf",
+        "main_width": 0.2,
+        "fine_color": "#c5d0e4",
+        "fine_width": 0.1,
+        "vline_color": "#c5d0e4",
+        "vline_width": 0.1,
+        "margin_color": "#d96a6a",
+        "margin_width": 0.4
+      }
+    }
+  ]
+}

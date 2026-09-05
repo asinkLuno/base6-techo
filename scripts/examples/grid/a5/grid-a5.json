@@ -1,0 +1,50 @@
+{
+  "output": "examples/grid/a5/grid-a5.pdf",
+  "bind": {
+    "mode": null,
+    "sheets_per_group": 4
+  },
+  "sections": [
+    {
+      "title": "空白页",
+      "page": {
+        "width": 148,
+        "height": 210,
+        "header": 15,
+        "footer": 19,
+        "binding": 13,
+        "non_binding": 18
+      },
+      "document": {
+        "binding_text": "base6",
+        "binding_text_font": "Sarasa UI SC"
+      },
+      "pattern": {
+        "kind": "blank",
+        "pages": 1
+      }
+    },
+    {
+      "title": "grid",
+      "page": {
+        "width": 148,
+        "height": 210,
+        "header": 15,
+        "footer": 19,
+        "binding": 13,
+        "non_binding": 18
+      },
+      "document": {
+        "binding_text": "base6",
+        "binding_text_font": "Sarasa UI SC"
+      },
+      "pattern": {
+        "kind": "grid",
+        "pages": 2,
+        "spacing": 5,
+        "color": "#7a7a7a",
+        "width": 0.2
+      }
+    }
+  ]
+}

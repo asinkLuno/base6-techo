@@ -15,6 +15,8 @@
   ./scripts/gen-examples.py ruled dots          # 只生成指定版式
   ./scripts/gen-examples.py ruled --sizes a5,a7  # 指定版式 + 指定尺寸
   PARALLEL=2 ./scripts/gen-examples.py           # 手动限制并发数
+  ./scripts/gen-examples.py --weekly              # 综合周历整本（TN 护照 88×125）
+  ./scripts/gen-examples.py --daily               # 一日两页整本（TN 护照 88×125）
 
 输出到 examples/<pattern>-<size>.pdf 与 examples/<pattern>-<size>-p{2,3}.png
 """
@@ -25,12 +27,14 @@ import shutil
 import subprocess
 import sys
 from concurrent.futures import ThreadPoolExecutor
+import calendar
+from datetime import date, timedelta
 
 OUT_DIR = "examples"
 BIN = "target/debug/techo-pipeline"
 FONT = "Sarasa UI SC"              # 装订侧文字字体（系统已装更纱黑体）
 BINDING_TEXT = "base6"
-RES_DPI = 150                      # 对页图片分辨率
+RES_DPI = 400                      # 对页图片分辨率（≤150 时 0.2pt 细线被抗锯齿冲淡，看不清）
 HOLIDAYS = "examples/ics/holidays-2026.json"
 
 # 尺寸表：名称 -> (宽, 高) mm
@@ -38,6 +42,7 @@ SIZES = {
     "a5": (148, 210),
     "a6p": (95, 171),
     "a7": (80, 120),
+    "tnp": (88, 125),   # TN 护照
 }
 
 DEFAULT_PATTERNS = ["ruled", "dots", "grid", "seyes", "us-ruled", "vertical", "octan-week", "month_graph", "daily_timeline", "month-tracker"]
@@ -194,6 +199,113 @@ def calendar_request(kind, width, height, size, variant):
     sections = [blank_section(width, height), section]
     return request(f"{OUT_DIR}/{kind}/{size}/{base}.pdf", sections)
 
+def _month_span(year, month):
+    """返回 (起周一, 止周日) 覆盖该月的整个礼拜。"""
+    first = date(year, month, 1)
+    last = date(year, month, calendar.monthrange(year, month)[1])
+    start = first - timedelta(days=first.weekday())
+    end = last + timedelta(days=(6 - last.weekday()))
+    return start.isoformat(), end.isoformat()
+
+
+def weekly_composite_request(width, height):
+    """综合周历样张（TN 护照 88×125）：空白页 + 双页 2026 年历（带农历/节假日）
+    + 12 个月，每月依次[单页月历、单页月打卡、本月八分周视图]。"""
+    with open(HOLIDAYS) as f:
+        holidays = json.load(f)
+    doc = doc_obj(width, height)
+    page = page_obj(width, height)
+    sections = [blank_section(width, height)]
+
+    # 双页 2026 年历：3×2 个月/页 → 12 个月 = 2 页
+    sections.append({
+        "title": "2026 年历",
+        "page": page, "document": doc, "holidays": holidays,
+        "pattern": {"kind": "year-calendar", "start": "2026-01", "end": "2026-12",
+                    "rows": 3, "cols": 2, "date_size": 5, "weekday_lang": "zh",
+                    "title_format": "%Y年%-m月", "weekday_headers": "一,二,三,四,五,六,日",
+                    "show_holidays": True, "lunar": True},
+    })
+
+    for y, m in ((2026, mm) for mm in range(1, 13)):
+        # 单页月历
+        sections.append({
+            "title": f"{y}年{m}月", "page": page, "document": doc, "holidays": holidays,
+            "pattern": {"kind": "month-calendar", "year": y, "month": m, "two_page": False,
+                        "phase_color": "#e5b93f", "line_color": "#7a7a7a", "line_width": 0.4,
+                        "date_size": 6, "weekday_headers": "一,二,三,四,五,六,日",
+                        "title_format": "%Y年%-m月", "sub_size": 3.4, "sub_gap": 0,
+                        "show_holidays": True, "lunar": True},
+        })
+        # 单页月打卡
+        sections.append({
+            "title": f"{y}年{m}月 打卡", "page": page, "document": doc,
+            "pattern": {"kind": "month-tracker", "year": y, "month": m, "items": 4,
+                        "line_color": "#7a7a7a", "line_width": 0.4, "date_size": 5.5},
+        })
+        # 本月八分周视图
+        start, end = _month_span(y, m)
+        sections.append({
+            "title": f"{y}年{m}月 周视图", "page": page, "document": doc,
+            "pattern": {"kind": "八分周视图", "start_date": start, "end_date": end,
+                        "date_format": "%-d", "date_locale": "zh-CN", "weekday_lang": "zh",
+                        "title_format": "%Y年%-m月", "weekday_headers": "一,二,三,四,五,六,日",
+                        "line_color": "#7a7a7a", "line_width": 0.4, "line_style": "solid",
+                        "center_gap": 2, "date_size": 6, "lunar": True},
+        })
+
+    return request(f"{OUT_DIR}/weekly/weekly-2026.pdf", sections)
+
+
+def daily_composite_request(width, height):
+    """一日两页整本（TN 护照）：空白页 + 双页年历 + 12 个月[月历、月打卡]，
+    全本每天 = daily_timeline 两页对页。"""
+    with open(HOLIDAYS) as f:
+        holidays = json.load(f)
+    doc = doc_obj(width, height)
+    page = page_obj(width, height)
+    sections = [blank_section(width, height)]
+
+    # 双页 2026 年历：3×2 个月/页 → 12 个月 = 2 页
+    sections.append({
+        "title": "2026 年历",
+        "page": page, "document": doc, "holidays": holidays,
+        "pattern": {"kind": "year-calendar", "start": "2026-01", "end": "2026-12",
+                    "rows": 3, "cols": 2, "date_size": 5, "weekday_lang": "zh",
+                    "title_format": "%Y年%-m月", "weekday_headers": "一,二,三,四,五,六,日",
+                    "show_holidays": True, "lunar": True},
+    })
+
+    for y, m in ((2026, mm) for mm in range(1, 13)):
+        sections.append({
+            "title": f"{y}年{m}月", "page": page, "document": doc, "holidays": holidays,
+            "pattern": {"kind": "month-calendar", "year": y, "month": m, "two_page": False,
+                        "phase_color": "#e5b93f", "line_color": "#7a7a7a", "line_width": 0.4,
+                        "date_size": 6, "weekday_headers": "一,二,三,四,五,六,日",
+                        "title_format": "%Y年%-m月", "sub_size": 3.4, "sub_gap": 0,
+                        "show_holidays": True, "lunar": True},
+        })
+        sections.append({
+            "title": f"{y}年{m}月 打卡", "page": page, "document": doc,
+            "pattern": {"kind": "month-tracker", "year": y, "month": m, "items": 4,
+                        "line_color": "#7a7a7a", "line_width": 0.4, "date_size": 5.5},
+        })
+        # 本月每天：daily_timeline 两页对页
+        first = date(y, m, 1).isoformat()
+        last = date(y, m, calendar.monthrange(y, m)[1]).isoformat()
+        sections.append({
+            "title": f"{y}年{m}月 每日", "page": page, "document": doc,
+            "pattern": {"kind": "daily_timeline", "start": 0, "end": 24, "pages": 2,
+                        "start_date": first, "end_date": last,
+                        "line_color": "#7a7a7a", "line_width": 0.4, "label_size": 8,
+                        "latitude": 31.23, "longitude": 121.47, "timezone": "Asia/Shanghai",
+                        "title_format": "%Y年%-m月%-d日"},
+        })
+
+    return request(f"{OUT_DIR}/daily/daily-2026.pdf", sections)
+
+
+
 def build_request(kind, width, height, size, variant=""):
     if kind == "month_graph":
         return month_graph_request(kind, width, height, size, variant)
@@ -266,7 +378,60 @@ def task_list(patterns, sizes):
     return tasks
 
 
+def generate_weekly():
+    """生成综合周历样张（TN 护照 88×125），并把代表页转成 PNG 预览。"""
+    w, h = SIZES["tnp"]
+    req = weekly_composite_request(w, h)
+    subdir = f"{OUT_DIR}/weekly"
+    os.makedirs(subdir, exist_ok=True)
+    with open(f"{subdir}/weekly-2026.json", "w") as f:
+        json.dump(req, f, ensure_ascii=False, indent=2)
+    out = f"{subdir}/weekly-2026.pdf"
+    proc = subprocess.run([BIN], input=json.dumps(req), text=True,
+                          capture_output=True)
+    if proc.returncode != 0:
+        print(f"FAILED weekly: {proc.stderr.strip()}", file=sys.stderr)
+        sys.exit(1)
+    print(f"    -> {out}")
+    # 预览：1 月整块（月历 + 月打卡 + 八分周视图 4-5 周）→ 第 4-15 页
+    subprocess.run(["pdftoppm", "-f", "4", "-l", "15", "-png",
+                    "-r", str(RES_DPI), out, f"{subdir}/weekly-2026-p"],
+                   check=True)
+    print(f"    -> 预览 {subdir}/weekly-2026-p{{4..15}}.png")
+
+
+def generate_daily():
+    """生成一日两页整本（TN 护照 88×125），并把代表页转成 PNG 预览。"""
+    w, h = SIZES["tnp"]
+    req = daily_composite_request(w, h)
+    subdir = f"{OUT_DIR}/daily"
+    os.makedirs(subdir, exist_ok=True)
+    with open(f"{subdir}/daily-2026.json", "w") as f:
+        json.dump(req, f, ensure_ascii=False, indent=2)
+    out = f"{subdir}/daily-2026.pdf"
+    proc = subprocess.run([BIN], input=json.dumps(req), text=True,
+                          capture_output=True)
+    if proc.returncode != 0:
+        print(f"FAILED daily: {proc.stderr.strip()}", file=sys.stderr)
+        sys.exit(1)
+    print(f"    -> {out}")
+    # 预览：前 5 天的 timeline 两页对页 → 第 6-15 页
+    subprocess.run(["pdftoppm", "-f", "6", "-l", "15", "-png",
+                    "-r", str(RES_DPI), out, f"{subdir}/daily-2026-p"],
+                   check=True)
+    print(f"    -> 预览 {subdir}/daily-2026-p{{6..15}}.png")
+
+
+
+
+
 def main(argv):
+    if "--weekly" in argv:
+        generate_weekly()
+        return
+    if "--daily" in argv:
+        generate_daily()
+        return
     patterns = argv if argv else DEFAULT_PATTERNS
     sizes = [s.strip() for s in os.environ.get("SIZE_ARG", "a5,a6p,a7").split(",")]
     for s in sizes:

@@ -1,0 +1,58 @@
+{
+  "output": "examples/daily_timeline/a5/daily_timeline-a5.pdf",
+  "bind": {
+    "mode": null,
+    "sheets_per_group": 4
+  },
+  "sections": [
+    {
+      "title": "空白页",
+      "page": {
+        "width": 148,
+        "height": 210,
+        "header": 15,
+        "footer": 19,
+        "binding": 13,
+        "non_binding": 18
+      },
+      "document": {
+        "binding_text": "base6",
+        "binding_text_font": "Sarasa UI SC"
+      },
+      "pattern": {
+        "kind": "blank",
+        "pages": 1
+      }
+    },
+    {
+      "title": "daily_timeline",
+      "page": {
+        "width": 148,
+        "height": 210,
+        "header": 15,
+        "footer": 19,
+        "binding": 13,
+        "non_binding": 18
+      },
+      "document": {
+        "binding_text": "base6",
+        "binding_text_font": "Sarasa UI SC"
+      },
+      "pattern": {
+        "kind": "daily_timeline",
+        "start": 0,
+        "end": 24,
+        "pages": 1,
+        "line_color": "#7a7a7a",
+        "line_width": 0.4,
+        "label_size": 10.2,
+        "start_date": "2026-08-31",
+        "end_date": "2026-09-06",
+        "latitude": 31.23,
+        "longitude": 121.47,
+        "timezone": "Asia/Shanghai",
+        "title_format": "%Y年%-m月%-d日"
+      }
+    }
+  ]
+}

@@ -1,0 +1,58 @@
+{
+  "output": "examples/octan-week/a6p/octan-week-a6p.pdf",
+  "bind": {
+    "mode": null,
+    "sheets_per_group": 4
+  },
+  "sections": [
+    {
+      "title": "空白页",
+      "page": {
+        "width": 95,
+        "height": 171,
+        "header": 12,
+        "footer": 15,
+        "binding": 9,
+        "non_binding": 11
+      },
+      "document": {
+        "binding_text": "base6",
+        "binding_text_font": "Sarasa UI SC"
+      },
+      "pattern": {
+        "kind": "blank",
+        "pages": 1
+      }
+    },
+    {
+      "title": "octan-week",
+      "page": {
+        "width": 95,
+        "height": 171,
+        "header": 12,
+        "footer": 15,
+        "binding": 9,
+        "non_binding": 11
+      },
+      "document": {
+        "binding_text": "base6",
+        "binding_text_font": "Sarasa UI SC"
+      },
+      "pattern": {
+        "kind": "八分周视图",
+        "start_date": "2026-08-31",
+        "end_date": "2026-09-06",
+        "date_format": "%-d",
+        "date_locale": "zh-CN",
+        "weekday_lang": "zh",
+        "title_format": "%Y年%-m月",
+        "weekday_headers": "一,二,三,四,五,六,日",
+        "line_color": "#7a7a7a",
+        "line_width": 0.4,
+        "line_style": "solid",
+        "center_gap": 2,
+        "date_size": 10
+      }
+    }
+  ]
+}

@@ -1,0 +1,52 @@
+{
+  "output": "examples/dots/a5/dots-a5.pdf",
+  "bind": {
+    "mode": null,
+    "sheets_per_group": 4
+  },
+  "sections": [
+    {
+      "title": "空白页",
+      "page": {
+        "width": 148,
+        "height": 210,
+        "header": 15,
+        "footer": 19,
+        "binding": 13,
+        "non_binding": 18
+      },
+      "document": {
+        "binding_text": "base6",
+        "binding_text_font": "Sarasa UI SC"
+      },
+      "pattern": {
+        "kind": "blank",
+        "pages": 1
+      }
+    },
+    {
+      "title": "dots",
+      "page": {
+        "width": 148,
+        "height": 210,
+        "header": 15,
+        "footer": 19,
+        "binding": 13,
+        "non_binding": 18
+      },
+      "document": {
+        "binding_text": "base6",
+        "binding_text_font": "Sarasa UI SC"
+      },
+      "pattern": {
+        "kind": "dots",
+        "pages": 2,
+        "spacing": 5,
+        "column_spacing": 5,
+        "radius": 0.3,
+        "color": "#7a7a7a",
+        "center_color": "#000000"
+      }
+    }
+  ]
+}

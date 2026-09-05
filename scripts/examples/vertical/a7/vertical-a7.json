@@ -1,0 +1,52 @@
+{
+  "output": "examples/vertical/a7/vertical-a7.pdf",
+  "bind": {
+    "mode": null,
+    "sheets_per_group": 4
+  },
+  "sections": [
+    {
+      "title": "空白页",
+      "page": {
+        "width": 80,
+        "height": 120,
+        "header": 8,
+        "footer": 11,
+        "binding": 8,
+        "non_binding": 10
+      },
+      "document": {
+        "binding_text": "base6",
+        "binding_text_font": "Sarasa UI SC"
+      },
+      "pattern": {
+        "kind": "blank",
+        "pages": 1
+      }
+    },
+    {
+      "title": "vertical",
+      "page": {
+        "width": 80,
+        "height": 120,
+        "header": 8,
+        "footer": 11,
+        "binding": 8,
+        "non_binding": 10
+      },
+      "document": {
+        "binding_text": "base6",
+        "binding_text_font": "Sarasa UI SC"
+      },
+      "pattern": {
+        "kind": "vertical",
+        "pages": 2,
+        "spacing": 10,
+        "color": "#000000",
+        "frame_outer_width": 0.5,
+        "frame_inner_width": 0.18,
+        "frame_gap": 1.2
+      }
+    }
+  ]
+}

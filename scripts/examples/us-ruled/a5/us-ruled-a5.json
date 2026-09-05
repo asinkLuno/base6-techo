@@ -1,0 +1,53 @@
+{
+  "output": "examples/us-ruled/a5/us-ruled-a5.pdf",
+  "bind": {
+    "mode": null,
+    "sheets_per_group": 4
+  },
+  "sections": [
+    {
+      "title": "空白页",
+      "page": {
+        "width": 148,
+        "height": 210,
+        "header": 15,
+        "footer": 19,
+        "binding": 13,
+        "non_binding": 18
+      },
+      "document": {
+        "binding_text": "base6",
+        "binding_text_font": "Sarasa UI SC"
+      },
+      "pattern": {
+        "kind": "blank",
+        "pages": 1
+      }
+    },
+    {
+      "title": "us-ruled",
+      "page": {
+        "width": 148,
+        "height": 210,
+        "header": 15,
+        "footer": 19,
+        "binding": 13,
+        "non_binding": 18
+      },
+      "document": {
+        "binding_text": "base6",
+        "binding_text_font": "Sarasa UI SC"
+      },
+      "pattern": {
+        "kind": "us-ruled",
+        "pages": 2,
+        "spacing": 8.7,
+        "rule_color": "#8fb0d8",
+        "rule_width": 0.2,
+        "margin_x": 25,
+        "margin_color": "#d96a6a",
+        "margin_width": 0.4
+      }
+    }
+  ]
+}

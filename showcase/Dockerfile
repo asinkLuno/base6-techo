@@ -1,5 +1,7 @@
 # ---- 构建阶段：Astro 静态构建（Yarn 4 monorepo）----
-FROM node:22-alpine AS build
+# 构建阶段用 glibc 基础镜像：esbuild（vite 依赖）在 Alpine/musl 下解析时 SIGSEGV 崩溃
+# （"fatal error: fault"）。node:22-slim（Debian/glibc）可正常构建；运行时仍是 nginx。
+FROM node:22-slim AS build
 WORKDIR /app
 
 RUN corepack enable

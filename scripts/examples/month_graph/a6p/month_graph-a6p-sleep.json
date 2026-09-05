@@ -1,0 +1,53 @@
+{
+  "output": "examples/month_graph/a6p/month_graph-a6p-sleep.pdf",
+  "bind": {
+    "mode": null,
+    "sheets_per_group": 4
+  },
+  "sections": [
+    {
+      "title": "空白页",
+      "page": {
+        "width": 95,
+        "height": 171,
+        "header": 12,
+        "footer": 15,
+        "binding": 9,
+        "non_binding": 11
+      },
+      "document": {
+        "binding_text": "base6",
+        "binding_text_font": "Sarasa UI SC"
+      },
+      "pattern": {
+        "kind": "blank",
+        "pages": 1
+      }
+    },
+    {
+      "title": "睡眠追踪",
+      "page": {
+        "width": 95,
+        "height": 171,
+        "header": 12,
+        "footer": 15,
+        "binding": 9,
+        "non_binding": 11
+      },
+      "document": {
+        "binding_text": "base6",
+        "binding_text_font": "Sarasa UI SC"
+      },
+      "pattern": {
+        "kind": "month_graph",
+        "axis": "right",
+        "line_color": "#7a7a7a",
+        "line_width": 0.2,
+        "date_size": 8,
+        "y_min": 22,
+        "y_max": 32,
+        "y_steps": 5
+      }
+    }
+  ]
+}
