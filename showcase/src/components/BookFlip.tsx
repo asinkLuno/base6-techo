@@ -11,7 +11,7 @@ const BASE_H = 905;
 interface Props {
   /** 图片前缀，如 "/examples/weekly/weekly-2026" */
   base: string;
-  /** 页数（全书页数） */
+  /** 页数（全书内容页数） */
   pages: number;
   /** 第一张 PNG 的页号（-p-00N.png） */
   startPad: number;
@@ -20,6 +20,7 @@ interface Props {
 export default function BookFlip({ base, pages, startPad }: Props) {
   const hostRef = useRef<HTMLDivElement>(null);
   const bookRef = useRef<PageFlipType | null>(null);
+  // flip 事件的页码 = 当前对页左页的序号（0 起算）
   const [current, setCurrent] = useState(0);
 
   useEffect(() => {
@@ -28,10 +29,11 @@ export default function BookFlip({ base, pages, startPad }: Props) {
       width: BASE_W,
       height: BASE_H,
       size: "stretch" as SizeType,
-      maxShadowOpacity: 0.4,
-      showCover: true,
+      // 首页不再单独当封面展示；对页从第一组 [衬页|第1页] 开始
+      showCover: false,
+      // 样张是全平的纸面：翻页时不往静止页上叠任何阴影
+      drawShadow: false,
       flippingTime: 600,
-      drawShadow: true,
       mobileScrollSupport: true,
       usePortrait: false,
     });
@@ -46,30 +48,40 @@ export default function BookFlip({ base, pages, startPad }: Props) {
     };
   }, []);
 
+  // 首尾各补一页空白衬页（环衬）：首页与末页都落到对页上，装订边（base6 水印侧）才在书脊
+  const total = pages + 2;
+  const count =
+    current <= 0
+      ? `1 / ${pages}`
+      : current >= pages
+        ? `${pages} / ${pages}`
+        : `${current}–${current + 1} / ${pages}`;
+
   return (
     <div className="bookflip">
       <div ref={hostRef} className="bf-host">
-        {Array.from({ length: pages }, (_, i) => (
-          <div
-            key={i}
-            className="bf-page"
-            data-density={i === 0 || i === pages - 1 ? "hard" : "soft"}
-          >
-            <img
-              src={`${base}-p-${String(startPad + i).padStart(3, "0")}.png`}
-              alt={`样张第 ${i + 1} 页`}
-              width={BASE_W}
-              height={BASE_H}
-              draggable={false}
-            />
-          </div>
-        ))}
+        {Array.from({ length: total }, (_, i) => {
+          const page = i - 1; // 内容页序号；0 与 total-1 为空白衬页
+          return (
+            <div key={i} className="bf-page">
+              {page >= 0 && page < pages ? (
+                <img
+                  src={`${base}-p-${String(startPad + page).padStart(3, "0")}.png`}
+                  alt={`样张第 ${page + 1} 页`}
+                  width={BASE_W}
+                  height={BASE_H}
+                  draggable={false}
+                />
+              ) : null}
+            </div>
+          );
+        })}
       </div>
       <div className="bf-controls">
         <button type="button" onClick={() => bookRef.current?.flipPrev()}>
           ‹ 上页
         </button>
-        <span className="bf-count mono">{current} / {pages}</span>
+        <span className="bf-count mono">{count}</span>
         <button type="button" onClick={() => bookRef.current?.flipNext()}>
           下页 ›
         </button>

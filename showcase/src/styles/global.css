@@ -157,18 +157,13 @@ h1 {
 /* ---- 整本周历翻书 ---- */
 .bookflip { margin: 0 auto; max-width: 900px; }
 .bf-host { position: relative; margin: 0 auto; }
-.bf-host .page { filter: drop-shadow(0 2px 4px rgba(38,35,30,0.12)); }
 .bf-page { background: var(--paper); }
 .bf-page img { display: block; width: 100%; height: auto; user-select: none; }
-.bf-controls {
-.bookflip-grid {
-  display: grid; grid-template-columns: 1fr 1fr; gap: clamp(24px, 4vw, 48px);
-}
+.bookflip-grid { display: grid; grid-template-columns: 1fr 1fr; gap: clamp(24px, 4vw, 48px); }
 .bookflip-col { min-width: 0; }
 .bookflip-label { font-size: 11.5px; letter-spacing: 0.18em; color: var(--zhu); margin: 0 0 14px; text-align: center; }
 @media (max-width: 960px) { .bookflip-grid { grid-template-columns: 1fr; } }
-  display: flex; align-items: center; justify-content: center; gap: 22px; margin-top: 20px;
-}
+.bf-controls { display: flex; align-items: center; justify-content: center; gap: 22px; margin-top: 20px; }
 .bf-controls button {
   appearance: none; font: 12.5px/1 var(--mono); letter-spacing: 0.08em; color: var(--ink);
   background: var(--paper); border: 1px solid var(--line); border-radius: 2px;
@@ -266,6 +261,7 @@ h1 {
   width: calc(50% - 1px); height: auto; aspect-ratio: 875 / 1241;
   pointer-events: none; overflow: visible;
 }
+.page-hand.hand-right { left: 50%; }
 .page-hand .hch {
   font-family: "ChenyuLuoyan Thin", "KaiTi", "STKaiti", serif;
   fill: #3a3630; opacity: 1;
@@ -280,6 +276,23 @@ h1 {
   to   { opacity: 1; transform: translateX(0); }
 }
 @media (prefers-reduced-motion: reduce) { .hs .page-hand .hch { opacity: 1; animation: none; } }
+.page-hand .hln { stroke: #3a3630; stroke-width: 2.2; stroke-linecap: round; fill: none; }
+.page-hand .hrg { stroke: #3a3630; stroke-width: 2; fill: none; }
+.hs .page-hand .hln {
+  stroke-dasharray: var(--len); stroke-dashoffset: var(--len);
+  animation: hln-in 0.5s cubic-bezier(0.3, 0.6, 0.3, 1) forwards;
+  animation-delay: var(--d, 0s);
+}
+@keyframes hln-in { to { stroke-dashoffset: 0; } }
+.hs .page-hand .hrg {
+  opacity: 0;
+  animation: write-in 0.4s ease-out forwards;
+  animation-delay: var(--d, 0s);
+}
+@media (prefers-reduced-motion: reduce) {
+  .hs .page-hand .hln { stroke-dashoffset: 0; animation: none; }
+  .hs .page-hand .hrg { opacity: 1; animation: none; }
+}
 
 /* ---- 收尾 ---- */
 .cta-block { margin: clamp(56px, 10vh, 110px) 0 0; }

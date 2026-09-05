@@ -438,7 +438,7 @@ def main(argv):
         if s not in SIZES:
             sys.exit(f"未知尺寸: {s}")
 
-    parallel = int(os.environ.get("PARALLEL", os.cpu_count() or 1))
+    parallel = int(os.environ.get("PARALLEL", 4))
     clear_cache()
 
     tasks = task_list(patterns, sizes)

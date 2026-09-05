@@ -4,6 +4,8 @@ use super::colors::BLACK;
 use super::{Dot, Geometry, Line, LineStyle, validate_color};
 
 /// 古文竖排：文武线双框（外粗内细）+ 界栏竖列线，自右向左书写。
+/// 界栏自版心中心向左右两边生成，最外侧放不下新一列即在此结束；
+/// 文武线双框恰好围住整列数，余量留在框外，整块在版心内水平居中。
 #[derive(Clone, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub(crate) struct VerticalPattern {
@@ -46,7 +48,7 @@ impl VerticalPattern {
 
 pub(crate) fn draw_vertical(geo: Geometry, p: &VerticalPattern) -> (Vec<Line>, Vec<Dot>) {
     let (w, h) = (geo.content.width, geo.content.height);
-    if w <= 2.0 * p.frame_gap || h <= 2.0 * p.frame_gap {
+    if h <= 2.0 * p.frame_gap {
         return (vec![], vec![]);
     }
     let line = |x1, y1, x2, y2, width: f64| Line {
@@ -58,32 +60,28 @@ pub(crate) fn draw_vertical(geo: Geometry, p: &VerticalPattern) -> (Vec<Line>, V
         width: Some(width),
         style: LineStyle::Solid,
     };
+    // 界栏：从版心中心向左右两边逐列生成，最外侧放不下新一列即止。
+    let nx = ((w - 2.0 * p.frame_gap) / p.spacing).floor();
+    if nx < 1.0 {
+        return (vec![], vec![]);
+    }
+    let iw = nx * p.spacing;
+    let ow = iw + 2.0 * p.frame_gap;
+    let (x, y) = (geo.content.x + (w - ow) / 2.0, geo.content.y);
     let mut lines = Vec::new();
-    // 文武线：外框粗、内框细。
-    let (x, y) = (geo.content.x, geo.content.y);
-    lines.push(line(x, y, x + w, y, p.frame_outer_width));
-    lines.push(line(x, y + h, x + w, y + h, p.frame_outer_width));
+    // 文武线：外框粗、内框细，双框恰好围住整列数。
+    let (ix, iy, ih) = (x + p.frame_gap, y + p.frame_gap, h - 2.0 * p.frame_gap);
+    lines.push(line(x, y, x + ow, y, p.frame_outer_width));
+    lines.push(line(x, y + h, x + ow, y + h, p.frame_outer_width));
     lines.push(line(x, y, x, y + h, p.frame_outer_width));
-    lines.push(line(x + w, y, x + w, y + h, p.frame_outer_width));
-    let (ix, iy, iw, ih) = (
-        x + p.frame_gap,
-        y + p.frame_gap,
-        w - 2.0 * p.frame_gap,
-        h - 2.0 * p.frame_gap,
-    );
+    lines.push(line(x + ow, y, x + ow, y + h, p.frame_outer_width));
     lines.push(line(ix, iy, ix + iw, iy, p.frame_inner_width));
     lines.push(line(ix, iy + ih, ix + iw, iy + ih, p.frame_inner_width));
     lines.push(line(ix, iy, ix, iy + ih, p.frame_inner_width));
     lines.push(line(ix + iw, iy, ix + iw, iy + ih, p.frame_inner_width));
-    // 界栏：内框内整数列居中，只画内部分隔竖线。
-    let nx = (iw / p.spacing).floor();
-    if nx < 1.0 {
-        return (lines, vec![]);
-    }
-    let cw = nx * p.spacing;
-    let sx = ix + (iw - cw) / 2.0;
+    // 只画列与列之间的内部竖分隔线。
     for col in 1..nx as usize {
-        let x = sx + col as f64 * p.spacing;
+        let x = ix + col as f64 * p.spacing;
         lines.push(line(x, iy, x, iy + ih, p.frame_inner_width));
     }
     (lines, vec![])

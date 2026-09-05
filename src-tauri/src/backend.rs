@@ -2042,13 +2042,74 @@ mod tests {
         assert!(dots.is_empty());
         // 外框粗线、内框细线各 4 条。
         assert_eq!(lines.iter().filter(|l| l.width == Some(0.5)).count(), 4);
-        // 界栏数 = floor((宽-2*gap)/10) - 1 条内部竖线 + 内框本身。
-        let iw = geo.content.width - 2.4;
-        let inner = (iw / 10.0).floor();
+        // 界栏数 = floor((宽-2*gap)/10)，内部竖线数 = 界栏数 - 1，加上内框本身共 4 条细线。
+        let gap = 1.2;
+        let nx = ((geo.content.width - 2.0 * gap) / 10.0).floor();
         assert_eq!(
             lines.iter().filter(|l| l.width == Some(0.18)).count(),
-            4 + inner as usize - 1
+            4 + nx as usize - 1
         );
+        // 双框恰好围住整列数，整块在版心内水平居中（余量留在框外）。
+        let iw = nx * 10.0;
+        let ow = iw + 2.0 * gap;
+        let ox = geo.content.x + (geo.content.width - ow) / 2.0;
+        let (iy, ih) = (geo.content.y + gap, geo.content.height - 2.0 * gap);
+        let has = |x1: f64, y1: f64, x2: f64, y2: f64, width: f64| {
+            lines.iter().any(|l| {
+                l.width == Some(width)
+                    && (l.x1 - x1).abs() < 1e-9
+                    && (l.y1 - y1).abs() < 1e-9
+                    && (l.x2 - x2).abs() < 1e-9
+                    && (l.y2 - y2).abs() < 1e-9
+            })
+        };
+        assert!(has(ox, geo.content.y, ox + ow, geo.content.y, 0.5));
+        assert!(has(
+            ox,
+            geo.content.y + geo.content.height,
+            ox + ow,
+            geo.content.y + geo.content.height,
+            0.5
+        ));
+        assert!(has(
+            ox,
+            geo.content.y,
+            ox,
+            geo.content.y + geo.content.height,
+            0.5
+        ));
+        assert!(has(
+            ox + ow,
+            geo.content.y,
+            ox + ow,
+            geo.content.y + geo.content.height,
+            0.5
+        ));
+        assert!(has(ox + gap, iy, ox + gap + iw, iy, 0.18));
+        assert!(has(ox + gap, iy + ih, ox + gap + iw, iy + ih, 0.18));
+        assert!(has(ox + gap, iy, ox + gap, iy + ih, 0.18));
+        assert!(has(ox + gap + iw, iy, ox + gap + iw, iy + ih, 0.18));
+        // 内部界栏线从内框起按列距排布。
+        assert!(has(ox + gap + 10.0, iy, ox + gap + 10.0, iy + ih, 0.18));
+        // 所有细竖线都落在内框范围内，余量不产生任何线。
+        assert!(
+            lines
+                .iter()
+                .filter(|l| l.width == Some(0.18) && l.x1 == l.x2)
+                .all(|l| (ox + gap..=ox + gap + iw).contains(&l.x1))
+        );
+    }
+
+    #[test]
+    fn vertical_empty_when_no_column_fits() {
+        let page = PageSettings::default();
+        let pattern = VerticalPattern {
+            spacing: 500.0,
+            ..Default::default()
+        };
+        let geo = geometry_for(&page, 1);
+        let (lines, dots) = draw_vertical(geo, &pattern);
+        assert!(lines.is_empty() && dots.is_empty());
     }
 
     #[test]

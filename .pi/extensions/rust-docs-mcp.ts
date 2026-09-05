@@ -41,6 +41,8 @@ function createClient(packageSpec: string): DocsClient {
         ...globalThis.process.env,
         // cargo-lib in the server resolves the wrong rustc without this pin
         RUSTC: env("RUSTC", execSync("rustup which rustc").toString().trim()),
+        // rustdoc must come from the same toolchain or doc builds fail with E0514
+        RUSTDOC: env("RUSTDOC", execSync("rustup which rustdoc").toString().trim()),
         CARGO_INCREMENTAL: env("CARGO_INCREMENTAL", "0"),
       },
       stdio: ["pipe", "pipe", "inherit"],
