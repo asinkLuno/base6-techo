@@ -1,0 +1,243 @@
+{
+  "app": {
+    "tagline": "Journal layout workbench",
+    "language": "Language"
+  },
+  "toolbar": {
+    "exportPreset": "Export preset",
+    "importPreset": "Import preset (JSON)",
+    "importPresetShort": "Import preset"
+  },
+  "action": {
+    "preview": "Preview",
+    "refreshPreview": "Refresh preview",
+    "rendering": "Rendering…",
+    "generatePdf": "Generate PDF",
+    "generating": "Generating…",
+    "addSection": "Add Section",
+    "importIcs": "Import ICS calendar",
+    "clearHolidays": "Clear holidays"
+  },
+  "dialog": {
+    "exportPreset": "Export preset",
+    "generatePdf": "Generate journal PDF",
+    "chooseIcs": "Choose ICS calendar file"
+  },
+  "filter": {
+    "ics": "ICS calendar"
+  },
+  "status": {
+    "presetExported": "Preset exported",
+    "exportFailed": "Export failed: {{error}}",
+    "badPresetFormat": "Invalid preset file format",
+    "presetImported": "Preset imported",
+    "sampleImported": "Preset imported (sample)",
+    "importFailed": "Import failed: {{error}}",
+    "holidaysImported": "{{count}} holidays imported",
+    "typesetting": "Typesetting and generating PDF…",
+    "generated": "Generated: {{path}}",
+    "generateFailed": "Generation failed: {{error}}",
+    "startingLatex": "Starting LaTeX…",
+    "renderingPreview": "Rendering full preview…",
+    "previewFailed": "Preview failed: {{error}}"
+  },
+  "panel": {
+    "paper": "Paper",
+    "paperDesc": "Physical page dimensions",
+    "binding": "Binding",
+    "bindingDesc": "How pages are imposed",
+    "marginText": "Margin text",
+    "marginTextDesc": "Margin text and body font",
+    "status": "Status"
+  },
+  "paper": {
+    "pageSize": "Page size",
+    "width": "Width (mm)",
+    "height": "Height (mm)",
+    "label": "{{name}} ({{w}} × {{h}} mm)",
+    "a5sTn": "A5S/TN Standard",
+    "tnPassport": "TN Passport",
+    "custom": "Custom"
+  },
+  "binding": {
+    "booklet": "Saddle stitch",
+    "bookletHint": "Pad to multiples of 4 pages and impose",
+    "thread": "Thread-sewn",
+    "threadHint": "Impose grouped by sheets per signature",
+    "none": "No imposition",
+    "noneHint": "Keep page order",
+    "sheetsPerGroup": "Sheets per signature"
+  },
+  "margin": {
+    "holidaysHint": "Margin text can mark holidays; {{count}} dates imported.",
+    "font": "Body / margin font"
+  },
+  "stats": {
+    "sections": "Section",
+    "totalPages": "Total pages"
+  },
+  "layout": {
+    "title": "Sections",
+    "summary": "{{count}} Section(s) · {{pages}} pages",
+    "fullPreview": "Full preview",
+    "empty": "Add at least one Section."
+  },
+  "common": {
+    "text": "Text",
+    "pageNumber": "Page number",
+    "custom": "Custom"
+  },
+  "section": {
+    "meta": "Section {{index}} · {{pages}} pages",
+    "countInPageNumbers": "Count in page numbers",
+    "pattern": "Pattern",
+    "header": "Header",
+    "footer": "Footer",
+    "bindingWatermark": "Binding-side watermark",
+    "nonBindingWatermark": "Non-binding-side watermark"
+  },
+  "field": {
+    "firstLine": "First line text",
+    "firstLineSize": "First line size (pt)",
+    "secondLine": "Second line text",
+    "secondLineSize": "Second line size (pt)",
+    "lineGap": "Line gap (mm)",
+    "headerHeight": "Header height (mm)",
+    "headerContent": "Header content",
+    "headerColor": "Header color",
+    "footerHeight": "Footer height (mm)",
+    "footerContent": "Footer content",
+    "footerColor": "Footer color",
+    "bindingWidth": "Binding-side width (mm)",
+    "nonBindingWidth": "Non-binding-side width (mm)",
+    "edgeDistance": "Distance from edge (mm, blank = centered)",
+    "watermarkColor": "Watermark color",
+    "pages": "Pages",
+    "spacing": "Line spacing (mm)",
+    "columnSpacing": "Column spacing (mm)",
+    "gap": "Spacing (mm)",
+    "cellSpacing": "Grid spacing (mm)",
+    "dotSize": "Dot size (mm)",
+    "lineWidth": "Line width (mm)",
+    "lineWidthPt": "Line width (pt)",
+    "lineWidthBare": "Line width",
+    "color": "Color",
+    "lineColor": "Line color",
+    "centerColor": "Center dot color",
+    "mainColor": "Main line color",
+    "fineColor": "Fine line color",
+    "vlineColor": "Vertical line color",
+    "edgeColor": "Margin line color",
+    "ruleColor": "Rule color",
+    "redLineIndex": "Red line (nth vertical line, 0 = none)",
+    "redLineX": "Red line position (mm)",
+    "redLineWidth": "Red line width (mm)",
+    "redLineColor": "Red line color",
+    "frameOuter": "Outer frame width (mm)",
+    "frameInner": "Inner frame width (mm)",
+    "frameGap": "Frame gap (mm)",
+    "startDate": "Start date",
+    "endDate": "End date",
+    "dateFormat": "Date format",
+    "dateFormatHint": "e.g. %-d, %m/%d, %a %cccc (lunar)",
+    "language": "Language",
+    "lineStyle": "Line style",
+    "centerGap": "Center gap (mm)",
+    "dateSize": "Date size (pt)",
+    "weekdayLang": "Weekday language",
+    "monthTitleFormat": "Month title format",
+    "titleFormat": "Title format",
+    "startMonth": "Start month",
+    "endMonth": "End month",
+    "rows": "Rows",
+    "cols": "Columns",
+    "showHolidays": "Show holidays",
+    "showLunar": "Show lunar dates",
+    "lunarFormat": "Lunar format",
+    "year": "Year",
+    "month": "Month",
+    "phaseColor": "Moon phase color",
+    "twoPageWeekSplit": "Two pages (Mon–Wed / Thu–Sun)",
+    "twoPageHalfMonth": "Two pages (1–14 / 15–31, equal cells)",
+    "subSize": "Lunar/holiday size (pt)",
+    "subGap": "Label gap (mm)",
+    "trackerItems": "Tracker items",
+    "numberPosition": "Numbers position",
+    "fineLineWidthPt": "Fine width (pt, bold = 2×)",
+    "axisLabelSize": "Axis label size (pt)",
+    "yMin": "Y-axis min",
+    "yMax": "Y-axis max",
+    "ySteps": "Y-axis tick count",
+    "skipIfEmpty": "blank = skip",
+    "startHour": "Start hour",
+    "endHour": "End hour",
+    "span": "Span",
+    "labelSize": "Label size (pt)",
+    "latitude": "Latitude (blank = no daylight)",
+    "longitude": "Longitude",
+    "latitudeHint": "e.g. 30°15′N or 30.25",
+    "longitudeHint": "e.g. 120°12′E or 120.2",
+    "timezone": "Time zone",
+    "daylightColor": "Daylight color",
+    "nightColor": "Night color",
+    "weekdayHeader": "Weekday header",
+    "weekdayHeaderCustom": "Custom header (7 items, comma-separated)",
+    "marginFont": "Font (margin text)"
+  },
+  "lineStyle": {
+    "solid": "Solid",
+    "dashed": "Dashed",
+    "dotted": "Dotted",
+    "dashDot": "Dash-dot"
+  },
+  "font": {
+    "sans": "Sans-serif",
+    "serif": "Serif",
+    "mono": "Monospace"
+  },
+  "lunarStyle": {
+    "numeric": "Old names + Arabic numerals",
+    "traditional": "Traditional lunar terms"
+  },
+  "graphAxis": {
+    "right": "Right (read rotated 90° counter-clockwise)",
+    "left": "Left (read rotated 90° clockwise)"
+  },
+  "spanOption": {
+    "single": "Single page",
+    "spread": "Two-page spread"
+  },
+  "tz": {
+    "east": "East {{n}} (UTC+{{n}})",
+    "zero": "Zero meridian (UTC)",
+    "west": "West {{n}} (UTC-{{n}})"
+  },
+  "patternGroup": {
+    "basic": "Basic",
+    "reprint": "Reprints",
+    "schedule": "Schedule",
+    "year": "Year",
+    "month": "Month",
+    "week": "Week",
+    "day": "Day"
+  },
+  "pattern": {
+    "dots": "Dots",
+    "grid": "Grid",
+    "ruled": "Ruled",
+    "seyes": "Seyes",
+    "vertical": "Vertical (classical)",
+    "usRuled": "US ruled",
+    "toyoNikki": "Hakubunkan Tōyō Nikki",
+    "week8": "Eight-part week",
+    "kaichuNikki": "Hakubunkan Kaichū Nikki",
+    "hogan": "Hōgan-kei",
+    "monthCalendar": "Monthly calendar",
+    "yearTracker": "Year tracker",
+    "monthGraph": "Month graph",
+    "dailyTimeline": "Timeline",
+    "monthTracker": "Month tracker",
+    "yearCalendar": "Yearly calendar",
+    "blank": "Blank"
+  }
+}

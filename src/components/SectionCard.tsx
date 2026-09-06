@@ -6,8 +6,9 @@ import {
   FormControlLabel, IconButton, Stack, Typography,
 } from "@mui/material";
 import { Delete, DragHandle, ExpandLess, ExpandMore } from "@mui/icons-material";
+import { useTranslation } from "react-i18next";
 import type { Section, Value, Values } from "../lib/schema";
-import { defaults, patternNames } from "../lib/schema";
+import { defaults, patternNameKeys } from "../lib/schema";
 import { effectivePages } from "../lib/utils";
 import { Field, SelectField } from "./controls";
 import { PatternSelect } from "./PatternSelect";
@@ -44,19 +45,20 @@ function TextFields({ values, prefix, set }: {
   prefix: string;
   set: (key: string, value: Value) => void;
 }) {
+  const { t } = useTranslation();
   return (
     <>
-      <Field label="第一行文字" value={values[prefix] ?? ""} type="text" onChange={(v) => set(prefix, v)} />
+      <Field label={t("field.firstLine")} value={values[prefix] ?? ""} type="text" onChange={(v) => set(prefix, v)} />
       {values[prefix] ? (
         <>
-          <Field label="第一行字号（pt）" value={values[`${prefix}_size`]} min={1} step={0.5} onChange={(v) => set(`${prefix}_size`, v)} />
-          <Field label="第二行文字" value={values[`${prefix}_2`] ?? ""} type="text" onChange={(v) => set(`${prefix}_2`, v)} />
+          <Field label={t("field.firstLineSize")} value={values[`${prefix}_size`]} min={1} step={0.5} onChange={(v) => set(`${prefix}_size`, v)} />
+          <Field label={t("field.secondLine")} value={values[`${prefix}_2`] ?? ""} type="text" onChange={(v) => set(`${prefix}_2`, v)} />
         </>
       ) : null}
       {values[prefix] && values[`${prefix}_2`] ? (
         <>
-          <Field label="第二行字号（pt）" value={values[`${prefix}_2_size`]} min={1} step={0.5} onChange={(v) => set(`${prefix}_2_size`, v)} />
-          <Field label="两行间距（mm）" value={values[`${prefix}_spacing`]} min={0} step={0.5} onChange={(v) => set(`${prefix}_spacing`, v)} />
+          <Field label={t("field.secondLineSize")} value={values[`${prefix}_2_size`]} min={1} step={0.5} onChange={(v) => set(`${prefix}_2_size`, v)} />
+          <Field label={t("field.lineGap")} value={values[`${prefix}_spacing`]} min={0} step={0.5} onChange={(v) => set(`${prefix}_spacing`, v)} />
         </>
       ) : null}
     </>
@@ -70,6 +72,7 @@ const SectionCard = memo(function SectionCard({ section, index, update, remove }
   remove: (id: string) => void;
 }) {
   const sortable = useSortable({ id: section.id });
+  const { t } = useTranslation();
 
   const page = (key: string, value: Value) =>
     update(section.id, { page: { ...section.page, [key]: value } });
@@ -109,9 +112,9 @@ const SectionCard = memo(function SectionCard({ section, index, update, remove }
             </Typography>
           </Box>
           <Box sx={{ flex: 1, minWidth: 0, cursor: "pointer" }} onClick={() => update(section.id, { expanded: !section.expanded })}>
-            <Typography variant="body2" noWrap>{patternNames[section.pattern.kind]}</Typography>
+            <Typography variant="body2" noWrap>{t(`pattern.${patternNameKeys[section.pattern.kind]}`)}</Typography>
             <Typography variant="caption" color="text.secondary">
-              Section {index + 1} · {effectivePages(section)} 页
+              {t("section.meta", { index: index + 1, pages: effectivePages(section) })}
             </Typography>
           </Box>
           <IconButton size="small" onClick={() => update(section.id, { expanded: !section.expanded })}>
@@ -126,52 +129,52 @@ const SectionCard = memo(function SectionCard({ section, index, update, remove }
 
         <Collapse in={section.expanded}>
           <CardContent sx={{ borderTop: "1px solid", borderColor: "divider", bgcolor: "action.hover", display: "grid", gap: 2, pt: 2.5 }}>
-            <Field label="参与页码" value={section.pageNumber} type="checkbox" onChange={(pageNumber) => update(section.id, { pageNumber: Boolean(pageNumber) })} />
+            <Field label={t("section.countInPageNumbers")} value={section.pageNumber} type="checkbox" onChange={(pageNumber) => update(section.id, { pageNumber: Boolean(pageNumber) })} />
 
             <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" }, gap: 2 }}>
-              <Group title="页头" enabled={section.headerEnabled} onEnabled={(v) => update(section.id, { headerEnabled: v })}>
-                <Field label="页头高度（mm）" value={section.page.header} min={0} step={0.5} onChange={(v) => page("header", v)} />
+              <Group title={t("section.header")} enabled={section.headerEnabled} onEnabled={(v) => update(section.id, { headerEnabled: v })}>
+                <Field label={t("field.headerHeight")} value={section.page.header} min={0} step={0.5} onChange={(v) => page("header", v)} />
                 <SelectField
-                  label="页头内容"
+                  label={t("field.headerContent")}
                   value={section.headerMode}
-                  options={[["text", "文字"], ["number", "页码"]]}
+                  options={[["text", t("common.text")], ["number", t("common.pageNumber")]]}
                   onChange={(v) => update(section.id, { headerMode: v as Section["headerMode"] })}
                 />
                 {section.headerMode === "text" && <TextFields values={section.document} prefix="header_text" set={doc} />}
-                <Field label="页头颜色" value={section.document.header_text_color} type="color" onChange={(v) => doc("header_text_color", v)} />
+                <Field label={t("field.headerColor")} value={section.document.header_text_color} type="color" onChange={(v) => doc("header_text_color", v)} />
               </Group>
 
-              <Group title="页脚" enabled={section.footerEnabled} onEnabled={(v) => update(section.id, { footerEnabled: v })}>
-                <Field label="页脚高度（mm）" value={section.page.footer} min={5} step={0.5} onChange={(v) => page("footer", v)} />
+              <Group title={t("section.footer")} enabled={section.footerEnabled} onEnabled={(v) => update(section.id, { footerEnabled: v })}>
+                <Field label={t("field.footerHeight")} value={section.page.footer} min={5} step={0.5} onChange={(v) => page("footer", v)} />
                 <SelectField
-                  label="页脚内容"
+                  label={t("field.footerContent")}
                   value={section.footerMode}
-                  options={[["text", "文字"], ["number", "页码"]]}
+                  options={[["text", t("common.text")], ["number", t("common.pageNumber")]]}
                   onChange={(v) => update(section.id, { footerMode: v as Section["footerMode"] })}
                 />
                 {section.footerMode === "text" && <TextFields values={section.document} prefix="footer_text" set={doc} />}
-                <Field label="页脚颜色" value={section.document.footer_text_color} type="color" onChange={(v) => doc("footer_text_color", v)} />
+                <Field label={t("field.footerColor")} value={section.document.footer_text_color} type="color" onChange={(v) => doc("footer_text_color", v)} />
               </Group>
 
-              <Group title="装订侧水印" enabled={section.watermarkEnabled} onEnabled={(v) => update(section.id, { watermarkEnabled: v })}>
-                <Field label="装订侧宽度（mm）" value={section.page.binding} min={0} step={0.5} onChange={(v) => page("binding", v)} />
-                <Field label="离边缘距离（mm，留空居中）" value={section.document.binding_text_edge} min={0} step={0.5} onChange={(v) => doc("binding_text_edge", v === null ? null : Number(v))} />
+              <Group title={t("section.bindingWatermark")} enabled={section.watermarkEnabled} onEnabled={(v) => update(section.id, { watermarkEnabled: v })}>
+                <Field label={t("field.bindingWidth")} value={section.page.binding} min={0} step={0.5} onChange={(v) => page("binding", v)} />
+                <Field label={t("field.edgeDistance")} value={section.document.binding_text_edge} min={0} step={0.5} onChange={(v) => doc("binding_text_edge", v === null ? null : Number(v))} />
                 <TextFields values={section.document} prefix="binding_text" set={doc} />
-                <Field label="水印颜色" value={section.document.binding_text_color} type="color" onChange={(v) => doc("binding_text_color", v)} />
+                <Field label={t("field.watermarkColor")} value={section.document.binding_text_color} type="color" onChange={(v) => doc("binding_text_color", v)} />
               </Group>
 
-              <Group title="非装订侧水印" enabled={section.nonBindingEnabled} onEnabled={(v) => update(section.id, { nonBindingEnabled: v })}>
-                <Field label="非装订侧宽度（mm）" value={section.page.non_binding} min={0} step={0.5} onChange={(v) => page("non_binding", v)} />
-                <Field label="离边缘距离（mm，留空居中）" value={section.document.non_binding_text_edge} min={0} step={0.5} onChange={(v) => doc("non_binding_text_edge", v === null ? null : Number(v))} />
+              <Group title={t("section.nonBindingWatermark")} enabled={section.nonBindingEnabled} onEnabled={(v) => update(section.id, { nonBindingEnabled: v })}>
+                <Field label={t("field.nonBindingWidth")} value={section.page.non_binding} min={0} step={0.5} onChange={(v) => page("non_binding", v)} />
+                <Field label={t("field.edgeDistance")} value={section.document.non_binding_text_edge} min={0} step={0.5} onChange={(v) => doc("non_binding_text_edge", v === null ? null : Number(v))} />
                 <TextFields values={section.document} prefix="non_binding_text" set={doc} />
-                <Field label="水印颜色" value={section.document.non_binding_text_color} type="color" onChange={(v) => doc("non_binding_text_color", v)} />
+                <Field label={t("field.watermarkColor")} value={section.document.non_binding_text_color} type="color" onChange={(v) => doc("non_binding_text_color", v)} />
               </Group>
             </Box>
 
             <Card variant="outlined" sx={{ gridColumn: "1 / -1" }}>
               <CardContent sx={{ display: "grid", gap: 2 }}>
                 <PatternSelect
-                  label="版式"
+                  label={t("section.pattern")}
                   value={section.pattern.kind}
                   onChange={(kind) => update(section.id, { pattern: { ...defaults[kind] } })}
                 />

@@ -5,8 +5,9 @@ import {
 } from "@mui/material";
 import { DatePicker } from "@mui/x-date-pickers";
 import dayjs from "dayjs";
+import { useTranslation } from "react-i18next";
 import type { Value } from "../lib/schema";
-import { WEEKDAY_HEADER_OPTIONS, WEEKDAY_PRESETS } from "../lib/schema";
+import { WEEKDAY_PRESETS } from "../lib/schema";
 
 export function FieldLabel({ children }: { children: React.ReactNode }) {
   return (
@@ -152,28 +153,31 @@ export function SelectField({
   );
 }
 
+// 预设表头是发给后端的内容值，原样展示；仅"自定义"哨兵项经翻译（内部值固定为 "custom"，不落库）。
 export function WeekdayHeaderField({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const { t } = useTranslation();
   const [custom, setCustom] = useState(false);
   const showCustom = custom || !WEEKDAY_PRESETS.includes(value);
   return (
     <>
       <SelectField
-        label="星期表头"
-        value={showCustom ? "自定义" : value}
-        options={WEEKDAY_HEADER_OPTIONS}
+        label={t("field.weekdayHeader")}
+        value={showCustom ? "custom" : value}
+        options={[...WEEKDAY_PRESETS.map((h) => [h, h] as [string, string]), ["custom", t("common.custom")]]}
         onChange={(v) => {
-          setCustom(v === "自定义");
-          if (v !== "自定义") onChange(v);
+          setCustom(v === "custom");
+          if (v !== "custom") onChange(v);
         }}
       />
       {showCustom && (
-        <Field label="自定义表头（英文逗号分隔 7 项）" value={value} type="text" onChange={(v) => onChange(String(v))} />
+        <Field label={t("field.weekdayHeaderCustom")} value={value} type="text" onChange={(v) => onChange(String(v))} />
       )}
     </>
   );
 }
 
 export function FontPicker({ value, options, onChange }: { value: string; options: [string, string][]; onChange: (v: string) => void }) {
+  const { t } = useTranslation();
   const list = options.map(([v, label]) => ({ v, label }));
   return (
     <Autocomplete
@@ -182,7 +186,7 @@ export function FontPicker({ value, options, onChange }: { value: string; option
       getOptionLabel={(o) => o.label}
       value={list.find((o) => o.v === value) ?? (value ? { v: value, label: value } : null)}
       onChange={(_, o) => o && onChange(o.v)}
-      renderInput={(params) => <TextField {...params} label="字体（边距文字）" />}
+      renderInput={(params) => <TextField {...params} label={t("field.marginFont")} />}
     />
   );
 }

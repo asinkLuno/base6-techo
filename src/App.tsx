@@ -7,15 +7,17 @@ import { open, save } from "@tauri-apps/plugin-dialog";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import {
-  AppBar, Box, Button, Card, CardContent, Divider, IconButton, Stack, Toolbar, Typography,
+  AppBar, Box, Button, Card, CardContent, Divider, IconButton, MenuItem, Stack, TextField, Toolbar, Typography,
 } from "@mui/material";
 import { Add, Delete, Download, FileDownload, Refresh, Upload, Visibility } from "@mui/icons-material";
+import { useTranslation } from "react-i18next";
 import type { PatternKind, Section } from "./lib/schema";
 import {
-  FONT_OPTIONS, PAGE_SIZE_OPTIONS, PAGE_SIZES, margins, newSection,
+  FONT_OPTIONS, PAGE_SIZES, margins, newSection,
 } from "./lib/schema";
 import { effectivePages, loadJSON, sectionRequest, renderToSection, isRenderRequest } from "./lib/utils";
 import { parseICS } from "./lib/ics-parser";
+import { LANG_OPTIONS, changeAppLanguage } from "./i18n";
 import { Field, FontPicker, SelectField } from "./components/controls";
 import { SectionCard } from "./components/SectionCard";
 
@@ -86,7 +88,7 @@ export default function App() {
   const [size, setSize] = useState(saved?.size ?? { width: 148, height: 210 });
   const [pageSize, setPageSize] = useState(saved?.pageSize ?? "A5");
   const [holidays, setHolidays] = useState<Record<string, string>>(saved?.holidays ?? {});
-  const [fontOptions, setFontOptions] = useState<[string, string][]>(FONT_OPTIONS);
+  const [systemFonts, setSystemFonts] = useState<string[]>([]);
   const [sheetsPerGroup, setSheetsPerGroup] = useState(saved?.sheetsPerGroup ?? 4);
   const [status, setStatus] = useState("");
   const [running, setRunning] = useState(false);
@@ -94,12 +96,13 @@ export default function App() {
   const [preview, setPreview] = useState<{ open: boolean; data: string; busy: boolean; error: string }>(
     { open: false, data: "", busy: false, error: "" },
   );
+  const { t, i18n } = useTranslation();
 
   useEffect(() => {
     invoke<string>("list_system_fonts")
       .then((json) => {
         const names = JSON.parse(json) as string[];
-        if (names.length) setFontOptions((base) => [...base, ...names.map((n) => [n, n] as [string, string])]);
+        if (names.length) setSystemFonts(names);
       })
       .catch(() => { /* 保持三个字族兜底 */ });
   }, []);
@@ -150,9 +153,29 @@ export default function App() {
 
   const totalPages = useMemo(() => sections.reduce((sum, s) => sum + effectivePages(s), 0), [sections]);
 
+  // 内置三字族标签经翻译，系统字体名原样展示。
+  const fontOptions = useMemo<[string, string][]>(
+    () => [
+      ...FONT_OPTIONS.map(([v, k]) => [v, t(k)] as [string, string]),
+      ...systemFonts.map((n) => [n, n] as [string, string]),
+    ],
+    [t, systemFonts],
+  );
+
+  const pageSizeOptions = useMemo<[string, string][]>(
+    () => [
+      ...Object.entries(PAGE_SIZES).map(([k, [w, h]]) => {
+        const name = k === "A5S/TN 标准" ? t("paper.a5sTn") : k === "TN护照" ? t("paper.tnPassport") : k;
+        return [k, t("paper.label", { name, w, h })] as [string, string];
+      }),
+      ["custom", t("paper.custom")],
+    ],
+    [t],
+  );
+
   async function exportPreset() {
     const output = await save({
-      title: "导出预设",
+      title: t("dialog.exportPreset"),
       defaultPath: "base6-preset.json",
       filters: [{ name: "JSON", extensions: ["json"] }],
     });
@@ -162,9 +185,9 @@ export default function App() {
         path: output,
         content: JSON.stringify({ sections, binding, sheetsPerGroup, size, pageSize, holidays }, null, 2),
       });
-      setStatus("预设已导出");
+      setStatus(t("status.presetExported"));
     } catch (error) {
-      setStatus(`导出失败：${String(error)}`);
+      setStatus(t("status.exportFailed", { error: String(error) }));
     }
   }
 
@@ -176,7 +199,7 @@ export default function App() {
       const data: unknown = JSON.parse(content);
       const obj = (data ?? {}) as Record<string, unknown>;
       if (!Array.isArray(obj.sections)) {
-        setStatus("预设文件格式不正确");
+        setStatus(t("status.badPresetFormat"));
         return;
       }
       // 支持两种格式：桌面应用导出的预设（前端 Section），或 gen-examples.py
@@ -193,7 +216,7 @@ export default function App() {
         if (typeof sheets_per_group === "number") setSheetsPerGroup(sheets_per_group);
         if (raw.holidays && typeof raw.holidays === "object")
           setHolidays(raw.holidays as Record<string, string>);
-        setStatus("预设已导入（样张）");
+        setStatus(t("status.sampleImported"));
       } else {
         const preset = obj as {
           sections: Section[];
@@ -212,27 +235,27 @@ export default function App() {
         if (typeof preset.pageSize === "string") setPageSize(preset.pageSize);
         if (preset.holidays && typeof preset.holidays === "object")
           setHolidays(preset.holidays as Record<string, string>);
-        setStatus("预设已导入");
+        setStatus(t("status.presetImported"));
       }
     } catch (error) {
-      setStatus(`导入失败：${String(error)}`);
+      setStatus(t("status.importFailed", { error: String(error) }));
     }
   }
 
   async function importICS() {
     try {
       const path = await open({
-        title: "选择 ICS 日历文件",
-        filters: [{ name: "ICS 日历", extensions: ["ics", "ical"] }],
+        title: t("dialog.chooseIcs"),
+        filters: [{ name: t("filter.ics"), extensions: ["ics", "ical"] }],
         multiple: false,
       });
       if (!path) return;
       const content = await invoke<string>("read_text_file", { path });
       const parsed = parseICS(content);
       setHolidays(parsed);
-      setStatus(`已导入 ${Object.keys(parsed).length} 个节日`);
+      setStatus(t("status.holidaysImported", { count: Object.keys(parsed).length }));
     } catch (error) {
-      setStatus(`导入失败：${String(error)}`);
+      setStatus(t("status.importFailed", { error: String(error) }));
     }
   }
 
@@ -246,19 +269,19 @@ export default function App() {
 
   async function generate() {
     const output = await save({
-      title: "生成手帐 PDF",
+      title: t("dialog.generatePdf"),
       defaultPath: "base6-techo.pdf",
       filters: [{ name: "PDF", extensions: ["pdf"] }],
     });
     if (!output) return;
     setRunning(true);
     setLatexLog("");
-    setStatus("正在排版并生成 PDF…");
+    setStatus(t("status.typesetting"));
     try {
       const result = await invoke<string>("run_pipeline", { body: buildRequest(output) });
-      setStatus(`已生成：${result}`);
+      setStatus(t("status.generated", { path: result }));
     } catch (error) {
-      setStatus(`生成失败：${String(error)}`);
+      setStatus(t("status.generateFailed", { error: String(error) }));
     } finally {
       setRunning(false);
     }
@@ -298,15 +321,27 @@ export default function App() {
               base<span>6</span> <Box component="span" sx={{ color: "text.secondary", fontWeight: 400 }}>· techo</Box>
             </Typography>
             <Typography variant="caption" sx={{ color: "text.secondary", letterSpacing: "0.22em", fontFamily: "monospace", display: { xs: "none", sm: "block" } }}>
-              手帐排版工作台
+              {t("app.tagline")}
             </Typography>
           </Stack>
           <Box sx={{ flex: 1 }} />
           <Stack direction="row" spacing={1}>
-            <IconButton size="small" title="导出预设" aria-label="导出预设" onClick={exportPreset}>
+            <TextField
+              select
+              size="small"
+              value={i18n.language.startsWith("zh") ? "zh-CN" : "en"}
+              onChange={(e) => changeAppLanguage(e.target.value)}
+              aria-label={t("app.language")}
+              sx={{ width: 112 }}
+            >
+              {LANG_OPTIONS.map(([value, label]) => (
+                <MenuItem key={value} value={value}>{label}</MenuItem>
+              ))}
+            </TextField>
+            <IconButton size="small" title={t("toolbar.exportPreset")} aria-label={t("toolbar.exportPreset")} onClick={exportPreset}>
               <Download fontSize="small" />
             </IconButton>
-            <IconButton size="small" title="导入预设（JSON）" aria-label="导入预设" onClick={importPreset}>
+            <IconButton size="small" title={t("toolbar.importPreset")} aria-label={t("toolbar.importPresetShort")} onClick={importPreset}>
               <Upload fontSize="small" />
             </IconButton>
             <Button
@@ -315,7 +350,7 @@ export default function App() {
               disabled={busy || !sections.length}
               onClick={() => previewDocument(true)}
             >
-              {preview.busy ? "渲染中…" : preview.open ? "刷新预览" : "预览"}
+              {preview.busy ? t("action.rendering") : preview.open ? t("action.refreshPreview") : t("action.preview")}
             </Button>
             <Button
               variant="contained"
@@ -324,7 +359,7 @@ export default function App() {
               disabled={busy || !sections.length}
               onClick={generate}
             >
-              {running ? "生成中…" : "生成 PDF"}
+              {running ? t("action.generating") : t("action.generatePdf")}
             </Button>
           </Stack>
         </Toolbar>
@@ -340,30 +375,30 @@ export default function App() {
                   <Box sx={{ height: "72vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 1.5 }}>
                     <Refresh sx={{ animation: "spin 1s linear infinite" }} />
                     <Box component="pre" sx={{ maxHeight: 256, width: "100%", overflow: "auto", whiteSpace: "pre-wrap", px: 3, fontSize: 12 }}>
-                      {latexLog || "正在启动 LaTeX…"}
+                      {latexLog || t("status.startingLatex")}
                     </Box>
-                    <Typography variant="body2" color="text.secondary">正在渲染整体预览…</Typography>
+                    <Typography variant="body2" color="text.secondary">{t("status.renderingPreview")}</Typography>
                   </Box>
                 ) : preview.error ? (
-                  <Typography color="error" sx={{ p: 3, fontSize: 12 }}>预览失败：{preview.error}</Typography>
+                  <Typography color="error" sx={{ p: 3, fontSize: 12 }}>{t("status.previewFailed", { error: preview.error })}</Typography>
                 ) : (
-                  <iframe title="整体预览" src={`data:application/pdf;base64,${preview.data}`} style={{ display: "block", width: "100%", height: "72vh", border: 0 }} />
+                  <iframe title={t("layout.fullPreview")} src={`data:application/pdf;base64,${preview.data}`} style={{ display: "block", width: "100%", height: "72vh", border: 0 }} />
                 )}
               </Box>
             )}
 
             <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
               <Stack spacing={0.25}>
-                <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>版面</Typography>
+                <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>{t("layout.title")}</Typography>
                 <Typography variant="caption" color="text.secondary">
-                  {sections.length} 个 Section · 成品 {totalPages} 页
+                  {t("layout.summary", { count: sections.length, pages: totalPages })}
                 </Typography>
               </Stack>
               <Button
                 startIcon={<Add />}
                 onClick={() => startTransition(() => setSections((items) => [...items, newSection(size.width, size.height)]))}
               >
-                添加 Section
+                {t("action.addSection")}
               </Button>
             </Box>
 
@@ -378,18 +413,18 @@ export default function App() {
             </DndContext>
             {sections.length === 0 && (
               <Box sx={{ border: "1px dashed", borderColor: "divider", borderRadius: 2, p: 10, textAlign: "center" }}>
-                <Typography color="text.secondary">至少添加一个 Section。</Typography>
+                <Typography color="text.secondary">{t("layout.empty")}</Typography>
               </Box>
             )}
           </Box>
 
           {/* 侧栏：分组的设置面板 */}
           <Box sx={{ display: "grid", gap: 2.5, position: { lg: "sticky" }, top: 80 }}>
-            <Panel title="纸张" description="页面的物理尺寸">
+            <Panel title={t("panel.paper")} description={t("panel.paperDesc")}>
               <SelectField
-                label="页面大小"
+                label={t("paper.pageSize")}
                 value={pageSize}
-                options={PAGE_SIZE_OPTIONS}
+                options={pageSizeOptions}
                 onChange={(v) => {
                   setPageSize(v);
                   if (v !== "custom") {
@@ -400,17 +435,17 @@ export default function App() {
               />
               {pageSize === "custom" && (
                 <>
-                  <Field label="宽度（mm）" value={size.width} min={10} step={0.5} onChange={(v) => applySize(Number(v), size.height)} />
-                  <Field label="高度（mm）" value={size.height} min={10} step={0.5} onChange={(v) => applySize(size.width, Number(v))} />
+                  <Field label={t("paper.width")} value={size.width} min={10} step={0.5} onChange={(v) => applySize(Number(v), size.height)} />
+                  <Field label={t("paper.height")} value={size.height} min={10} step={0.5} onChange={(v) => applySize(size.width, Number(v))} />
                 </>
               )}
             </Panel>
 
-            <Panel title="装订" description="决定页码如何拼版">
+            <Panel title={t("panel.binding")} description={t("panel.bindingDesc")}>
               {([
-                { value: "booklet", title: "骑马钉", hint: "整本按 4 页补齐并拼版" },
-                { value: "thread", title: "锁线分册", hint: "按每帖纸张数分组拼版" },
-                { value: null, title: "不拼版", hint: "保持页面顺序输出" },
+                { value: "booklet", title: t("binding.booklet"), hint: t("binding.bookletHint") },
+                { value: "thread", title: t("binding.thread"), hint: t("binding.threadHint") },
+                { value: null, title: t("binding.none"), hint: t("binding.noneHint") },
               ] as const).map((option) => (
                 <Box
                   key={option.title}
@@ -438,26 +473,26 @@ export default function App() {
                 </Box>
               ))}
               {binding === "thread" && (
-                <Field label="每帖纸张数" value={sheetsPerGroup} min={1} onChange={(v) => setSheetsPerGroup(Number(v))} />
+                <Field label={t("binding.sheetsPerGroup")} value={sheetsPerGroup} min={1} onChange={(v) => setSheetsPerGroup(Number(v))} />
               )}
             </Panel>
 
-            <Panel title="边距文字" description="页缘文字与正文字体">
+            <Panel title={t("panel.marginText")} description={t("panel.marginTextDesc")}>
               <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
                 <Button size="small" startIcon={<Upload />} disabled={running} onClick={importICS}>
-                  导入 ICS 日历
+                  {t("action.importIcs")}
                 </Button>
                 {Object.keys(holidays).length > 0 && (
-                  <IconButton size="small" onClick={() => setHolidays({})} aria-label="清除节日">
+                  <IconButton size="small" onClick={() => setHolidays({})} aria-label={t("action.clearHolidays")}>
                     <Delete />
                   </IconButton>
                 )}
               </Stack>
               <Typography variant="body2" color="text.secondary" sx={{ fontSize: 12 }}>
-                页缘文字可标注节日；已导入 {Object.keys(holidays).length} 个日期。
+                {t("margin.holidaysHint", { count: Object.keys(holidays).length })}
               </Typography>
               <Divider />
-              <Typography variant="caption" color="text.secondary">正文 / 页缘字体</Typography>
+              <Typography variant="caption" color="text.secondary">{t("margin.font")}</Typography>
               <FontPicker
                 value={String(sections[0]?.document.binding_text_font ?? String.raw`\sffamily`)}
                 options={fontOptions}
@@ -470,13 +505,13 @@ export default function App() {
             </Panel>
 
 
-            <Panel title="状态">
+            <Panel title={t("panel.status")}>
               <Box sx={{ display: "grid", gap: 0.5 }}>
                 <Typography variant="body2" sx={{ display: "flex", justifyContent: "space-between" }}>
-                  <span>Section</span><span>{sections.length}</span>
+                  <span>{t("stats.sections")}</span><span>{sections.length}</span>
                 </Typography>
                 <Typography variant="body2" sx={{ display: "flex", justifyContent: "space-between" }}>
-                  <span>成品页数</span><span>{totalPages}</span>
+                  <span>{t("stats.totalPages")}</span><span>{totalPages}</span>
                 </Typography>
               </Box>
               {status && (

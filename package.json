@@ -26,8 +26,10 @@
     "@tauri-apps/api": "^2",
     "@tauri-apps/plugin-dialog": "^2",
     "dayjs": "^1.11.23",
+    "i18next": "^26.4.2",
     "react": "19.3.0-canary-ff7445e6-20260831",
-    "react-dom": "19.3.0-canary-ff7445e6-20260831"
+    "react-dom": "19.3.0-canary-ff7445e6-20260831",
+    "react-i18next": "^17.0.13"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2",

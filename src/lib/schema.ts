@@ -25,6 +25,7 @@ export type Section = {
   nonBindingEnabled: boolean;
 };
 
+// 版式的内容名：随请求发给后端（section title，会排进 PDF），不随界面语言变化。
 export const patternNames: Record<PatternKind, string> = {
   dots: "点阵",
   grid: "网格",
@@ -45,20 +46,42 @@ export const patternNames: Record<PatternKind, string> = {
   blank: "空白页",
 };
 
+// 版式名的 UI 翻译 key：界面显示用 t(`pattern.${patternNameKeys[kind]}`)。
+export const patternNameKeys: Record<PatternKind, string> = {
+  dots: "dots",
+  grid: "grid",
+  ruled: "ruled",
+  seyes: "seyes",
+  vertical: "vertical",
+  "us-ruled": "usRuled",
+  "hakubunkan-toyo-nikki": "toyoNikki",
+  "八分周视图": "week8",
+  "month_graph": "monthGraph",
+  "hakubunkan-kaichu-nikki": "kaichuNikki",
+  "方眼罫": "hogan",
+  "month-calendar": "monthCalendar",
+  "year-tracker": "yearTracker",
+  "daily_timeline": "dailyTimeline",
+  "month-tracker": "monthTracker",
+  "year-calendar": "yearCalendar",
+  blank: "blank",
+};
+
 export type PatternGroup =
   | { label: string; kinds: PatternKind[] }
   | { label: string; subgroups: { label: string; kinds: PatternKind[] }[] };
 
+// label 为 patternGroup.* 下的翻译 key，展示时经 t() 翻译。
 export const PATTERN_GROUPS: PatternGroup[] = [
-  { label: "基础", kinds: ["dots", "grid", "ruled", "seyes", "us-ruled", "vertical", "blank"] },
-  { label: "复刻", kinds: ["方眼罫", "hakubunkan-toyo-nikki", "hakubunkan-kaichu-nikki"] },
+  { label: "basic", kinds: ["dots", "grid", "ruled", "seyes", "us-ruled", "vertical", "blank"] },
+  { label: "reprint", kinds: ["方眼罫", "hakubunkan-toyo-nikki", "hakubunkan-kaichu-nikki"] },
   {
-    label: "日程",
+    label: "schedule",
     subgroups: [
-      { label: "年", kinds: ["year-calendar", "year-tracker"] },
-      { label: "月", kinds: ["month-calendar", "month-tracker", "month_graph"] },
-      { label: "周", kinds: ["八分周视图"] },
-      { label: "日", kinds: ["daily_timeline"] },
+      { label: "year", kinds: ["year-calendar", "year-tracker"] },
+      { label: "month", kinds: ["month-calendar", "month-tracker", "month_graph"] },
+      { label: "week", kinds: ["八分周视图"] },
+      { label: "day", kinds: ["daily_timeline"] },
     ],
   },
 ];
@@ -93,34 +116,22 @@ export const PAGE_SIZES: Record<string, [number, number]> = {
   "62m5": [62, 105],
 };
 
-export const PAGE_SIZE_OPTIONS: [string, string][] = [
-  ...Object.entries(PAGE_SIZES).map(([k, [w, h]]) => [k, `${k}（${w} × ${h} mm）`] as [string, string]),
-  ["custom", "自定义"],
-];
-
+// 第二项为 font.* 翻译 key，展示时经 t() 翻译。
 export const FONT_OPTIONS: [string, string][] = [
-  [String.raw`\sffamily`, "无衬线（sans）"],
-  [String.raw`\rmfamily`, "衬线（serif）"],
-  [String.raw`\ttfamily`, "等宽（mono）"],
+  [String.raw`\sffamily`, "font.sans"],
+  [String.raw`\rmfamily`, "font.serif"],
+  [String.raw`\ttfamily`, "font.mono"],
 ];
 
+// 第二项为 lineStyle.* 翻译 key，展示时经 t() 翻译。
 export const LINE_STYLE_OPTIONS: [string, string][] = [
-  ["solid", "实线"], ["dashed", "虚线"], ["dotted", "点线"], ["dash-dot", "点虚线"],
+  ["solid", "lineStyle.solid"], ["dashed", "lineStyle.dashed"], ["dotted", "lineStyle.dotted"], ["dash-dot", "lineStyle.dashDot"],
 ];
 
+// 语言自身名（中文/English/日本語）按惯例不翻译，保持原文。
 export const WEEKDAY_LANG_OPTIONS: [string, string][] = [["zh", "中文"], ["en", "English"], ["ja", "日本語"]];
 export const WEEKDAY_PRESETS: string[] = ["一,二,三,四,五,六,日", "Mo,Tu,We,Th,Fr,Sa,Su", "月,火,水,木,金,土,日"];
-export const WEEKDAY_HEADER_OPTIONS: [string, string][] = [
-  ...WEEKDAY_PRESETS.map((h) => [h, h] as [string, string]),
-  ["自定义", "自定义"],
-];
 export const DATE_LOCALE_OPTIONS: [string, string][] = [["zh-CN", "中文"], ["en-US", "English"]];
-
-export const TZ_OPTIONS: [string, string][] = [
-  ...Array.from({ length: 12 }, (_, i) => [`Etc/GMT-${12 - i}`, `东${12 - i}区（UTC+${12 - i}）`] as [string, string]),
-  ["Etc/GMT", "零时区（UTC）"],
-  ...Array.from({ length: 12 }, (_, i) => [`Etc/GMT+${i + 1}`, `西${i + 1}区（UTC-${i + 1}）`] as [string, string]),
-];
 
 export function toISODate(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
