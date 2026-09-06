@@ -3,6 +3,8 @@ use serde::Deserialize;
 use super::{Dot, Geometry, Line, LineStyle, centered, validate_color};
 
 /// 美式横线本：蓝色宽横线（8.7mm，左右通边）+ 左侧红色竖边线（贯穿整页高度）。
+/// 有意满版：线条占满整页、不经页心（geo.content）约束，
+/// 豁免于 `contained_patterns_draw_inside_content` 的页心纪律。
 #[derive(Clone, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub(crate) struct UsRuledPattern {

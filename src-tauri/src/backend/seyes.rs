@@ -5,6 +5,8 @@ use super::{Dot, Geometry, Line, LineStyle, centered, validate_color};
 
 /// 法文格（Séyès）：8mm 主方格 + 每格 3 条 2mm 细分线 + 一根红色竖线。
 /// 横线在内容区内左右通边，竖线与边线贯穿整页高度。
+/// 有意满版：线条占满整页、不经页心（geo.content）约束，
+/// 豁免于 `contained_patterns_draw_inside_content` 的页心纪律。
 #[derive(Clone, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub(crate) struct SeyesPattern {

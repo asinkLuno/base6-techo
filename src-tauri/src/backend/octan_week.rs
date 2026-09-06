@@ -256,29 +256,36 @@ pub(crate) fn push_one_month(
             pos / 7 + 2,
             if is_red { HOLIDAY_RED } else { BLACK },
         );
-        // 农历日期与节日名称：同一格内日期下方居中（微缩月历仅染色，不显示文字）
+        // 副标签（农历/节日）：日期字面正下方，偏移按字号换算成 mm——固定格高比例
+        // 在年历 4×3 的小格（cell_h ~3.8mm）里会把副字顶进日期。有节日名的日期
+        // 以节日名替换农历（小格叠不下两行，亦合挂历惯例）；调休上班日不显示名称。
+        // 微缩月历仅染色，不显示文字。
         if !mini {
-            if lunar && let Some(lunar_str) = lunar_date(date) {
-                texts.push(Text {
-                    x: rect.x + MINI_PAD + cell_w * ((pos % 7) as f64 + 0.5),
-                    y: rect.y + MINI_PAD + cell_h * ((pos / 7 + 2) as f64 + 0.72),
-                    content: lunar_str,
-                    size: size * 0.5,
-                    color: BLACK.into(),
-                    rotation: 0,
-                    font: font.into(),
-                    anchor: "center",
+            let sub = holiday_name
+                .filter(|_| !is_compensatory)
+                .map(|n| (n.clone(), HOLIDAY_RED))
+                .or_else(|| {
+                    lunar
+                        .then(|| lunar_date(date))
+                        .flatten()
+                        .map(|s| (s, BLACK))
                 });
-            }
-            if let Some(name) = holiday_name
-                && !is_compensatory
-            {
+            if let Some((content, color)) = sub {
+                // 副字号先取日期一半，再按字数收缩装进本格：Sarasa CJK 字宽恰为
+                // 1em（1pt = 25.4/72 mm），年历 4×3 的 a6p/a7 格宽 ~3mm，4 字农历
+                // 不收缩必与邻格相撞；两侧各留 0.25mm 间隙。
+                let chars = content.chars().count() as f64;
+                let sub_size = (size * 0.5).min((cell_w - 0.5) * 72.0 / (25.4 * chars));
                 texts.push(Text {
                     x: rect.x + MINI_PAD + cell_w * ((pos % 7) as f64 + 0.5),
-                    y: rect.y + MINI_PAD + cell_h * ((pos / 7 + 2) as f64 + 0.88),
-                    content: name.clone(),
-                    size: size * 0.5,
-                    color: HOLIDAY_RED.into(),
+                    // 日期中心下移 0.62 个日期 em：0.25 字面半高 + 0.12 间隙 + 0.25 半个副字
+                    y: rect.y
+                        + MINI_PAD
+                        + cell_h * ((pos / 7 + 2) as f64 + 0.5)
+                        + size * 25.4 / 72.0 * 0.62,
+                    content,
+                    size: sub_size,
+                    color: color.into(),
                     rotation: 0,
                     font: font.into(),
                     anchor: "center",
@@ -374,10 +381,10 @@ pub(crate) fn draw_octan_week(
         {
             let date = week_start + Duration::days(i64::from(offset));
             let (illum, waxing) = moon_illumination(date.and_hms_opt(12, 0, 0).unwrap().and_utc());
-            // 月相直径 6mm、上/右各留 4mm（原 PS*0.7=1.4mm 且贴角，太小太靠边）。
+            // 直径与日期数字同大：字号为 pt，1pt = 25.4/72 mm；上/右各留 4mm。
             let rx = cx + r.width / 2.0 - 4.0;
             let ty = cy + 4.0;
-            let mps = 6.0;
+            let mps = p.date_size * 25.4 / 72.0;
             let mx = rx - mps / 2.0;
             let my = ty + mps / 2.0;
             let radius = mps / 2.0;

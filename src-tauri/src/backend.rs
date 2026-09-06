@@ -1658,7 +1658,7 @@ mod tests {
                         "weekday_lang": "ja"
                     },
                     "document": {
-                        "binding_text_font": "Sarasa UI SC"
+                        "binding_text_font": "Sarasa Mono Slab SC"
                     }
                 }]
             }"#,
@@ -1678,7 +1678,7 @@ mod tests {
                         "cols": 2
                     },
                     "document": {
-                        "binding_text_font": "Sarasa UI SC"
+                        "binding_text_font": "Sarasa Mono Slab SC"
                     },
                     "holidays": {
                         "2026-01-01": "元旦",
@@ -1754,7 +1754,7 @@ mod tests {
                         "lunar": true
                     },
                     "document": {
-                        "binding_text_font": "Sarasa UI SC"
+                        "binding_text_font": "Sarasa Mono Slab SC"
                     },
                     "holidays": {
                         "2026-01-01": "元旦",
@@ -1817,7 +1817,7 @@ mod tests {
                         "lunar": true
                     },
                     "document": {
-                        "binding_text_font": "Sarasa UI SC"
+                        "binding_text_font": "Sarasa Mono Slab SC"
                     }
                 }]
             }"#,
@@ -1839,7 +1839,7 @@ mod tests {
                         "lunar": true
                     },
                     "document": {
-                        "binding_text_font": "Sarasa UI SC"
+                        "binding_text_font": "Sarasa Mono Slab SC"
                     },
                     "holidays": {
                         "2026-01-01": "元旦",
@@ -1869,7 +1869,7 @@ mod tests {
                         "lunar": true
                     },
                     "document": {
-                        "binding_text_font": "Sarasa UI SC"
+                        "binding_text_font": "Sarasa Mono Slab SC"
                     },
                     "holidays": {
                         "2026-01-01": "元旦",
@@ -2190,6 +2190,114 @@ mod tests {
         // 不参与页码：不显示。
         let draw = render_page(&page, &pattern, 1, &document, 0, None, &None);
         assert!(draw.texts.iter().all(|t| t.content != "7"));
+    }
+
+    /// 版心纪律：除有意满版的美式横线与法文格外，任何版式的线条、点、路径、
+    /// 文字都必须落在页心（geo.content）内，含边界、留 0.01 浮差。
+    /// 新版式若越界，此测试即红；满版版式请勿加入 cases。
+    #[test]
+    fn contained_patterns_draw_inside_content() {
+        let page = PageSettings::default();
+        // 关页码、无页眉页脚/订口文字：返回的文字即全部来自版式本身。
+        let document = DocumentSettings {
+            page_number: false,
+            ..Default::default()
+        };
+        let cases: [(&str, &str); 15] = [
+            ("ruled", r#"{"kind":"ruled"}"#),
+            ("dots", r#"{"kind":"dots"}"#),
+            ("grid", r#"{"kind":"grid"}"#),
+            ("vertical", r#"{"kind":"vertical"}"#),
+            ("方眼罫", r#"{"kind":"方眼罫"}"#),
+            ("month-calendar", r#"{"kind":"month-calendar"}"#),
+            (
+                "month_graph",
+                r#"{"kind":"month_graph","y_min":22,"y_max":32}"#,
+            ),
+            (
+                "hakubunkan-toyo-nikki",
+                r#"{"kind":"hakubunkan-toyo-nikki","start_date":"2026-09-01","end_date":"2026-09-02"}"#,
+            ),
+            (
+                "hakubunkan-kaichu-nikki",
+                r#"{"kind":"hakubunkan-kaichu-nikki","start_date":"2026-09-01","end_date":"2026-09-02"}"#,
+            ),
+            (
+                "八分周视图",
+                r#"{"kind":"八分周视图","start_date":"2026-08-31","end_date":"2026-09-06"}"#,
+            ),
+            (
+                "daily_timeline 一日一页",
+                r#"{"kind":"daily_timeline","start_date":"2026-08-31","end_date":"2026-09-02"}"#,
+            ),
+            (
+                "daily_timeline 一日两页",
+                r#"{"kind":"daily_timeline","start_date":"2026-08-31","end_date":"2026-09-01","pages":2}"#,
+            ),
+            (
+                "month-tracker",
+                r#"{"kind":"month-tracker","year":2026,"month":9}"#,
+            ),
+            (
+                "year-tracker",
+                r#"{"kind":"year-tracker","start":"2026-01","end":"2026-12"}"#,
+            ),
+            (
+                "year-calendar",
+                r#"{"kind":"year-calendar","start":"2026-01","end":"2026-12","rows":2,"cols":2}"#,
+            ),
+        ];
+        for (name, json) in &cases {
+            let pattern: Pattern = serde_json::from_str(json).unwrap();
+            let pages = pattern.page_count().max(1);
+            // 首两页：空白首页之后的页号 2、3，左右订口各验一页。
+            for index in 0..pages.min(2) {
+                let number = index + 2;
+                let draw = render_page(&page, &pattern, number, &document, index, None, &None);
+                let r = geometry_for(&page, number).content;
+                let within = |v: f64, lo: f64, hi: f64| v >= lo - 0.01 && v <= hi + 0.01;
+                let oob = |x: f64, y: f64| {
+                    !within(x, r.x, r.x + r.width) || !within(y, r.y, r.y + r.height)
+                };
+                for line in &draw.lines {
+                    assert!(
+                        !oob(line.x1, line.y1) && !oob(line.x2, line.y2),
+                        "{name} 第 {number} 页线条越页心: ({},{})-({},{})",
+                        line.x1,
+                        line.y1,
+                        line.x2,
+                        line.y2
+                    );
+                }
+                for dot in &draw.dots {
+                    assert!(
+                        !oob(dot.x, dot.y),
+                        "{name} 第 {number} 页小点越页心: ({},{})",
+                        dot.x,
+                        dot.y
+                    );
+                }
+                for poly in &draw.paths {
+                    for (x, y) in &poly.points {
+                        assert!(
+                            !oob(*x, *y),
+                            "{name} 第 {number} 页路径越页心: ({},{})",
+                            x,
+                            y
+                        );
+                    }
+                }
+                for text in &draw.texts {
+                    assert!(
+                        !oob(text.x, text.y),
+                        "{name} 第 {number} 页文字越页心: ({},{}) {:?}",
+                        text.x,
+                        text.y,
+                        text.content
+                    );
+                }
+            }
+        }
     }
 
     #[test]

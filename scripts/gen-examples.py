@@ -15,6 +15,7 @@
   ./scripts/gen-examples.py ruled dots          # 只生成指定版式
   ./scripts/gen-examples.py ruled --sizes a5,a7  # 指定版式 + 指定尺寸
   PARALLEL=2 ./scripts/gen-examples.py           # 手动限制并发数
+  FONT='Sarasa UI SC' ./scripts/gen-examples.py  # 换装订侧字体（更纱黑体编译极吃内存）
   ./scripts/gen-examples.py --weekly              # 综合周历整本（TN 护照 88×125）
   ./scripts/gen-examples.py --daily               # 一日两页整本（TN 护照 88×125）
 
@@ -32,7 +33,12 @@ from datetime import date, timedelta
 
 OUT_DIR = "examples"
 BIN = "target/debug/techo-pipeline"
-FONT = "Sarasa UI SC"              # 装订侧文字字体（系统已装更纱黑体）
+# 装订侧/日期文字字体：Sarasa Mono Slab SC（等距更纱黑体 Slab SC，独立 TTF 单文件 ~25MB）。
+# 实测单任务（octan-week A5）峰值内存 ~0.55GB、耗时 ~2.4s，与 Noto 同量级。
+# 前提：794MB 的 Sarasa-SuperTTC.ttc 必须不在 fontconfig 字体路径里——tectonic 按族名
+# 模糊匹配 Sarasa 时会把整个 TTC 解析一遍（实测 ~5.8GB/19s，当初 PARALLEL=4 OOM 即因此）。
+# TTC 现移存 ~/.local/share/fonts-disabled/；若恢复它，请改回 FONT='Noto Sans CJK SC'。
+FONT = os.environ.get("FONT", "Sarasa Mono Slab SC")
 BINDING_TEXT = "base6"
 RES_DPI = 400                      # 对页图片分辨率（≤150 时 0.2pt 细线被抗锯齿冲淡，看不清）
 HOLIDAYS = "examples/ics/holidays-2026.json"
@@ -45,7 +51,12 @@ SIZES = {
     "tnp": (88, 125),   # TN 护照
 }
 
-DEFAULT_PATTERNS = ["ruled", "dots", "grid", "seyes", "us-ruled", "vertical", "octan-week", "month_graph", "daily_timeline", "month-tracker"]
+# 与 showcase/src/data/site.ts 的 GROUPS 全集一致：缺一组，showcase 就有一组裂图
+# （showcase Dockerfile 不重建 examples，examples/ 由 compose bind-mount 供给）。
+DEFAULT_PATTERNS = ["ruled", "dots", "grid", "seyes", "us-ruled", "vertical",
+                    "hogen", "hakubunkan-toyo-nikki", "hakubunkan-kaichu-nikki",
+                    "year-calendar", "year-tracker", "month-calendar",
+                    "month-tracker", "month_graph", "octan-week", "daily_timeline"]
 
 # 基础版式默认参数（与前端 schema.ts defaults 一致）
 PATTERN_PARAMS = {
@@ -131,7 +142,7 @@ def blank_section(width, height):
             "pattern": {"kind": "blank", "pages": 1}}
 
 
-def basic_request(kind, width, height, size):
+def basic_request(kind, width, height, size, pattern=None):
     """基础版式：空白首页 + 1 个内容页。返回 JSON dict。"""
     wc = WATERMARK_COLOR.get(kind)
     doc = doc_obj(width, height)
@@ -141,7 +152,7 @@ def basic_request(kind, width, height, size):
         f"{OUT_DIR}/{kind}/{size}/{kind}-{size}.pdf",
         [blank_section(width, height),
          {"title": kind, "page": page_obj(width, height), "document": doc,
-          "pattern": PATTERN_PARAMS[kind]}],
+          "pattern": pattern or PATTERN_PARAMS[kind]}],
     )
 
 
@@ -168,7 +179,8 @@ def calendar_pattern(kind, size, variant):
         mpat["two_page"] = (size == "a7")
         mpat["year"], mpat["month"] = 2026, 1
     elif kind == "year-calendar":
-        rows, cols = (3, 2) if size == "a7" else (3, 4)
+        # a5/a6p 单页：4 行 × 每行 3 个；a7 双页每页 3×2
+        rows, cols = (3, 2) if size == "a7" else (4, 3)
         mpat = {"kind": "year-calendar", "start": "2026-01", "end": "2026-12",
                 "rows": rows, "cols": cols, "date_size": 6, "weekday_lang": "zh",
                 "title_format": "%Y年%-m月", "weekday_headers": "一,二,三,四,五,六,日"}
@@ -196,7 +208,9 @@ def calendar_request(kind, width, height, size, variant):
     if variant == "holiday":
         with open(HOLIDAYS) as f:
             section["holidays"] = json.load(f)
-    sections = [blank_section(width, height), section]
+    # A7 为 3×2 双页跨页：空白首叶 + 两页内容（渲染第 2、3 页）；
+    # A5/A6P 单页成张、页面也只展示这一张，不做空白首页。
+    sections = [blank_section(width, height), section] if size == "a7" else [section]
     return request(f"{OUT_DIR}/{kind}/{size}/{base}.pdf", sections)
 
 def _month_span(year, month):
@@ -311,6 +325,11 @@ def build_request(kind, width, height, size, variant=""):
         return month_graph_request(kind, width, height, size, variant)
     if kind in ("month-calendar", "year-calendar", "year-tracker"):
         return calendar_request(kind, width, height, size, variant)
+    if kind == "daily_timeline" and size == "a7":
+        # A7 页面小：一日两页，横轴摊开成对页（其余尺寸一日一页，对页为相邻两天）
+        pat = dict(PATTERN_PARAMS[kind])
+        pat["pages"] = 2
+        return basic_request(kind, width, height, size, pat)
     return basic_request(kind, width, height, size)
 
 
@@ -330,7 +349,8 @@ def run_task(kind, size, width, height, variant=""):
     if proc.returncode != 0:
         return f"FAILED {kind} {size} {variant}: {proc.stderr.strip()}"
 
-    # 单页月历/年历/追踪（非 A7）→ 第 1 页 PNG；其余 → 第 2、3 页对页 PNG
+    # 单页月历/年历/追踪（非 A7）：PDF 只有内容页本身 → 第 1 页 PNG；
+    # A7 跨页与其余对页版式：空白首页 + 内容页 → 第 2、3 页对页 PNG
     if kind in ("month-calendar", "year-calendar", "year-tracker") and size != "a7":
         subprocess.run(["pdftoppm", "-singlefile", "-f", "1", "-l", "1",
                         "-png", "-r", str(RES_DPI), out, f"{subdir}/{base}"],
@@ -339,6 +359,16 @@ def run_task(kind, size, width, height, variant=""):
         subprocess.run(["pdftoppm", "-f", "2", "-l", "3", "-png",
                         "-r", str(RES_DPI), out, f"{subdir}/{base}-p"],
                        check=True)
+        # pdftoppm 补零宽度 = PDF 总页数位数（如时间轴 A7 一日两页 15 页 →
+        # -p-02.png），而 showcase 的对页 URL 固定 1 位（-p-2.png）：
+        # 把本次产物统一改回不补零命名，否则旧图残留、页面继续显示旧样张。
+        for n in (2, 3):
+            final = f"{subdir}/{base}-p-{n}.png"
+            for w in (2, 3, 4):
+                padded = f"{subdir}/{base}-p-{n:0{w}}.png"
+                if os.path.exists(padded):
+                    os.replace(padded, final)
+                    break
     return f"    -> {out}"
 
 
@@ -378,6 +408,15 @@ def task_list(patterns, sizes):
     return tasks
 
 
+def pad_preview(prefix, first, last):
+    """pdftoppm 补零宽度取决于 PDF 总页数（39 页 → -p-04.png），而 BookFlip 的
+    URL 约定固定 3 位（-p-004.png），生成后统一改名对齐。"""
+    for n in range(first, last + 1):
+        src, dst = f"{prefix}-{n}.png", f"{prefix}-{n:03d}.png"
+        if src != dst and os.path.exists(src):
+            os.replace(src, dst)
+
+
 def generate_weekly():
     """生成综合周历样张（TN 护照 88×125），并把代表页转成 PNG 预览。"""
     w, h = SIZES["tnp"]
@@ -397,7 +436,8 @@ def generate_weekly():
     subprocess.run(["pdftoppm", "-f", "4", "-l", "15", "-png",
                     "-r", str(RES_DPI), out, f"{subdir}/weekly-2026-p"],
                    check=True)
-    print(f"    -> 预览 {subdir}/weekly-2026-p{{4..15}}.png")
+    pad_preview(f"{subdir}/weekly-2026-p", 4, 15)
+    print(f"    -> 预览 {subdir}/weekly-2026-p{{004..015}}.png")
 
 
 def generate_daily():
@@ -419,7 +459,8 @@ def generate_daily():
     subprocess.run(["pdftoppm", "-f", "6", "-l", "15", "-png",
                     "-r", str(RES_DPI), out, f"{subdir}/daily-2026-p"],
                    check=True)
-    print(f"    -> 预览 {subdir}/daily-2026-p{{6..15}}.png")
+    pad_preview(f"{subdir}/daily-2026-p", 6, 15)
+    print(f"    -> 预览 {subdir}/daily-2026-p{{006..015}}.png")
 
 
 
@@ -438,8 +479,11 @@ def main(argv):
         if s not in SIZES:
             sys.exit(f"未知尺寸: {s}")
 
-    parallel = int(os.environ.get("PARALLEL", 4))
-    clear_cache()
+    # 单 worker 峰值 ~0.6GB（tectonic + pdftoppm 400dpi），8 并发 ≈ 5GB，32GB 机器余量充足
+    parallel = int(os.environ.get("PARALLEL", 8))
+    # 「只生成指定版式」按文档语义只增改所选版式；不带参数的全量运行才清空重建
+    if not argv:
+        clear_cache()
 
     tasks = task_list(patterns, sizes)
     print(f"共 {len(tasks)} 个任务，并发 {parallel}")

@@ -14,6 +14,8 @@ use super::{
 pub(crate) struct DailyTimelinePattern {
     pub(crate) start: i32,
     pub(crate) end: i32,
+    /// 一日占几页：1 = 一日一页（全天一轴）；2 = 一日跨页两页，
+    /// 摊开跨页左页画前半夜、右页画后半夜。
     pub(crate) pages: i32,
     pub(crate) line_color: String,
     pub(crate) line_width: f64,
@@ -160,41 +162,47 @@ pub(crate) fn draw_daily_timeline(
     let date = p
         .start_date
         .map(|start| start + Duration::days((index / p.pages as usize) as i64));
-    let (start, end) = (p.start, p.end);
-    let mid = (start + end) / 2;
+    let mid = (p.start + p.end) / 2;
+    // 一日两页：摊开跨页的左页（偶数页号、订口在右）画前半夜、右页画后半夜，
+    // 时刻沿摊开方向自左向右递增；一日一页时画全天。
     let (start, end) = if p.pages == 1 {
-        (start, end)
-    } else if geo.binding_side == Side::Left {
-        (start, mid)
+        (p.start, p.end)
+    } else if geo.binding_side == Side::Right {
+        (p.start, mid)
     } else {
-        (mid, end)
+        (mid, p.end)
     };
     let span = f64::from(end - start);
-    let hh = geo.content.height / span;
+    // 全部元素收在页心内（同 octan_week 的 content 纪律）：顶部为日期标题带；
+    // 小时号带贴订口侧页心边缘，主刻度与昼/夜小点纹自号带铺到页心外缘。
+    let r = geo.content;
+    let title_h = p.label_size * 1.5 * MM_PER_PT;
+    let axis_top = r.y + title_h + 1.0;
+    let hh = (r.y + r.height - axis_top) / span;
     let axis = if geo.binding_side == Side::Left {
-        geo.content.x
+        r.x
     } else {
-        geo.content.x + geo.content.width
+        r.x + r.width
     };
     let direction = if geo.binding_side == Side::Left {
         1.0
     } else {
         -1.0
     };
-    let extension = geo.page.width
-        * if geo.binding_side == Side::Left {
-            2.0 / 3.0
-        } else {
-            1.0 / 3.0
-        };
+    let label_w = p.label_size * MM_PER_PT;
+    let band = axis + direction * (label_w + 1.0);
+    let outer = if geo.binding_side == Side::Left {
+        r.x + r.width
+    } else {
+        r.x
+    };
     let mut lines = Vec::new();
     let mut dots = Vec::new();
     let mut texts = Vec::new();
     if let Some(date) = date {
         texts.push(Text {
-            x: geo.content.x + geo.content.width / 2.0,
-            y: geo.content.y - 3.0,
-            // 字号是 pt，坐标是 mm：标题离轴线顶部 3mm，避开 00 小时标签上探的半个字高。
+            x: r.x + r.width / 2.0,
+            y: r.y + title_h,
             content: format_date(date, &p.title_format, "zh-CN"),
             size: p.label_size * 1.5,
             color: p.line_color.clone(),
@@ -205,10 +213,11 @@ pub(crate) fn draw_daily_timeline(
     }
     for hour in start..=end {
         let color = daily_timeline_color(p, date, hour * 60);
-        let y = geo.content.y + f64::from(hour - start) / span * geo.content.height;
-        let tick = axis + direction * 7.0;
+        let y = axis_top + f64::from(hour - start) * hh;
+        // 主刻度自号带外缘向外 7mm；小点纹按半小时节奏铺满到页心外缘。
+        let tick = band + direction * 7.0;
         lines.push(Line {
-            x1: axis,
+            x1: band,
             y1: y,
             x2: tick,
             y2: y,
@@ -216,7 +225,7 @@ pub(crate) fn draw_daily_timeline(
             width: Some(p.line_width),
             style: LineStyle::Solid,
         });
-        let count = ((extension - tick).abs() / (hh / 2.0)).ceil() as usize;
+        let count = ((outer - tick).abs() / (hh / 2.0)).ceil() as usize;
         for i in 1..count {
             dots.push(Dot {
                 x: tick + direction * i as f64 * hh / 2.0,
@@ -228,7 +237,7 @@ pub(crate) fn draw_daily_timeline(
             });
         }
         texts.push(Text {
-            x: axis - direction * 3.0,
+            x: axis + direction * (label_w / 2.0 + 0.5),
             y,
             content: format!("{hour:02}"),
             size: p.label_size,
@@ -240,9 +249,9 @@ pub(crate) fn draw_daily_timeline(
         if hour < end {
             let half = y + hh / 2.0;
             lines.push(Line {
-                x1: axis,
+                x1: band,
                 y1: half,
-                x2: axis + direction * 3.0,
+                x2: band + direction * 3.0,
                 y2: half,
                 color: daily_timeline_color(p, date, hour * 60 + 30),
                 width: Some(p.line_width),

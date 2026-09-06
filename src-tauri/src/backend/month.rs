@@ -360,10 +360,10 @@ pub(crate) fn draw_month(
     (lines, dots, paths, texts)
 }
 
-const A: f64 = 5.5; // mm，打卡单元格边长
-const ITEM_W: f64 = 5.0; // 打卡项列宽 = ITEM_W × A
+const ITEM_W: f64 = 5.0; // 打卡项列宽 = ITEM_W × cell（格宽随版式自适应）
 const TRACKER_GAP: f64 = 2.0; // mm，上下两表间距
 const TRACKER_UP: f64 = 3.0; // mm，整体上移
+const ARROW_LANE: f64 = 6.0; // mm，内容左缘的连接箭头泳道
 
 #[derive(Clone, Deserialize)]
 #[serde(default, deny_unknown_fields)]
@@ -404,6 +404,7 @@ impl TrackerPattern {
 }
 
 /// 一张打卡表：表头行（日期，锚在格右上）+ items 行空格；顶部边线不画（开口样式）。
+/// 格宽 `cell` 由调用方按版式推得。
 #[allow(clippy::too_many_arguments)]
 fn push_table(
     lines: &mut Vec<Line>,
@@ -416,6 +417,7 @@ fn push_table(
     count: usize,
     with_items: bool,
     rows: usize,
+    cell: f64,
 ) {
     let grid = |x1, y1, x2, y2| Line {
         x1,
@@ -428,10 +430,10 @@ fn push_table(
     };
     let mut xs = vec![lm];
     if with_items {
-        xs.push(lm + ITEM_W * A);
+        xs.push(lm + ITEM_W * cell);
     }
     for _ in 0..count {
-        let next = xs.last().unwrap() + A;
+        let next = xs.last().unwrap() + cell;
         xs.push(next);
     }
     // 竖线不过表头行，横线跳过顶部边线，交叉处留缺口。
@@ -439,14 +441,14 @@ fn push_table(
         for i in 1..rows {
             lines.push(grid(
                 *x,
-                top + i as f64 * A + GAP,
+                top + i as f64 * cell + GAP,
                 *x,
-                top + (i + 1) as f64 * A - GAP,
+                top + (i + 1) as f64 * cell - GAP,
             ));
         }
     }
     for i in 1..=rows {
-        let y = top + i as f64 * A;
+        let y = top + i as f64 * cell;
         for k in 0..xs.len() - 1 {
             lines.push(grid(xs[k] + GAP, y, xs[k + 1] - GAP, y));
         }
@@ -457,7 +459,7 @@ fn push_table(
         // 打卡表不染色。
         texts.push(Text {
             x: xs[off + i + 1],
-            y: top + A - 0.2,
+            y: top + cell - 0.2,
             content: day.to_string(),
             size: p.date_size,
             color: p.line_color.to_string(),
@@ -469,6 +471,9 @@ fn push_table(
 }
 
 /// 月打卡页：上半表 1–14 号（带打卡项列），下半表 15–月末；随页序推进月份。
+/// 格子按版式自定：宽 = 内容宽（扣除左侧连接箭头泳道）除以较宽表的格数
+/// （打卡项列 = ITEM_W 格），高 = 内容高（扣除两表间距、上下两表）除以行数；
+/// 哪个方向先触边由哪个方向定格子大小，另一方向余白居中（同年追踪）。
 pub(crate) fn draw_tracker(
     geo: Geometry,
     p: &TrackerPattern,
@@ -504,17 +509,28 @@ pub(crate) fn draw_tracker(
     let rows = items + 1;
     let count1 = days.min(14);
     let count2 = days - count1;
-    let w1 = ITEM_W * A + f64::from(count1 as u16) * A;
-    let w2 = f64::from(count2 as u16) * A;
+    // 较宽的表恒为上表（打卡项列 + 1–14 日 = 19 格 > 下表 ≤17 格）。
+    let cols = (ITEM_W + count1 as f64).max(count2 as f64);
+    let lane = if count2 > 0 { ARROW_LANE } else { 0.0 };
+    let cell = ((land.width - lane) / cols)
+        .min(if count2 > 0 {
+            (land.height - TRACKER_GAP) / (2.0 * rows as f64)
+        } else {
+            land.height / rows as f64
+        })
+        .max(0.8);
+    let w1 = ITEM_W * cell + f64::from(count1 as u16) * cell;
+    let w2 = f64::from(count2 as u16) * cell;
     let max_w = if count2 > 0 { w1.max(w2) } else { w1 };
-    let lm = land.x + (land.width - max_w) / 2.0;
-    let table_h = rows as f64 * A;
+    // 表在箭头泳道右侧的剩余宽度内居中。
+    let lm = land.x + lane + (land.width - lane - max_w) / 2.0;
+    let table_h = rows as f64 * cell;
     let total = if count2 > 0 {
         2.0 * table_h + TRACKER_GAP
     } else {
         table_h
     };
-    let top1 = land.y + (land.height - total) / 2.0 - TRACKER_UP;
+    let top1 = (land.y + (land.height - total) / 2.0 - TRACKER_UP).max(land.y + 0.5);
     let top2 = top1 + table_h + TRACKER_GAP;
     push_table(
         &mut lines,
@@ -527,6 +543,7 @@ pub(crate) fn draw_tracker(
         count1 as usize,
         true,
         rows,
+        cell,
     );
     if count2 > 0 {
         push_table(
@@ -540,11 +557,12 @@ pub(crate) fn draw_tracker(
             count2 as usize,
             false,
             rows,
+            cell,
         );
         // 连接箭头：上表打卡第 i 行左缘 → 下表第 i 行左缘（左外侧逐行错开的折线箭头，表头不连）。
         for j in 1..rows {
-            let yc1 = top1 + (j as f64 + 0.5) * A;
-            let yc2 = top2 + (j as f64 + 0.5) * A;
+            let yc1 = top1 + (j as f64 + 0.5) * cell;
+            let yc2 = top2 + (j as f64 + 0.5) * cell;
             let xm = (lm - 1.5 - j as f64 * 1.5).max(land.x + 0.8);
             paths.push(Poly {
                 points: vec![(lm - 0.4, yc1), (xm, yc1), (xm, yc2), (lm - 0.4, yc2)],
@@ -1124,5 +1142,42 @@ mod tests {
         // 后页日期从 15 起。
         assert!(texts1.iter().any(|t| t.content == "15"));
         assert!(!texts1.iter().any(|t| t.content == "14"));
+    }
+
+    #[test]
+    fn tracker_cells_fill_landscape_content() {
+        let page = PageSettings::default();
+        let p = TrackerPattern {
+            year: 2026,
+            month: 9,
+            ..Default::default()
+        };
+        let r = geometry_for(&page, 1).content;
+        let (lines, paths, texts) = draw_tracker(geometry_for(&page, 1), &p, 0, r"\sffamily");
+        // 9 月 30 天：上表 1–14（含打卡项列）+ 下表 15–30，各带表头行。
+        assert_eq!(texts.len(), 30);
+        // 宽度受限：上表（19 格 + 左侧箭头泳道）撑满内容宽，旋后表右缘
+        // 贴内容区上缘；所有线都落在内容区内。
+        let ymin = lines
+            .iter()
+            .map(|l| l.y1.min(l.y2))
+            .fold(f64::MAX, f64::min);
+        assert!(
+            (ymin - r.y).abs() < 0.3,
+            "表应撑满内容区：min y {ymin} vs 上缘 {}",
+            r.y
+        );
+        assert!(lines.iter().all(|l| {
+            l.x1 >= r.x - 0.01
+                && l.x2 >= r.x - 0.01
+                && l.x1 <= r.x + r.width + 0.01
+                && l.x2 <= r.x + r.width + 0.01
+                && l.y1 >= r.y - 0.01
+                && l.y2 >= r.y - 0.01
+                && l.y1 <= r.y + r.height + 0.01
+                && l.y2 <= r.y + r.height + 0.01
+        }));
+        // 打卡行数（items=4 → 5 行）× 两表：连接箭头 4 条。
+        assert_eq!(paths.len(), 4);
     }
 }
