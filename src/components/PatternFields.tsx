@@ -221,24 +221,6 @@ export function PatternFields({ section, set }: Props) {
       </Grid>
     );
 
-  if (p.kind === "month_graph")
-    return (
-      <Grid>
-        <SelectField
-          label={t("field.numberPosition")}
-          value={p.axis}
-          options={[["right", t("graphAxis.right")], ["left", t("graphAxis.left")]]}
-          onChange={(v) => set("axis", v)}
-        />
-        <Field label={t("field.lineColor")} value={p.line_color} type="color" onChange={(v) => set("line_color", v)} />
-        <Field label={t("field.fineLineWidthPt")} value={p.line_width} min={0.01} step={0.05} onChange={(v) => set("line_width", v)} />
-        <Field label={t("field.axisLabelSize")} value={p.date_size} min={1} step={0.5} onChange={(v) => set("date_size", v)} />
-        <Field label={t("field.yMin")} value={p.y_min ?? ""} placeholder={t("field.skipIfEmpty")} onChange={(v) => set("y_min", v)} />
-        <Field label={t("field.yMax")} value={p.y_max ?? ""} placeholder={t("field.skipIfEmpty")} onChange={(v) => set("y_max", v)} />
-        <Field label={t("field.ySteps")} value={p.y_steps} min={1} step={1} onChange={(v) => set("y_steps", v)} />
-      </Grid>
-    );
-
   if (p.kind === "blank")
     return (
       <Grid>

@@ -162,13 +162,6 @@
     "subSize": "Lunar/holiday size (pt)",
     "subGap": "Label gap (mm)",
     "trackerItems": "Tracker items",
-    "numberPosition": "Numbers position",
-    "fineLineWidthPt": "Fine width (pt, bold = 2×)",
-    "axisLabelSize": "Axis label size (pt)",
-    "yMin": "Y-axis min",
-    "yMax": "Y-axis max",
-    "ySteps": "Y-axis tick count",
-    "skipIfEmpty": "blank = skip",
     "startHour": "Start hour",
     "endHour": "End hour",
     "span": "Span",
@@ -198,10 +191,6 @@
   "lunarStyle": {
     "numeric": "Old names + Arabic numerals",
     "traditional": "Traditional lunar terms"
-  },
-  "graphAxis": {
-    "right": "Right (read rotated 90° counter-clockwise)",
-    "left": "Left (read rotated 90° clockwise)"
   },
   "spanOption": {
     "single": "Single page",
@@ -234,7 +223,6 @@
     "hogan": "Hōgan-kei",
     "monthCalendar": "Monthly calendar",
     "yearTracker": "Year tracker",
-    "monthGraph": "Month graph",
     "dailyTimeline": "Timeline",
     "monthTracker": "Month tracker",
     "yearCalendar": "Yearly calendar",

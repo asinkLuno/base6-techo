@@ -8,7 +8,7 @@ export type Values = Record<string, Value>;
 export type PatternKind =
   | "dots" | "grid" | "ruled" | "seyes" | "vertical" | "us-ruled"
   | "hakubunkan-toyo-nikki" | "方眼罫" | "八分周视图" | "hakubunkan-kaichu-nikki"
-  | "year-calendar" | "month-calendar" | "month-tracker" | "year-tracker" | "month_graph" | "daily_timeline" | "blank";
+  | "year-calendar" | "month-calendar" | "month-tracker" | "year-tracker" | "daily_timeline" | "blank";
 
 export type Section = {
   id: string;
@@ -35,7 +35,6 @@ export const patternNames: Record<PatternKind, string> = {
   "us-ruled": "美式横线",
   "hakubunkan-toyo-nikki": "博文館・當用日記",
   "八分周视图": "八分周视图",
-  "month_graph": "月追踪制图",
   "hakubunkan-kaichu-nikki": "博文館・懐中日記",
   "方眼罫": "方眼罫",
   "month-calendar": "月历",
@@ -56,7 +55,6 @@ export const patternNameKeys: Record<PatternKind, string> = {
   "us-ruled": "usRuled",
   "hakubunkan-toyo-nikki": "toyoNikki",
   "八分周视图": "week8",
-  "month_graph": "monthGraph",
   "hakubunkan-kaichu-nikki": "kaichuNikki",
   "方眼罫": "hogan",
   "month-calendar": "monthCalendar",
@@ -79,7 +77,7 @@ export const PATTERN_GROUPS: PatternGroup[] = [
     label: "schedule",
     subgroups: [
       { label: "year", kinds: ["year-calendar", "year-tracker"] },
-      { label: "month", kinds: ["month-calendar", "month-tracker", "month_graph"] },
+      { label: "month", kinds: ["month-calendar", "month-tracker"] },
       { label: "week", kinds: ["八分周视图"] },
       { label: "day", kinds: ["daily_timeline"] },
     ],
@@ -173,7 +171,6 @@ export const defaults: Record<PatternKind, Values & { kind: PatternKind }> = {
     date_format: "%-m 月  %-d 日", date_locale: "zh-CN", weekday_headers: "月,火,水,木,金,土,日",
     lunar_style: "numeric", line_color: COLORS.gray, line_width: 0.4, date_size: 10,
   },
-  "month_graph": { kind: "month_graph", axis: "right", line_color: COLORS.gray, line_width: 0.2, date_size: 8, y_min: null, y_max: null, y_steps: 10 },
   "month-calendar": {
     kind: "month-calendar", year: new Date().getFullYear(), month: new Date().getMonth() + 1,
     phase_color: COLORS.phaseGold, line_color: COLORS.gray, line_width: 0.4, date_size: 8,

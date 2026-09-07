@@ -14,7 +14,6 @@ mod hakubunkan_kaichu_nikki;
 mod hakubunkan_toyo_nikki;
 mod hogen_grid;
 mod month;
-mod month_graph;
 mod octan_week;
 mod ruled;
 mod seyes;
@@ -36,7 +35,6 @@ use hogen_grid::{HogenGridPattern, draw_hogen_grid};
 use month::{
     MonthPattern, MonthTrackerPattern, TrackerPattern, draw_month, draw_month_tracker, draw_tracker,
 };
-use month_graph::{MonthGraphPattern, draw_month_graph};
 use octan_week::{OctanWeekPattern, draw_octan_week};
 use ruled::{RuledPattern, draw_ruled};
 use serde::Deserialize;
@@ -263,8 +261,6 @@ enum Pattern {
     HakubunkanToyoNikki(HakubunkanToyoNikkiPattern),
     #[serde(rename = "八分周视图")]
     OctanWeek(OctanWeekPattern),
-    #[serde(rename = "month_graph")]
-    MonthGraph(MonthGraphPattern),
     #[serde(rename = "hakubunkan-kaichu-nikki")]
     HakubunkanKaichuNikki(HakubunkanKaichuNikkiPattern),
     #[serde(rename = "方眼罫")]
@@ -346,7 +342,7 @@ impl Pattern {
             Self::OctanWeek(p) => p.weeks().len() * 2,
             Self::HakubunkanKaichuNikki(p) => p.page_count(),
             Self::HakubunkanToyoNikki(p) => p.page_count(),
-            Self::MonthGraph(_) | Self::Tracker(_) => 1,
+            Self::Tracker(_) => 1,
             Self::HogenGrid(p) => p.pages,
             Self::Seyes(p) => p.pages,
             Self::Month(p) => {
@@ -378,7 +374,6 @@ impl Pattern {
             Self::Vertical(p) => &p.color,
             Self::HakubunkanToyoNikki(p) => &p.line_color,
             Self::OctanWeek(p) => &p.line_color,
-            Self::MonthGraph(p) => &p.line_color,
             Self::HakubunkanKaichuNikki(p) => &p.line_color,
             Self::HogenGrid(p) => &p.line_color,
             Self::Seyes(p) => &p.main_color,
@@ -400,7 +395,6 @@ impl Pattern {
             Self::Vertical(p) => p.frame_inner_width,
             Self::HakubunkanToyoNikki(p) => p.line_width,
             Self::OctanWeek(p) => p.line_width,
-            Self::MonthGraph(p) => p.line_width,
             Self::HakubunkanKaichuNikki(p) => p.line_width,
             // 方眼罫 版式已把尺寸/线宽固定，只留颜色可配；默认线宽取固定值。
             Self::HogenGrid(_) => 0.7,
@@ -422,7 +416,6 @@ impl Pattern {
             Self::Vertical(p) => p.validate(),
             Self::HakubunkanToyoNikki(p) => p.validate(),
             Self::OctanWeek(p) => p.validate(),
-            Self::MonthGraph(p) => p.validate(),
             Self::HakubunkanKaichuNikki(p) => p.validate(),
             Self::HogenGrid(p) => p.validate(),
             Self::Seyes(p) => p.validate(),
@@ -789,10 +782,6 @@ fn render_page(
         Pattern::MonthTracker(p) => {
             let (l, pa, t) = draw_month_tracker(geo, p, index, &doc.binding_text_font);
             (l, vec![], pa, t)
-        }
-        Pattern::MonthGraph(p) => {
-            let (l, t) = draw_month_graph(geo, p, &doc.binding_text_font);
-            (l, vec![], vec![], t)
         }
         Pattern::HakubunkanKaichuNikki(p) => {
             let (l, t) = draw_hakubunkan_kaichu_nikki(geo, p, index, &doc.binding_text_font);
@@ -2203,17 +2192,13 @@ mod tests {
             page_number: false,
             ..Default::default()
         };
-        let cases: [(&str, &str); 15] = [
+        let cases: [(&str, &str); 14] = [
             ("ruled", r#"{"kind":"ruled"}"#),
             ("dots", r#"{"kind":"dots"}"#),
             ("grid", r#"{"kind":"grid"}"#),
             ("vertical", r#"{"kind":"vertical"}"#),
             ("方眼罫", r#"{"kind":"方眼罫"}"#),
             ("month-calendar", r#"{"kind":"month-calendar"}"#),
-            (
-                "month_graph",
-                r#"{"kind":"month_graph","y_min":22,"y_max":32}"#,
-            ),
             (
                 "hakubunkan-toyo-nikki",
                 r#"{"kind":"hakubunkan-toyo-nikki","start_date":"2026-09-01","end_date":"2026-09-02"}"#,

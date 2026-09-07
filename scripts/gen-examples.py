@@ -56,7 +56,7 @@ SIZES = {
 DEFAULT_PATTERNS = ["ruled", "dots", "grid", "seyes", "us-ruled", "vertical",
                     "hogen", "hakubunkan-toyo-nikki", "hakubunkan-kaichu-nikki",
                     "year-calendar", "year-tracker", "month-calendar",
-                    "month-tracker", "month_graph", "octan-week", "daily_timeline"]
+                    "month-tracker", "octan-week", "daily_timeline"]
 
 # 基础版式默认参数（与前端 schema.ts defaults 一致）
 PATTERN_PARAMS = {
@@ -99,12 +99,6 @@ PATTERN_PARAMS = {
 
 # 装订水印颜色：日记 / 方眼罫用主线玉色，其余保持空（后端缺省灰）。
 WATERMARK_COLOR = {"hakubunkan-toyo-nikki": "#a9d1ae", "hogen": "#a9d1ae"}
-
-# month_graph 纵轴预设：睡眠（22→32，32=次日 8 点）/ 体重（60→70）。
-MONTH_GRAPH_PRESETS = {
-    "sleep":  {"title": "睡眠追踪", "y_min": 22, "y_max": 32, "y_steps": 5},
-    "weight": {"title": "体重追踪", "y_min": 60, "y_max": 70, "y_steps": 5},
-}
 
 def margins(w, h):
     """按纸张尺寸算谐和页边距 (mm)：装订=宽×9%（≥8），非装订=宽×12%（≥7），
@@ -153,20 +147,6 @@ def basic_request(kind, width, height, size, pattern=None):
         [blank_section(width, height),
          {"title": kind, "page": page_obj(width, height), "document": doc,
           "pattern": pattern or PATTERN_PARAMS[kind]}],
-    )
-
-
-def month_graph_request(kind, width, height, size, variant):
-    """month_graph：空白首叶 + 内容页（纵轴按预设 range）。"""
-    pat = {"kind": "month_graph", "axis": "right",
-           "line_color": "#7a7a7a", "line_width": 0.2, "date_size": 8}
-    pat.update({k: MONTH_GRAPH_PRESETS[variant][k] for k in ("y_min", "y_max", "y_steps")})
-    return request(
-        f"{OUT_DIR}/{kind}/{size}/{kind}-{size}-{variant}.pdf",
-        [blank_section(width, height),
-         {"title": MONTH_GRAPH_PRESETS[variant]["title"],
-          "page": page_obj(width, height), "document": doc_obj(width, height),
-          "pattern": pat}],
     )
 
 
@@ -321,8 +301,6 @@ def daily_composite_request(width, height):
 
 
 def build_request(kind, width, height, size, variant=""):
-    if kind == "month_graph":
-        return month_graph_request(kind, width, height, size, variant)
     if kind in ("month-calendar", "year-calendar", "year-tracker"):
         return calendar_request(kind, width, height, size, variant)
     if kind == "daily_timeline" and size == "a7":
@@ -393,11 +371,6 @@ def task_list(patterns, sizes):
             for size in sizes:
                 w, h = SIZES[size]
                 for variant in ("plain", "holiday"):
-                    tasks.append((kind, size, w, h, variant))
-        elif kind == "month_graph":
-            for size in sizes:
-                w, h = SIZES[size]
-                for variant in MONTH_GRAPH_PRESETS:
                     tasks.append((kind, size, w, h, variant))
         elif kind == "year-tracker":
             for size in sizes:

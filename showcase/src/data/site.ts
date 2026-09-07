@@ -105,12 +105,11 @@ export const GROUPS: Group[] = [
       {
         id: "month",
         label: "月",
-        mono: "3 款 · 月历 / 月打卡 / 月制图",
-        intro: "以月为粒度的三种面：月历看日子，月打卡数格子，月制图画趋势。",
+        mono: "2 款 · 月历 / 月打卡",
+        intro: "以月为粒度的两种面：月历看日子，月打卡数格子。",
         patterns: [
           { id: "month-calendar", name: "月历", desc: "单张月历，可选标注节假日与旧历，做月内安排。", spec: "月历星期表头 · 日期 8 pt · 节假日/旧历可关", ink: "#7A7A7A", frames: "calendar", variants: ["plain", "holiday"], variantLabels: { plain: "素历", holiday: "节日" } },
           { id: "month-tracker", name: "月打卡", desc: "当月每日一格的打卡表，可设多项目标随列推进。", spec: "items 4 · date_size 8 · 线宽 0.4 pt", ink: "#7A7A7A", frames: "single" },
-          { id: "month_graph", name: "月追踪制图", desc: "按月纵轴折线制图，预置睡眠、体重两档量程，随手记逐日数据。", spec: "纵轴右置 · y_min/y_max 可调", ink: "#7A7A7A", frames: "single", variants: ["sleep", "weight"], variantLabels: { sleep: "睡眠", weight: "体重" } },
         ],
       },
       {

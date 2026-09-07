@@ -162,13 +162,6 @@
     "subSize": "农历/节日字号（pt）",
     "subGap": "标签间隔（mm）",
     "trackerItems": "打卡项数",
-    "numberPosition": "数字位置",
-    "fineLineWidthPt": "细线宽（pt，粗线为两倍）",
-    "axisLabelSize": "轴标签字号（pt）",
-    "yMin": "纵轴下界",
-    "yMax": "纵轴上界",
-    "ySteps": "纵轴刻度段数",
-    "skipIfEmpty": "留空不绘",
     "startHour": "起始时间",
     "endHour": "结束时间",
     "span": "跨页",
@@ -198,10 +191,6 @@
   "lunarStyle": {
     "numeric": "旧 + 阿拉伯数字",
     "traditional": "传统农历表述"
-  },
-  "graphAxis": {
-    "right": "右侧（逆时针转 90° 阅读）",
-    "left": "左侧（顺时针转 90° 阅读）"
   },
   "spanOption": {
     "single": "单页",
@@ -234,7 +223,6 @@
     "hogan": "方眼罫",
     "monthCalendar": "月历",
     "yearTracker": "年度追踪",
-    "monthGraph": "月追踪制图",
     "dailyTimeline": "时间轴",
     "monthTracker": "月打卡",
     "yearCalendar": "年历",
