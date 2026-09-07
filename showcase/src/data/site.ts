@@ -6,18 +6,18 @@ export const TITLE = "base6 techo · 版式样张集";
 export const ENDPOINT = "https://github.com/asinkLuno/base6-techo";
 
 export interface Size {
-  id: string; // 目录名（a5 / a6p / a7）
+  id: string; // 目录名（a5s / tnp / 67m5）
   label: string; // 显示名
   mm: string; // “宽 × 高”
   w: number;
   h: number; // 页尺寸毫米
-  spread: string; // spec-fig 宽度百分比（A5 为满幅基准）
+  spread: string; // spec-fig 宽度百分比（A5S 110×210 为满幅基准）
 }
 
 export const SIZES: Size[] = [
-  { id: "a5", label: "A5", mm: "148 × 210", w: 148, h: 210, spread: "100.0" },
-  { id: "a6p", label: "A6 Personal", mm: "95 × 171", w: 95, h: 171, spread: "64.2" },
-  { id: "a7", label: "A7", mm: "80 × 120", w: 80, h: 120, spread: "54.1" },
+  { id: "a5s", label: "A5S", mm: "110 × 210", w: 110, h: 210, spread: "100.0" },
+  { id: "tnp", label: "TN 护照", mm: "88 × 125", w: 88, h: 125, spread: "80.0" },
+  { id: "67m5", label: "67M5", mm: "67 × 105", w: 67, h: 105, spread: "60.9" },
 ];
 
 export interface Pattern {
@@ -80,7 +80,7 @@ export const GROUPS: Group[] = [
       "据实还原的<strong>3 本真实纸品</strong>——格线、间距与版心逐一比对实物复刻：<span class=\"mono\">MD 方眼罫 · 博文館・當用日記 · 博文館・懐中日記</span>",
     patterns: [
       { id: "hogen", name: "方眼罫", desc: "复刻 Midori(MD) 笔记内页的方眼罫：5 mm 格，偶数格线向外伸出，每十格以点相连。", spec: "间距 5 mm · 格隙 1 mm · 线宽 0.7", ink: "#A9D1AE" },
-      { id: "hakubunkan-toyo-nikki", name: "博文館・當用日記", desc: "复刻博文館旧式日记，一页一天：受信、发信、摘记栏与天気・気温列。", spec: "一页一天 · 日期逐页推进 · 线色 #A9D1AE", ink: "#A9D1AE" },
+      { id: "hakubunkan-toyo-nikki", name: "博文館・當用日記", desc: "复刻博文館旧式日记，一页一天：受信、发信、摘记栏与天気・気温列。", spec: "一页一天 · 日期逐页推进", ink: "#A9D1AE" },
       { id: "hakubunkan-kaichu-nikki", name: "博文館・懐中日記", desc: "复刻博文館袖珍日记，一页两天，注旧暦与星期，侧栏记天気・気温。", spec: "一页两天 · 旧暦数字 · 线宽 0.4 pt", ink: "#7A7A7A" },
     ],
   },
@@ -134,8 +134,8 @@ export const GROUPS: Group[] = [
   },
 ];
 
-// 样张对页 PNG 的固有像素尺寸（A5 全尺寸基准）。
-export const PAGE_W = 875;
+// 样张对页 PNG 的固有像素尺寸（A5S 110×210 为基准，150dpi：110mm→650px / 210mm→1241px）。
+export const PAGE_W = 650;
 export const PAGE_H = 1241;
 
 // 手写样张的简体原文：运行时经 opencc (cn→tw) 转为繁体以匹配辰宇落雁字型。

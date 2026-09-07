@@ -22,7 +22,7 @@ impl Default for DotsPattern {
             pages: 1,
             spacing: 5.0,
             column_spacing: 5.0,
-            radius: 0.3,
+            radius: 0.25,
             color: GRAY.into(),
             center_color: None,
         }

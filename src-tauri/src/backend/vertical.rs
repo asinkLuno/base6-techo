@@ -21,7 +21,7 @@ impl Default for VerticalPattern {
     fn default() -> Self {
         Self {
             pages: 1,
-            spacing: 10.0,
+            spacing: 9.0,
             color: BLACK.into(),
             frame_outer_width: 0.5,
             frame_inner_width: 0.18,

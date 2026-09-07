@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """生成基础版式的展示样张。
 
-- 每个版式 × 3 种尺寸（A5 / A6P / A7）
+- 每个版式 × 3 种尺寸（A5S / TNP / 67M5）
 - 首页插空白页，后两页为内容页（构成对页展开）
 - 装订侧打印 "base6" 字样
 - 把第 2、3 页转成 PNG，用于展示对页
@@ -13,7 +13,7 @@
 用法：
   ./scripts/gen-examples.py                     # 全部基础版式 × 3 尺寸
   ./scripts/gen-examples.py ruled dots          # 只生成指定版式
-  ./scripts/gen-examples.py ruled --sizes a5,a7  # 指定版式 + 指定尺寸
+  ./scripts/gen-examples.py ruled --sizes a5s,tnp  # 指定版式 + 指定尺寸
   PARALLEL=2 ./scripts/gen-examples.py           # 手动限制并发数
   FONT='Sarasa UI SC' ./scripts/gen-examples.py  # 换装订侧字体（更纱黑体编译极吃内存）
   ./scripts/gen-examples.py --weekly              # 综合周历整本（TN 护照 88×125）
@@ -45,10 +45,9 @@ HOLIDAYS = "examples/ics/holidays-2026.json"
 
 # 尺寸表：名称 -> (宽, 高) mm
 SIZES = {
-    "a5": (148, 210),
-    "a6p": (95, 171),
-    "a7": (80, 120),
-    "tnp": (88, 125),   # TN 护照
+    "a5s": (110, 210),
+    "tnp": (88, 125),
+    "67m5": (67, 105),
 }
 
 # 与 showcase/src/data/site.ts 的 GROUPS 全集一致：缺一组，showcase 就有一组裂图
@@ -101,8 +100,9 @@ PATTERN_PARAMS = {
 WATERMARK_COLOR = {"hakubunkan-toyo-nikki": "#a9d1ae", "hogen": "#a9d1ae"}
 
 def margins(w, h):
-    """按纸张尺寸算谐和页边距 (mm)：装订=宽×9%（≥8），非装订=宽×12%（≥7），
-    页头=高×7%（≥6），页脚=高×9%（≥8）。"""
+    """按纸张尺寸算谐和页边距，与 src/lib/schema.ts 的 margins() 完全一致：
+    装订=宽×9%（≥8）、非装订=宽×12%（≥7）、页头=高×7%（≥6）、页脚=高×9%（≥8）。
+    int(x+0.5) 即 JS 的 Math.round(x)。"""
     return (
         int(max(8, w * 0.09 + 0.5)),
         int(max(7, w * 0.12 + 0.5)),
@@ -151,22 +151,27 @@ def basic_request(kind, width, height, size, pattern=None):
 
 
 
+# 年历/月历/年度追踪在 67M5 拆成双页跨页（页面小，单页放不下）。
+def calendar_two_page(kind, size):
+    return size == "67m5"
+
+
 def calendar_pattern(kind, size, variant):
     if kind == "month-calendar":
         mpat = {"kind": "month-calendar", "phase_color": "#e5b93f", "line_color": "#7a7a7a",
                 "line_width": 0.4, "date_size": 8, "weekday_headers": "一,二,三,四,五,六,日",
                 "title_format": "%Y年%-m月", "sub_size": 4.2, "sub_gap": 0}
-        mpat["two_page"] = (size == "a7")
+        mpat["two_page"] = calendar_two_page(kind, size)
         mpat["year"], mpat["month"] = 2026, 1
     elif kind == "year-calendar":
-        # a5/a6p 单页：4 行 × 每行 3 个；a7 双页每页 3×2
-        rows, cols = (3, 2) if size == "a7" else (4, 3)
+        # 单页 4 行 × 每行 3 个；67M5 双页每页 3×2
+        rows, cols = (3, 2) if calendar_two_page(kind, size) else (4, 3)
         mpat = {"kind": "year-calendar", "start": "2026-01", "end": "2026-12",
                 "rows": rows, "cols": cols, "date_size": 6, "weekday_lang": "zh",
                 "title_format": "%Y年%-m月", "weekday_headers": "一,二,三,四,五,六,日"}
     elif kind == "year-tracker":
         mpat = {"kind": "year-tracker", "start": "2026-01", "end": "2026-12",
-                "two_page": (size == "a7"), "line_color": "#7a7a7a",
+                "two_page": calendar_two_page(kind, size), "line_color": "#7a7a7a",
                 "line_width": 0.4, "date_size": 8}
     else:
         raise ValueError(f"unknown calendar kind: {kind}")
@@ -188,9 +193,10 @@ def calendar_request(kind, width, height, size, variant):
     if variant == "holiday":
         with open(HOLIDAYS) as f:
             section["holidays"] = json.load(f)
-    # A7 为 3×2 双页跨页：空白首叶 + 两页内容（渲染第 2、3 页）；
-    # A5/A6P 单页成张、页面也只展示这一张，不做空白首页。
-    sections = [blank_section(width, height), section] if size == "a7" else [section]
+    # 双页跨页（67M5 月历/年度追踪）：空白首叶 + 两页内容（渲染第 2、3 页）；
+    # 其余单页成张、页面也只展示这一张，不做空白首页。
+    sections = ([blank_section(width, height), section]
+                if calendar_two_page(kind, size) else [section])
     return request(f"{OUT_DIR}/{kind}/{size}/{base}.pdf", sections)
 
 def _month_span(year, month):
@@ -303,8 +309,8 @@ def daily_composite_request(width, height):
 def build_request(kind, width, height, size, variant=""):
     if kind in ("month-calendar", "year-calendar", "year-tracker"):
         return calendar_request(kind, width, height, size, variant)
-    if kind == "daily_timeline" and size == "a7":
-        # A7 页面小：一日两页，横轴摊开成对页（其余尺寸一日一页，对页为相邻两天）
+    if kind == "daily_timeline" and size == "67m5":
+        # 67M5 页面小：一日两页，横轴摊开成对页（其余尺寸一日一页，对页为相邻两天）
         pat = dict(PATTERN_PARAMS[kind])
         pat["pages"] = 2
         return basic_request(kind, width, height, size, pat)
@@ -327,9 +333,10 @@ def run_task(kind, size, width, height, variant=""):
     if proc.returncode != 0:
         return f"FAILED {kind} {size} {variant}: {proc.stderr.strip()}"
 
-    # 单页月历/年历/追踪（非 A7）：PDF 只有内容页本身 → 第 1 页 PNG；
-    # A7 跨页与其余对页版式：空白首页 + 内容页 → 第 2、3 页对页 PNG
-    if kind in ("month-calendar", "year-calendar", "year-tracker") and size != "a7":
+    # 单页月历/年历/追踪：PDF 只有内容页本身 → 第 1 页 PNG；
+    # 67M5 双页跨页与其余对页版式：空白首页 + 内容页 → 第 2、3 页对页 PNG
+    if kind in ("month-calendar", "year-calendar", "year-tracker") \
+            and not calendar_two_page(kind, size):
         subprocess.run(["pdftoppm", "-singlefile", "-f", "1", "-l", "1",
                         "-png", "-r", str(RES_DPI), out, f"{subdir}/{base}"],
                        check=True)
@@ -337,7 +344,7 @@ def run_task(kind, size, width, height, variant=""):
         subprocess.run(["pdftoppm", "-f", "2", "-l", "3", "-png",
                         "-r", str(RES_DPI), out, f"{subdir}/{base}-p"],
                        check=True)
-        # pdftoppm 补零宽度 = PDF 总页数位数（如时间轴 A7 一日两页 15 页 →
+        # pdftoppm 补零宽度 = PDF 总页数位数（如时间轴 67M5 一日两页 15 页 →
         # -p-02.png），而 showcase 的对页 URL 固定 1 位（-p-2.png）：
         # 把本次产物统一改回不补零命名，否则旧图残留、页面继续显示旧样张。
         for n in (2, 3):
@@ -447,7 +454,7 @@ def main(argv):
         generate_daily()
         return
     patterns = argv if argv else DEFAULT_PATTERNS
-    sizes = [s.strip() for s in os.environ.get("SIZE_ARG", "a5,a6p,a7").split(",")]
+    sizes = [s.strip() for s in os.environ.get("SIZE_ARG", "a5s,tnp,67m5").split(",")]
     for s in sizes:
         if s not in SIZES:
             sys.exit(f"未知尺寸: {s}")

@@ -142,14 +142,14 @@ currentSunday.setDate(currentMonday.getDate() + 6);
 
 export const defaults: Record<PatternKind, Values & { kind: PatternKind }> = {
   ruled: { kind: "ruled", pages: 32, spacing: 8, color: COLORS.gray, width: 0.2 },
-  dots: { kind: "dots", pages: 1, spacing: 5, column_spacing: 5, radius: 0.3, color: COLORS.gray, center_color: COLORS.black },
+  dots: { kind: "dots", pages: 1, spacing: 5, column_spacing: 5, radius: 0.25, color: COLORS.gray, center_color: COLORS.black },
   grid: { kind: "grid", pages: 1, spacing: 5, color: COLORS.gray, width: 0.2 },
   seyes: {
     kind: "seyes", pages: 1, spacing: 8, margin_line: 7,
     main_color: "#9db0cf", main_width: 0.2, fine_color: "#c5d0e4", fine_width: 0.1,
     vline_color: "#c5d0e4", vline_width: 0.1, margin_color: "#d96a6a", margin_width: 0.4,
   },
-  vertical: { kind: "vertical", pages: 1, spacing: 10, color: "#000000", frame_outer_width: 0.5, frame_inner_width: 0.18, frame_gap: 1.2 },
+  vertical: { kind: "vertical", pages: 1, spacing: 9, color: "#000000", frame_outer_width: 0.5, frame_inner_width: 0.18, frame_gap: 1.2 },
   "us-ruled": {
     kind: "us-ruled", pages: 1, spacing: 8.7, rule_color: "#8fb0d8", rule_width: 0.2,
     margin_x: 25, margin_color: "#d96a6a", margin_width: 0.4,

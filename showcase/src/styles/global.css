@@ -48,19 +48,7 @@ a { color: inherit; }
 :focus-visible { outline: 2px solid var(--zhu); outline-offset: 2px; }
 ::selection { background: #e5d5c5; }
 
-/* ---- 书脊 ---- */
-.spine {
-  position: fixed; left: 0; top: 0; bottom: 0; width: 52px; z-index: 20;
-  display: flex; align-items: center; justify-content: center;
-  border-right: 1px solid var(--line);
-  writing-mode: vertical-rl; letter-spacing: 0.42em;
-  font-family: var(--mono); font-size: 11px; color: var(--ink2);
-  user-select: none;
-}
-@media (max-width: 960px) { .spine { display: none; } }
 .wrap { max-width: 1160px; margin: 0 auto; padding: 0 clamp(20px, 4.5vw, 56px); }
-@media (min-width: 961px) { body { padding-left: 52px; } }
-
 /* ---- 顶栏 ---- */
 nav {
   position: sticky; top: 0; z-index: 10;
@@ -247,12 +235,6 @@ h1 {
 .specimen .latin { font-size: 13px; color: var(--ink2); margin-left: 12px; letter-spacing: 0.08em; }
 .specimen .desc { font-size: 14px; color: var(--ink); max-width: 40ch; }
 .specimen .spec { margin-top: 10px; font-size: 12px; color: var(--ink2); }
-.ink-line { margin-top: 6px; font-size: 12px; color: var(--ink2); }
-.ink-chip {
-  display: inline-block; width: 18px; height: 10px; margin-right: 6px;
-  background: var(--pat-ink); border-radius: 1px; vertical-align: baseline; border: 1px solid rgba(38, 35, 30, 0.18);
-}
-.ink-code { color: var(--ink); }
 .controls { margin-top: 18px; display: flex; align-items: center; flex-wrap: wrap; gap: 14px; }
 .sizes { display: inline-flex; border: 1px solid var(--line); border-radius: 2px; overflow: hidden; background: var(--paper); }
 .sizes button {
@@ -274,7 +256,7 @@ h1 {
 /* ---- 手写覆盖（辰宇落雁体，细）---- */
 .page-hand {
   position: absolute; left: 1px; top: 0;
-  width: calc(50% - 1px); height: auto; aspect-ratio: 875 / 1241;
+  width: calc(50% - 1px); height: auto; aspect-ratio: 650 / 1241;
   pointer-events: none; overflow: visible;
 }
 .page-hand.hand-right { left: 50%; }

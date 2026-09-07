@@ -2022,24 +2022,21 @@ mod tests {
     #[test]
     fn vertical_draws_double_frame_and_columns() {
         let page = PageSettings::default();
-        let pattern = VerticalPattern {
-            spacing: 10.0,
-            ..Default::default()
-        };
+        let pattern = VerticalPattern::default();
         let geo = geometry_for(&page, 1);
         let (lines, dots) = draw_vertical(geo, &pattern);
         assert!(dots.is_empty());
         // 外框粗线、内框细线各 4 条。
         assert_eq!(lines.iter().filter(|l| l.width == Some(0.5)).count(), 4);
-        // 界栏数 = floor((宽-2*gap)/10)，内部竖线数 = 界栏数 - 1，加上内框本身共 4 条细线。
+        // 界栏数 = floor((宽-2*gap)/spacing)，内部竖线数 = 界栏数 - 1，加上内框本身共 4 条细线。
         let gap = 1.2;
-        let nx = ((geo.content.width - 2.0 * gap) / 10.0).floor();
+        let nx = ((geo.content.width - 2.0 * gap) / pattern.spacing).floor();
         assert_eq!(
             lines.iter().filter(|l| l.width == Some(0.18)).count(),
             4 + nx as usize - 1
         );
         // 双框恰好围住整列数，整块在版心内水平居中（余量留在框外）。
-        let iw = nx * 10.0;
+        let iw = nx * pattern.spacing;
         let ow = iw + 2.0 * gap;
         let ox = geo.content.x + (geo.content.width - ow) / 2.0;
         let (iy, ih) = (geo.content.y + gap, geo.content.height - 2.0 * gap);
@@ -2079,7 +2076,13 @@ mod tests {
         assert!(has(ox + gap, iy, ox + gap, iy + ih, 0.18));
         assert!(has(ox + gap + iw, iy, ox + gap + iw, iy + ih, 0.18));
         // 内部界栏线从内框起按列距排布。
-        assert!(has(ox + gap + 10.0, iy, ox + gap + 10.0, iy + ih, 0.18));
+        assert!(has(
+            ox + gap + pattern.spacing,
+            iy,
+            ox + gap + pattern.spacing,
+            iy + ih,
+            0.18
+        ));
         // 所有细竖线都落在内框范围内，余量不产生任何线。
         assert!(
             lines

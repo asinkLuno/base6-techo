@@ -12,13 +12,13 @@ import {
   type Period,
 } from "../data/site";
 
-// ---- 手写布局参数（A5 页面坐标，viewBox 875×1241）----
-// 手写布局基准（A5 页面坐标，viewBox 875×1241；A6P/A7 相对它等比缩放）
-// 手写布局（仅 A5 样张覆盖；A6P/A7 不叠加手写）
-const SCALE = PAGE_W / 148; // px/mm（A5）
+// ---- 手写布局参数（A5S 页面坐标，viewBox 650×1241）----
+// 手写覆盖只叠在 a5s 样张上；A5S 版芯：装订 10 / 非装订 13 / 页头 15 / 页脚 19，
+// 版芯宽 110-10-13=87mm、高 210-15-19=176mm（高同 A5，宽度较窄需缩横排字距）。
+const SCALE = PAGE_W / 110; // px/mm（A5S）
 const FONT_PX = 60; // 竖排字距 14mm，大字更有“写字”气场
-const ADV = 46; // 横线散文每字前进量（px，≈7.8mm，一行 15 字）
-const LINE0 = 15; // A5 横线第 0 条的毫米 y（由 margins()+centered() 推导）
+const ADV = 34; // 横线散文每字前进量（px，≈5.8mm，一行 15 字刚好铺满 87mm 版芯）
+const LINE0 = 15; // A5S 横线第 0 条的毫米 y（页头 15；版芯高 176mm 仍 22 行）
 const START_LINE = 1; // 首行落在第 1 条横线上（版芯 23–191mm 共 22 行全部可用）
 const ROT = [-2.4, 2.6, 1.9, -2.0, -2.8, 3.0, 1.6, -2.2, 2.4, -2.6, 2.0, -2.2];
 const DY = [0.7, -0.5, 0.5, -0.6, 1.0, -0.7, 0.4, -0.4, 0.8, -0.6, 0.3, -0.5];
@@ -74,17 +74,17 @@ async function toTraditional(lines: string[]): Promise<string[]> {
   return lines.map((l) => conv(l));
 }
 
-// 按 A5 横线坐标逐行排布
-// 横线：逐行左起书写。第 2 页版芯 x=18mm（非装订侧在左）、第 3 页 x=13mm（装订侧互换）。
-// 散文行距 8mm，正文缩到 44px 避免跨行打架；第 3 页动画接在第 2 页写完之后。
+// 按 A5S 横线坐标逐行排布
+// 横线：逐行左起书写。第 2 页版芯 x=13mm（非装订侧在左）、第 3 页 x=10mm（装订侧互换）。
+// 散文行距 8mm，正文缩到 33px 避免跨行打架；第 3 页动画接在第 2 页写完之后。
 function layoutHand(
   lines: { text: string; indent?: number; center?: boolean }[],
   page: 2 | 3,
 ): HandChar[] {
   const chars: HandChar[] = [];
   let gi = 0;
-  const x0mm = page === 2 ? 18 : 13;
-  const cxmm = x0mm + 117 / 2; // 版芯水平中心
+  const x0mm = page === 2 ? 13 : 10;
+  const cxmm = x0mm + 87 / 2; // 版芯水平中心（87mm 宽）
   const base = page === 2 ? 0.05 : 7.6;
   for (let li = 0; li < lines.length; li++) {
     const baseY = (LINE0 + (START_LINE + li) * 8) * SCALE;
@@ -100,7 +100,7 @@ function layoutHand(
         y: Math.round(y * 10) / 10,
         rot: ROT[ci % ROT.length] ?? 0,
         d: (base + gi * 0.03).toFixed(2) + "s",
-        size: center ? 56 : 44,
+        size: center ? 42 : 33, // A5S 版芯窄，字距缩至 5.8mm，字号随之缩小
         page,
       });
       gi++;
@@ -150,10 +150,10 @@ function layoutRuled(): HandChar[] {
 // 古文竖排：每联（去标点）成一竖列，自右向左。
 // 坐标按 vertical.rs 新几何重算：界栏自版芯中心向左右生成、放不下新一列即止，
 // 文武线双框恰围整列数并整体居中。写字页取跨页右页 p-3（古籍先读右页）：
-// A5 重算值 nx=11、外框 15.3–127.7、内框/栏块 16.5–126.5。
+// A5S 重算值 nx=8、栏块 13.5–95.9、8 联居右页版芯内。
 function layoutVertical(lines: string[]): HandChar[] {
-  // A5 左页(p-3) 版芯：装订=13（左）、非装订=18（右）、页头=15、页脚=19；栏距 10、框隙 1.2
-  const CX = 13, CY = 15, CW = 148 - 13 - 18;
+  // A5S 右页(p-3) 版芯：装订=10（左）、非装订=13（右）、页头=15、页脚=19；栏距 10、框隙 1.2
+  const CX = 10, CY = 15, CW = 110 - 10 - 13;
   const SP = 10, GAP = 1.2;
   const nx = Math.floor((CW - 2 * GAP) / SP); // 栏数
   const ow = nx * SP + 2 * GAP; // 双框恰围整列数
@@ -190,11 +190,11 @@ function layoutVertical(lines: string[]): HandChar[] {
 
 // 网格：在 5mm 方格上“手绘”立方体——顶点全部落在格点，棱线交给 rough.js 手绘化。
 function layoutGrid(): { chars: HandChar[]; marks: Mark[] } {
-  // A5 右页(p-2) 版芯网格：格点 x=19+5a、y=15.5+5b（23×35 格）
+  // A5S 右页(p-2) 版芯网格：格点 x=14+5a、y=15.5+5b（17×35 格，高同 A5）
   const chars: HandChar[] = [];
   const marks: Mark[] = [];
-  // 半棱宽 6 格、棱高 6 格，顶点 T 落在格点 (74, 55.5)；棱线交给 rough.js 手绘化（复笔 + 抖动）
-  const T = [74, 55.5];
+  // 半棱宽 6 格、棱高 6 格，顶点 T 落在格点 (54, 55.5)；棱线交给 rough.js 手绘化（复笔 + 抖动）
+  const T = [54, 55.5];
   const L = [T[0] - 30, T[1] + 15], R = [T[0] + 30, T[1] + 15], M = [T[0], T[1] + 30];
   const L2 = [L[0], L[1] + 30], M2 = [M[0], M[1] + 30], R2 = [R[0], R[1] + 30];
   const px = (p: number[]) => [p[0] * SCALE, p[1] * SCALE] as [number, number];
@@ -220,7 +220,9 @@ function pngFiles(p: Pattern, size: string, variant?: string): string[] {
   const base = `/examples/${p.id}/${size}/${p.id}-${size}${variant ? "-" + variant : ""}`;
   const frame = p.frames ?? "spread";
   if (frame === "single") return [base + "-p-2"];
-  if (frame === "calendar") return size === "a7" ? [base + "-p-2", base + "-p-3"] : [base];
+  // calendar 帧型：67M5 的年历/月历/年度追踪拆成双页跨页，与 gen-examples.py 一致
+  if (frame === "calendar")
+    return size === "67m5" ? [base + "-p-2", base + "-p-3"] : [base];
   return [base + "-p-2", base + "-p-3"];
 }
 
@@ -272,9 +274,6 @@ function SpecimenSheet({ p }: { p: Pattern }) {
         </h3>
         <p className="desc">{p.desc}</p>
         <p className="spec mono">{p.spec}</p>
-        <p className="ink-line mono">
-          <i className="ink-chip" aria-hidden="true"></i>线色 <span className="ink-code">{p.ink}</span>
-        </p>
         <div className="controls">
           <div className="sizes" role="group" aria-label="选择尺寸">
             {SIZES.map((s) => (
@@ -323,8 +322,8 @@ function SpecimenSheet({ p }: { p: Pattern }) {
         <div className="spread">
           <div className="pages">
             {SIZES.map((s) => {
-              const w = s.id === "a5" ? 875 : s.id === "a6p" ? 562 : 473;
-              const h = s.id === "a5" ? 1241 : s.id === "a6p" ? 1010 : 709;
+              const w = Math.ceil(s.w * 150 / 25.4);
+              const h = Math.ceil(s.h * 150 / 25.4);
               const fs = pngFiles(p, s.id, variant);
               const single = fs.length === 1;
               const vlabel = variant ? (p.variantLabels?.[variant] ?? variant) : "";
@@ -341,14 +340,14 @@ function SpecimenSheet({ p }: { p: Pattern }) {
                       hidden={s.id !== size}
                     />
                   ))}
-                  {p.handwriting && s.id === "a5" && (
+                  {p.handwriting && s.id === "a5s" && (
                     [2, 3]
                       .filter((pg) => pg === 2 || chars.some((c) => c.page === pg))
                       .map((pg) => (
                         <svg
                           key={pg}
                           className={`page-hand${pg === 3 ? " hand-right" : ""}`}
-                          data-size="a5"
+                          data-size="a5s"
                           viewBox={`0 0 ${PAGE_W} ${PAGE_H}`}
                           aria-hidden="true"
                           hidden={s.id !== size}
@@ -475,7 +474,7 @@ export default function Gallery() {
       </div>
       <p className="sec-note reveal">
         每份样张为三页 PDF：首页空白，后两页为内容页。以下对页取自第 2、3 页，中缝即装订线；
-        三种尺寸以同一比例尺显示（A5 对页为满幅基准），页面宽窄即纸面的真实关系。
+        三种尺寸以同一比例尺显示（A5S 对页为满幅基准），页面宽窄即纸面的真实关系。
       </p>
       {GROUPS.map((g) => (
         <GroupBlock key={g.id} g={g} />

@@ -381,10 +381,11 @@ pub(crate) fn draw_octan_week(
         {
             let date = week_start + Duration::days(i64::from(offset));
             let (illum, waxing) = moon_illumination(date.and_hms_opt(12, 0, 0).unwrap().and_utc());
-            // 直径与日期数字同大：字号为 pt，1pt = 25.4/72 mm；上/右各留 4mm。
-            let rx = cx + r.width / 2.0 - 4.0;
-            let ty = cy + 4.0;
             let mps = p.date_size * 25.4 / 72.0;
+            // 直径与日期数字同大：字号为 pt，1pt = 25.4/72 mm；右留 4mm，
+            // 上沿与日期字面（north west 锚点 y = cy + 2）同高。
+            let rx = cx + r.width / 2.0 - 4.0;
+            let ty = cy + 2.0;
             let mx = rx - mps / 2.0;
             let my = ty + mps / 2.0;
             let radius = mps / 2.0;
