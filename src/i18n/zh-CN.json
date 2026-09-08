@@ -124,6 +124,8 @@
     "color": "颜色",
     "lineColor": "线条颜色",
     "centerColor": "中心点颜色",
+    "textColor": "正文文字颜色",
+    "holidayColor": "节假日/周末颜色",
     "mainColor": "主线色",
     "fineColor": "细线色",
     "vlineColor": "竖线色",

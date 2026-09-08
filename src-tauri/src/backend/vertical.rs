@@ -1,13 +1,12 @@
 use serde::Deserialize;
 
-use super::colors::BLACK;
 use super::{Dot, Geometry, Line, LineStyle, validate_color};
 
 /// 古文竖排：文武线双框（外粗内细）+ 界栏竖列线，自右向左书写。
 /// 界栏自版心中心向左右两边生成，最外侧放不下新一列即在此结束；
 /// 文武线双框恰好围住整列数，余量留在框外，整块在版心内水平居中。
 #[derive(Clone, Deserialize)]
-#[serde(default, deny_unknown_fields)]
+#[serde(deny_unknown_fields)]
 pub(crate) struct VerticalPattern {
     pub(crate) pages: usize,
     pub(crate) spacing: f64,
@@ -17,19 +16,19 @@ pub(crate) struct VerticalPattern {
     pub(crate) frame_gap: f64,
 }
 
+#[cfg(test)]
 impl Default for VerticalPattern {
     fn default() -> Self {
         Self {
             pages: 1,
             spacing: 9.0,
-            color: BLACK.into(),
+            color: "#000000".into(),
             frame_outer_width: 0.5,
             frame_inner_width: 0.18,
             frame_gap: 1.2,
         }
     }
 }
-
 impl VerticalPattern {
     pub(crate) fn validate(&self) -> Result<(), String> {
         if !(1..=500).contains(&self.pages) {

@@ -1,6 +1,5 @@
 use serde::Deserialize;
 
-use super::colors::GRAY;
 use super::{Dot, Geometry, Line, LineStyle, centered, validate_color};
 
 /// 法文格（Séyès）：8mm 主方格 + 每格 3 条 2mm 细分线 + 一根红色竖线。
@@ -8,7 +7,7 @@ use super::{Dot, Geometry, Line, LineStyle, centered, validate_color};
 /// 有意满版：线条占满整页、不经页心（geo.content）约束，
 /// 豁免于 `contained_patterns_draw_inside_content` 的页心纪律。
 #[derive(Clone, Deserialize)]
-#[serde(default, deny_unknown_fields)]
+#[serde(deny_unknown_fields)]
 pub(crate) struct SeyesPattern {
     pub(crate) pages: usize,
     pub(crate) spacing: f64,
@@ -23,19 +22,20 @@ pub(crate) struct SeyesPattern {
     pub(crate) margin_width: f64,
 }
 
+#[cfg(test)]
 impl Default for SeyesPattern {
     fn default() -> Self {
         Self {
             pages: 1,
             spacing: 8.0,
             margin_line: 7,
-            main_color: GRAY.into(),
+            main_color: "#7a7a7a".into(),
             main_width: 0.2,
-            fine_color: GRAY.into(),
+            fine_color: "#7a7a7a".into(),
             fine_width: 0.1,
-            vline_color: GRAY.into(),
+            vline_color: "#7a7a7a".into(),
             vline_width: 0.1,
-            margin_color: GRAY.into(),
+            margin_color: "#7a7a7a".into(),
             margin_width: 0.4,
         }
     }

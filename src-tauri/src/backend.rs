@@ -6,7 +6,6 @@ use std::{
     process::{Command, Stdio},
 };
 
-mod colors;
 mod daily_timeline;
 mod dots;
 mod grid;
@@ -44,11 +43,10 @@ use us_ruled::{UsRuledPattern, draw_us_ruled};
 use vertical::{VerticalPattern, draw_vertical};
 use year::{YearPattern, draw_year};
 
-use colors::{BLACK, GRAY};
 const MM_PER_PT: f64 = 25.4 / 72.27;
 
 #[derive(Clone, Deserialize)]
-#[serde(default, deny_unknown_fields)]
+#[serde(deny_unknown_fields)]
 struct PageSettings {
     width: f64,
     height: f64,
@@ -58,6 +56,7 @@ struct PageSettings {
     non_binding: f64,
 }
 
+#[cfg(test)]
 impl Default for PageSettings {
     fn default() -> Self {
         Self {
@@ -113,9 +112,11 @@ enum BandMode {
 
 /// 页头/页脚共用的带状区域参数（文字或页码）。
 #[derive(Clone, Deserialize)]
-#[serde(default, deny_unknown_fields)]
+#[serde(deny_unknown_fields)]
 struct BandSettings {
+    #[serde(default)]
     text: Option<String>,
+    #[serde(default)]
     text_2: Option<String>,
     text_size: f64,
     text_2_size: f64,
@@ -126,6 +127,7 @@ struct BandSettings {
     mode: BandMode,
 }
 
+#[cfg(test)]
 impl Default for BandSettings {
     fn default() -> Self {
         Self {
@@ -134,7 +136,7 @@ impl Default for BandSettings {
             text_size: 8.0,
             text_2_size: 8.0,
             text_spacing: 5.0,
-            text_color: GRAY.into(),
+            text_color: "#7a7a7a".into(),
             page_number: false,
             align: BandAlign::Center,
             mode: BandMode::Text,
@@ -155,28 +157,35 @@ impl BandSettings {
 }
 
 #[derive(Clone, Deserialize)]
-#[serde(default, deny_unknown_fields)]
+#[serde(deny_unknown_fields)]
 struct DocumentSettings {
     page_number: bool,
     header: BandSettings,
     footer: BandSettings,
+    #[serde(default)]
     binding_text: Option<String>,
+    #[serde(default)]
     binding_text_2: Option<String>,
     binding_text_size: f64,
     binding_text_2_size: f64,
     binding_text_spacing: f64,
+    #[serde(default)]
     binding_text_edge: Option<f64>,
     binding_text_font: String,
     binding_text_color: String,
+    #[serde(default)]
     non_binding_text: Option<String>,
+    #[serde(default)]
     non_binding_text_2: Option<String>,
     non_binding_text_size: f64,
     non_binding_text_2_size: f64,
     non_binding_text_spacing: f64,
+    #[serde(default)]
     non_binding_text_edge: Option<f64>,
     non_binding_text_color: String,
 }
 
+#[cfg(test)]
 impl Default for DocumentSettings {
     fn default() -> Self {
         Self {
@@ -190,14 +199,14 @@ impl Default for DocumentSettings {
             binding_text_spacing: 5.0,
             binding_text_edge: None,
             binding_text_font: r"\sffamily".into(),
-            binding_text_color: GRAY.into(),
+            binding_text_color: "#7a7a7a".into(),
             non_binding_text: None,
             non_binding_text_2: None,
             non_binding_text_size: 8.0,
             non_binding_text_2_size: 8.0,
             non_binding_text_spacing: 5.0,
             non_binding_text_edge: None,
-            non_binding_text_color: GRAY.into(),
+            non_binding_text_color: "#7a7a7a".into(),
         }
     }
 }
@@ -281,10 +290,11 @@ enum Pattern {
 
 /// 空白页：不绘制任何内文版式，仅保留页眉/页脚/装订边文字。
 #[derive(Clone, Deserialize)]
-#[serde(default, deny_unknown_fields)]
+#[serde(deny_unknown_fields)]
 struct BlankPattern {
     pages: usize,
 }
+#[cfg(test)]
 impl Default for BlankPattern {
     fn default() -> Self {
         Self { pages: 1 }
@@ -382,8 +392,8 @@ impl Pattern {
             Self::DailyTimeline(p) => &p.line_color,
             Self::Tracker(p) => &p.line_color,
             // 年历只用文字（黑/红固定色），无线条；不会走到该默认值。
-            Self::Year(_) => BLACK,
-            Self::Blank(_) => GRAY,
+            Self::Year(_) => "#000000",
+            Self::Blank(_) => "#7a7a7a",
         }
     }
     fn line_width(&self) -> f64 {
@@ -432,9 +442,7 @@ impl Pattern {
 #[derive(Clone, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct RenderSectionRequest {
-    #[serde(default)]
     page: PageSettings,
-    #[serde(default)]
     document: DocumentSettings,
     pattern: Pattern,
     #[serde(default)]
@@ -451,11 +459,12 @@ enum BindingMode {
 }
 
 #[derive(Clone, Deserialize)]
-#[serde(default, deny_unknown_fields)]
+#[serde(deny_unknown_fields)]
 struct BindRequest {
     mode: Option<BindingMode>,
     sheets_per_group: usize,
 }
+#[cfg(test)]
 impl Default for BindRequest {
     fn default() -> Self {
         Self {
@@ -470,7 +479,6 @@ impl Default for BindRequest {
 pub struct RunPipelineRequest {
     output: String,
     sections: Vec<RenderSectionRequest>,
-    #[serde(default)]
     bind: BindRequest,
 }
 
@@ -1146,7 +1154,7 @@ fn uniform_dot_grid(dots: &[&Dot]) -> Option<(f64, f64)> {
     Some((dx, radius))
 }
 fn render_latex(pages: &[OutputPage]) -> String {
-    let mut colors = BTreeMap::from([("pnumcolor".to_string(), GRAY.to_string())]);
+    let mut colors: BTreeMap<String, String> = BTreeMap::new();
     let mut bodies = Vec::new();
     let fonts = pages
         .iter()
@@ -1171,7 +1179,7 @@ fn render_latex(pages: &[OutputPage]) -> String {
         let mut path_groups: BTreeMap<(String, bool, bool), Vec<String>> = BTreeMap::new();
         for placement in &page.placements {
             for line in &placement.draw.lines {
-                let raw = line.color.as_deref().unwrap_or(BLACK);
+                let raw = line.color.as_deref().unwrap_or("#000000");
                 let color = color_name(raw);
                 colors.insert(color.clone(), raw.into());
                 line_groups
@@ -1209,7 +1217,7 @@ fn render_latex(pages: &[OutputPage]) -> String {
             // 点：先按颜色分组；均匀实心圆点阵用单个 pattern 填充（比逐点 \fill 快约 6 倍），否则逐点。
             let mut by_color: BTreeMap<String, Vec<&Dot>> = BTreeMap::new();
             for dot in &placement.draw.dots {
-                let raw = dot.color.as_deref().unwrap_or(BLACK);
+                let raw = dot.color.as_deref().unwrap_or("#000000");
                 let color = color_name(raw);
                 colors.insert(color.clone(), raw.into());
                 by_color.entry(color).or_default().push(dot);
@@ -1290,13 +1298,8 @@ fn render_latex(pages: &[OutputPage]) -> String {
         }
         for placement in &page.placements {
             for text in &placement.draw.texts {
-                let color = if text.color == GRAY {
-                    "pnumcolor".into()
-                } else {
-                    let name = color_name(&text.color);
-                    colors.insert(name.clone(), text.color.clone());
-                    name
-                };
+                let name = color_name(&text.color);
+                colors.insert(name.clone(), text.color.clone());
                 let font = fonts
                     .get(&text.font)
                     .map(|command| format!(r"\{command}"))
@@ -1308,7 +1311,7 @@ fn render_latex(pages: &[OutputPage]) -> String {
                     .map(tex_escape)
                     .collect::<Vec<_>>()
                     .join(r"\\");
-                parts.push(format!(r"\node[{color}, rotate={}, anchor={}, {}font={{{}\fontsize{{{}}}{{{}}}\selectfont}}] at ({},{}) {{{}}};", text.rotation, text.anchor, if multiline { "align=center, " } else { "" }, font, text.size, text.size * 1.2, placement.dx + text.x, text.y, content));
+                parts.push(format!(r"\node[{name}, rotate={}, anchor={}, {}font={{{}\fontsize{{{}}}{{{}}}\selectfont}}] at ({},{}) {{{}}};", text.rotation, text.anchor, if multiline { "align=center, " } else { "" }, font, text.size, text.size * 1.2, placement.dx + text.x, text.y, content));
             }
         }
         bodies.push(format!(
@@ -1613,6 +1616,22 @@ mod tests {
     use super::*;
     use chrono::Utc;
 
+    fn page_default() -> serde_json::Value {
+        serde_json::json!({"width":148.0,"height":210.0,"header":10.0,"footer":10.0,"binding":15.0,"non_binding":8.0})
+    }
+
+    fn doc_default() -> serde_json::Value {
+        serde_json::json!({
+            "page_number": true,
+            "header": {"text_size":8.0,"text_2_size":8.0,"text_spacing":5.0,"text_color":"#7a7a7a","page_number":false,"align":"center","mode":"text"},
+            "footer": {"text_size":8.0,"text_2_size":8.0,"text_spacing":5.0,"text_color":"#7a7a7a","page_number":false,"align":"center","mode":"text"},
+            "binding_text_size":8.0,"binding_text_2_size":8.0,"binding_text_spacing":5.0,
+            "binding_text_font":"Sarasa Mono Slab SC","binding_text_color":"#7a7a7a",
+            "non_binding_text_size":8.0,"non_binding_text_2_size":8.0,"non_binding_text_spacing":5.0,
+            "non_binding_text_color":"#7a7a7a"
+        })
+    }
+
     /// 手工样张（检查阅读器侧边栏书签）：cargo test render_bookmark_sample -- --ignored --nocapture
     #[test]
     #[ignore]
@@ -1730,146 +1749,76 @@ mod tests {
 
     #[test]
     fn render_lunar_calendar() {
-        let year: RunPipelineRequest = serde_json::from_str(
-            r#"{
-                "output": "/tmp/year-2026-lunar.pdf",
-                "sections": [{
-                    "pattern": {
-                        "kind": "year-calendar",
-                        "start": "2026-01",
-                        "end": "2026-12",
-                        "rows": 2,
-                        "cols": 2,
-                        "lunar": true
-                    },
-                    "document": {
-                        "binding_text_font": "Sarasa Mono Slab SC"
-                    },
-                    "holidays": {
-                        "2026-01-01": "元旦",
-                        "2026-01-02": "元旦",
-                        "2026-01-03": "元旦",
-                        "2026-01-04": "上班(补元旦假期)",
-                        "2026-02-14": "上班(补春节假期)",
-                        "2026-02-15": "春节",
-                        "2026-02-16": "春节",
-                        "2026-02-17": "春节",
-                        "2026-02-18": "春节",
-                        "2026-02-19": "春节",
-                        "2026-02-20": "春节",
-                        "2026-02-21": "春节",
-                        "2026-02-22": "春节",
-                        "2026-02-23": "春节",
-                        "2026-02-28": "上班(补春节假期)",
-                        "2026-04-04": "清明节",
-                        "2026-04-05": "清明节",
-                        "2026-04-06": "清明节",
-                        "2026-05-01": "劳动节",
-                        "2026-05-02": "劳动节",
-                        "2026-05-03": "劳动节",
-                        "2026-05-04": "劳动节",
-                        "2026-05-05": "劳动节",
-                        "2026-05-09": "上班(补劳动节假期)",
-                        "2026-06-19": "端午节",
-                        "2026-06-20": "端午节",
-                        "2026-06-21": "端午节",
-                        "2026-09-20": "上班(补国庆节假期)",
-                        "2026-09-25": "中秋节",
-                        "2026-09-26": "中秋节",
-                        "2026-09-27": "中秋节",
-                        "2026-10-01": "国庆节",
-                        "2026-10-02": "国庆节",
-                        "2026-10-03": "国庆节",
-                        "2026-10-04": "国庆节",
-                        "2026-10-05": "国庆节",
-                        "2026-10-06": "国庆节",
-                        "2026-10-07": "国庆节",
-                        "2026-10-10": "上班(补国庆节假期)"
-                    }
-                }]
-            }"#,
-        )
-        .unwrap();
+        let doc = {
+            let mut d = doc_default();
+            d["binding_text_font"] = "Sarasa Mono Slab SC".into();
+            d
+        };
+        let holidays = serde_json::json!({
+            "2026-01-01":"元旦","2026-01-02":"元旦","2026-01-03":"元旦","2026-01-04":"上班(补元旦假期)",
+            "2026-02-14":"上班(补春节假期)","2026-02-15":"春节","2026-02-16":"春节","2026-02-17":"春节",
+            "2026-02-18":"春节","2026-02-19":"春节","2026-02-20":"春节","2026-02-21":"春节","2026-02-22":"春节",
+            "2026-02-23":"春节","2026-02-28":"上班(补春节假期)","2026-04-04":"清明节","2026-04-05":"清明节",
+            "2026-04-06":"清明节","2026-05-01":"劳动节","2026-05-02":"劳动节","2026-05-03":"劳动节",
+            "2026-05-04":"劳动节","2026-05-05":"劳动节","2026-05-09":"上班(补劳动节假期)","2026-06-19":"端午节",
+            "2026-06-20":"端午节","2026-06-21":"端午节","2026-09-20":"上班(补国庆节假期)","2026-09-25":"中秋节",
+            "2026-09-26":"中秋节","2026-09-27":"中秋节","2026-10-01":"国庆节","2026-10-02":"国庆节",
+            "2026-10-03":"国庆节","2026-10-04":"国庆节","2026-10-05":"国庆节","2026-10-06":"国庆节",
+            "2026-10-07":"国庆节","2026-10-10":"上班(补国庆节假期)"
+        });
+        let year: RunPipelineRequest = serde_json::from_value(serde_json::json!({
+            "output": "/tmp/year-2026-lunar.pdf",
+            "sections": [{"page": page_default(), "document": doc, "pattern": {"kind":"year-calendar","start":"2026-01","end":"2026-12","rows":2,"cols":2,"date_size":6,"text_color":"#000000","holiday_color":"#8b0000","weekday_lang":"zh","title_format":"%Y年%-m月","weekday_headers":"一,二,三,四,五,六,日","show_holidays":true,"lunar":true}, "holidays": holidays}],
+            "bind": {"mode": null, "sheets_per_group": 4}
+        })).unwrap();
         let (lunar_path, _) = generate(year, false, None).unwrap();
         println!("Lunar PDF: {}", lunar_path.display());
-        // Debug: check if lunar texts exist
-        let year2: RunPipelineRequest = serde_json::from_str(
-            r#"{
-                "output": "/tmp/year-2026-lunar2.pdf",
-                "sections": [{
-                    "pattern": {
-                        "kind": "year-calendar",
-                        "start": "2026-01",
-                        "end": "2026-12",
-                        "rows": 2,
-                        "cols": 2,
-                        "lunar": true
-                    },
-                    "document": {
-                        "binding_text_font": "Sarasa Mono Slab SC"
-                    }
-                }]
-            }"#,
-        )
-        .unwrap();
+        let year2: RunPipelineRequest = serde_json::from_value(serde_json::json!({
+            "output": "/tmp/year-2026-lunar2.pdf",
+            "sections": [{"page": page_default(), "document": doc, "pattern": {"kind":"year-calendar","start":"2026-01","end":"2026-12","rows":2,"cols":2,"date_size":6,"text_color":"#000000","holiday_color":"#8b0000","weekday_lang":"zh","title_format":"%Y年%-m月","weekday_headers":"一,二,三,四,五,六,日","show_holidays":true,"lunar":true}}],
+            "bind": {"mode": null, "sheets_per_group": 4}
+        })).unwrap();
         let (lunar_path2, _) = generate(year2, false, None).unwrap();
         println!("Generated: {}", lunar_path2.display());
     }
     #[test]
     fn render_month_with_holidays_and_lunar() {
-        let body: RunPipelineRequest = serde_json::from_str(
-            r#"{
-                "output": "/tmp/month-2026-01.pdf",
-                "sections": [{
-                    "pattern": {
-                        "kind": "month-calendar",
-                        "year": 2026,
-                        "month": 1,
-                        "lunar": true
-                    },
-                    "document": {
-                        "binding_text_font": "Sarasa Mono Slab SC"
-                    },
-                    "holidays": {
-                        "2026-01-01": "元旦",
-                        "2026-01-02": "元旦",
-                        "2026-01-03": "元旦",
-                        "2026-01-04": "上班(补元旦假期)"
-                    }
-                }]
-            }"#,
-        )
-        .unwrap();
+        let doc = {
+            let mut d = doc_default();
+            d["binding_text_font"] = "Sarasa Mono Slab SC".into();
+            d
+        };
+        let body: RunPipelineRequest = serde_json::from_value(serde_json::json!({
+            "output": "/tmp/month-2026-01.pdf",
+            "sections": [{
+                "page": page_default(),
+                "document": doc,
+                "pattern": {"kind":"month-calendar","year":2026,"month":1,"phase_color":"#e5b93f","line_color":"#7a7a7a","holiday_color":"#8b0000","line_width":0.4,"date_size":8,"weekday_headers":"一,二,三,四,五,六,日","title_format":"%Y年%-m月","two_page":false,"show_holidays":true,"sub_size":4.2,"sub_gap":0,"lunar":true},
+                "holidays": {"2026-01-01":"元旦","2026-01-02":"元旦","2026-01-03":"元旦","2026-01-04":"上班(补元旦假期)"}
+            }],
+            "bind": {"mode": null, "sheets_per_group": 4}
+        })).unwrap();
         let (path, _) = generate(body, false, None).unwrap();
         println!("Month PDF: {}", path.display());
     }
 
     #[test]
     fn render_octan_week_with_holidays_and_lunar() {
-        let body: RunPipelineRequest = serde_json::from_str(
-            r#"{
-                "output": "/tmp/octan-week-2026-01.pdf",
-                "sections": [{
-                    "pattern": {
-                        "kind": "八分周视图",
-                        "start_date": "2026-01-05",
-                        "end_date": "2026-01-11",
-                        "weekday_lang": "zh",
-                        "lunar": true
-                    },
-                    "document": {
-                        "binding_text_font": "Sarasa Mono Slab SC"
-                    },
-                    "holidays": {
-                        "2026-01-01": "元旦",
-                        "2026-01-02": "元旦",
-                        "2026-01-03": "元旦",
-                        "2026-01-04": "上班(补元旦假期)"
-                    }
-                }]
-            }"#,
-        )
-        .unwrap();
+        let doc = {
+            let mut d = doc_default();
+            d["binding_text_font"] = "Sarasa Mono Slab SC".into();
+            d
+        };
+        let body: RunPipelineRequest = serde_json::from_value(serde_json::json!({
+            "output": "/tmp/octan-week-2026-01.pdf",
+            "sections": [{
+                "page": page_default(),
+                "document": doc,
+                "pattern": {"kind":"八分周视图","start_date":"2026-01-05","end_date":"2026-01-11","date_format":"%-d","date_locale":"zh-CN","weekday_lang":"zh","title_format":"%Y年%-m月","weekday_headers":"一,二,三,四,五,六,日","line_color":"#7a7a7a","text_color":"#000000","holiday_color":"#8b0000","phase_color":"#e5b93f","line_width":0.4,"line_style":"solid","center_gap":2.0,"date_size":10,"lunar":true},
+                "holidays": {"2026-01-01":"元旦","2026-01-02":"元旦","2026-01-03":"元旦","2026-01-04":"上班(补元旦假期)"}
+            }],
+            "bind": {"mode": null, "sheets_per_group": 4}
+        })).unwrap();
         let (path, _) = generate(body, false, None).unwrap();
         println!("OctanWeek PDF: {}", path.display());
     }
@@ -1888,7 +1837,7 @@ mod tests {
                             y: 0.0,
                             content: n.to_string(),
                             size: 8.0,
-                            color: GRAY.into(),
+                            color: "#7a7a7a".into(),
                             rotation: 0,
                             font: r"\sffamily".into(),
                             anchor: "center",
@@ -2196,43 +2145,61 @@ mod tests {
             ..Default::default()
         };
         let cases: [(&str, &str); 14] = [
-            ("ruled", r#"{"kind":"ruled"}"#),
-            ("dots", r#"{"kind":"dots"}"#),
-            ("grid", r#"{"kind":"grid"}"#),
-            ("vertical", r#"{"kind":"vertical"}"#),
-            ("方眼罫", r#"{"kind":"方眼罫"}"#),
-            ("month-calendar", r#"{"kind":"month-calendar"}"#),
+            (
+                "ruled",
+                r##"{"kind":"ruled","pages":32,"spacing":8,"color":"#7a7a7a","width":0.2}"##,
+            ),
+            (
+                "dots",
+                r##"{"kind":"dots","pages":1,"spacing":5,"column_spacing":5,"radius":0.25,"color":"#a9d1ae","center_color":"#8b0000"}"##,
+            ),
+            (
+                "grid",
+                r##"{"kind":"grid","pages":1,"spacing":5,"color":"#7a7a7a","width":0.2}"##,
+            ),
+            (
+                "vertical",
+                r##"{"kind":"vertical","pages":1,"spacing":9,"color":"#000000","frame_outer_width":0.5,"frame_inner_width":0.18,"frame_gap":1.2}"##,
+            ),
+            (
+                "方眼罫",
+                r##"{"kind":"方眼罫","pages":1,"line_color":"#a9d1ae"}"##,
+            ),
+            (
+                "month-calendar",
+                r##"{"kind":"month-calendar","year":2026,"month":9,"phase_color":"#e5b93f","line_color":"#7a7a7a","holiday_color":"#8b0000","line_width":0.4,"date_size":8,"weekday_headers":"一,二,三,四,五,六,日","title_format":"%Y年%-m月","two_page":false,"show_holidays":true,"sub_size":4.2,"sub_gap":0,"lunar":false}"##,
+            ),
             (
                 "hakubunkan-toyo-nikki",
-                r#"{"kind":"hakubunkan-toyo-nikki","start_date":"2026-09-01","end_date":"2026-09-02"}"#,
+                r##"{"kind":"hakubunkan-toyo-nikki","start_date":"2026-09-01","end_date":"2026-09-02","date_format":"%-m月%-d日","line_color":"#a9d1ae","line_width":0.4}"##,
             ),
             (
                 "hakubunkan-kaichu-nikki",
-                r#"{"kind":"hakubunkan-kaichu-nikki","start_date":"2026-09-01","end_date":"2026-09-02"}"#,
+                r##"{"kind":"hakubunkan-kaichu-nikki","start_date":"2026-09-01","end_date":"2026-09-02","date_format":"%-m 月  %-d 日","date_locale":"zh-CN","weekday_headers":"月,火,水,木,金,土,日","lunar_style":"numeric","line_color":"#7a7a7a","line_width":0.4,"date_size":10}"##,
             ),
             (
                 "八分周视图",
-                r#"{"kind":"八分周视图","start_date":"2026-08-31","end_date":"2026-09-06"}"#,
+                r##"{"kind":"八分周视图","start_date":"2026-08-31","end_date":"2026-09-06","date_format":"%-d","date_locale":"zh-CN","weekday_lang":"zh","title_format":"%Y年%-m月","weekday_headers":"一,二,三,四,五,六,日","line_color":"#7a7a7a","text_color":"#000000","holiday_color":"#8b0000","phase_color":"#e5b93f","line_width":0.4,"line_style":"solid","center_gap":2,"date_size":10,"lunar":false}"##,
             ),
             (
                 "daily_timeline 一日一页",
-                r#"{"kind":"daily_timeline","start_date":"2026-08-31","end_date":"2026-09-02"}"#,
+                r##"{"kind":"daily_timeline","start":0,"end":24,"pages":1,"start_date":"2026-08-31","end_date":"2026-09-02","title_format":"%Y年%-m月%-d日","line_color":"#7a7a7a","line_width":1.138,"label_size":10.2,"latitude":31.23,"longitude":121.47,"timezone":"Asia/Shanghai","daylight_color":"#e5b93f","night_color":"#496a9f"}"##,
             ),
             (
                 "daily_timeline 一日两页",
-                r#"{"kind":"daily_timeline","start_date":"2026-08-31","end_date":"2026-09-01","pages":2}"#,
+                r##"{"kind":"daily_timeline","start":0,"end":24,"pages":2,"start_date":"2026-08-31","end_date":"2026-09-01","title_format":"%Y年%-m月%-d日","line_color":"#7a7a7a","line_width":1.138,"label_size":10.2,"latitude":31.23,"longitude":121.47,"timezone":"Asia/Shanghai","daylight_color":"#e5b93f","night_color":"#496a9f"}"##,
             ),
             (
                 "month-tracker",
-                r#"{"kind":"month-tracker","year":2026,"month":9}"#,
+                r##"{"kind":"month-tracker","year":2026,"month":9,"items":4,"line_color":"#7a7a7a","line_width":0.4,"date_size":8}"##,
             ),
             (
                 "year-tracker",
-                r#"{"kind":"year-tracker","start":"2026-01","end":"2026-12"}"#,
+                r##"{"kind":"year-tracker","start":"2026-01","end":"2026-12","two_page":false,"line_color":"#7a7a7a","line_width":0.4,"date_size":8}"##,
             ),
             (
                 "year-calendar",
-                r#"{"kind":"year-calendar","start":"2026-01","end":"2026-12","rows":2,"cols":2}"#,
+                r##"{"kind":"year-calendar","start":"2026-01","end":"2026-12","rows":2,"cols":2,"date_size":6,"text_color":"#000000","holiday_color":"#8b0000","weekday_lang":"zh","title_format":"%Y年%-m月","weekday_headers":"一,二,三,四,五,六,日","show_holidays":true,"lunar":false}"##,
             ),
         ];
         for (name, json) in &cases {
@@ -2335,22 +2302,30 @@ mod tests {
         };
         assert_eq!(
             daily_timeline_color(&p, Some(date), 28 * 60).as_deref(),
-            Some(colors::TIMELINE_NIGHT)
+            Some("#496a9f")
         );
         assert_eq!(
             daily_timeline_color(&p, Some(date), 29 * 60).as_deref(),
-            Some(colors::PHASE_GOLD)
+            Some("#e5b93f")
         );
     }
 
     #[test]
     fn section_first_page_carries_pdf_bookmark() {
+        let sec = |title: Option<&str>, pattern: serde_json::Value| {
+            serde_json::json!({
+                "page": page_default(),
+                "document": doc_default(),
+                "pattern": pattern,
+                "title": title,
+            })
+        };
         let request: RunPipelineRequest = serde_json::from_value(serde_json::json!({
             "output": "/tmp/bookmark.pdf",
             "sections": [
-                { "title": "月历", "pattern": { "kind": "ruled", "pages": 2 } },
-                { "pattern": { "kind": "grid", "pages": 1 } },
-                { "title": "时间轴", "pattern": { "kind": "ruled", "pages": 1 } }
+                sec(Some("月历"), serde_json::json!({"kind":"ruled","pages":2,"spacing":8,"color":"#7a7a7a","width":0.2})),
+                sec(None, serde_json::json!({"kind":"grid","pages":1,"spacing":5,"color":"#7a7a7a","width":0.2})),
+                sec(Some("时间轴"), serde_json::json!({"kind":"ruled","pages":1,"spacing":8,"color":"#7a7a7a","width":0.2}))
             ],
             "bind": { "mode": null, "sheets_per_group": 4 }
         }))
@@ -2367,14 +2342,28 @@ mod tests {
             std::process::id(),
             Utc::now().timestamp_nanos_opt().unwrap_or_default()
         ));
+        let sec = |pattern: serde_json::Value, doc: serde_json::Value| {
+            serde_json::json!({
+                "page": page_default(),
+                "document": doc,
+                "pattern": pattern,
+            })
+        };
+        let doc0 = {
+            let mut d = doc_default();
+            d["binding_text"] = "[base-6]".into();
+            d
+        };
+        let toyo = |start, end| serde_json::json!({"kind":"hakubunkan-toyo-nikki","start_date":start,"end_date":end,"date_format":"%-m月%-d日","line_color":"#a9d1ae","line_width":0.4});
+        let octan = |start, end| serde_json::json!({"kind":"八分周视图","start_date":start,"end_date":end,"date_format":"%-d","date_locale":"zh-CN","weekday_lang":"zh","title_format":"%Y年%-m月","weekday_headers":"一,二,三,四,五,六,日","line_color":"#7a7a7a","text_color":"#000000","holiday_color":"#8b0000","phase_color":"#e5b93f","line_width":0.4,"line_style":"solid","center_gap":2.0,"date_size":10,"lunar":false});
         let request: RunPipelineRequest = serde_json::from_value(serde_json::json!({
             "output": output,
             "sections": [
-                { "document": { "binding_text": "[base-6]" }, "pattern": { "kind": "ruled", "pages": 1 } },
-                { "pattern": { "kind": "hakubunkan-toyo-nikki" } },
-                { "pattern": { "kind": "八分周视图", "start_date": "2026-08-03", "end_date": "2026-08-16" } },
-                { "pattern": { "kind": "方眼罫" } },
-                { "pattern": { "kind": "daily_timeline", "pages": 1, "start_date": "2026-08-01", "end_date": "2026-08-01", "latitude": 31.23, "longitude": 121.47, "timezone": "Asia/Shanghai" } }
+                sec(serde_json::json!({"kind":"ruled","pages":1,"spacing":8,"color":"#7a7a7a","width":0.2}), doc0),
+                sec(toyo("2026-08-01","2026-08-01"), doc_default()),
+                sec(octan("2026-08-03","2026-08-16"), doc_default()),
+                sec(serde_json::json!({"kind":"方眼罫","pages":1,"line_color":"#a9d1ae"}), doc_default()),
+                sec(serde_json::json!({"kind":"daily_timeline","start":0,"end":24,"pages":1,"start_date":"2026-08-01","end_date":"2026-08-01","title_format":"%Y年%-m月%-d日","line_color":"#7a7a7a","line_width":1.138,"label_size":10.2,"latitude":31.23,"longitude":121.47,"timezone":"Asia/Shanghai","daylight_color":"#e5b93f","night_color":"#496a9f"}), doc_default())
             ],
             "bind": { "mode": "booklet", "sheets_per_group": 4 }
         }))

@@ -3,14 +3,13 @@ use chrono_tz::Tz;
 
 use serde::Deserialize;
 
-use super::colors::{GRAY, PHASE_GOLD, TIMELINE_NIGHT};
 use super::{
     Dot, Geometry, Line, LineStyle, MM_PER_PT, Side, Text, format_date, validate_color,
     validate_title_format,
 };
 
 #[derive(Clone, Deserialize)]
-#[serde(default, deny_unknown_fields)]
+#[serde(deny_unknown_fields)]
 pub(crate) struct DailyTimelinePattern {
     pub(crate) start: i32,
     pub(crate) end: i32,
@@ -20,30 +19,36 @@ pub(crate) struct DailyTimelinePattern {
     pub(crate) line_color: String,
     pub(crate) line_width: f64,
     pub(crate) label_size: f64,
+    #[serde(default)]
     pub(crate) latitude: Option<f64>,
+    #[serde(default)]
     pub(crate) longitude: Option<f64>,
+    #[serde(default)]
     pub(crate) timezone: Option<String>,
     pub(crate) daylight_color: String,
     pub(crate) night_color: String,
+    #[serde(default)]
     pub(crate) start_date: Option<NaiveDate>,
+    #[serde(default)]
     pub(crate) end_date: Option<NaiveDate>,
     /// 每页顶部日期标题格式，例如 "%Y年%-m月%-d日"。
     pub(crate) title_format: String,
 }
+#[cfg(test)]
 impl Default for DailyTimelinePattern {
     fn default() -> Self {
         Self {
             start: 0,
             end: 24,
             pages: 1,
-            line_color: GRAY.into(),
+            line_color: "#7a7a7a".into(),
             line_width: 0.4 / MM_PER_PT,
             label_size: 10.2,
             latitude: None,
             longitude: None,
             timezone: None,
-            daylight_color: PHASE_GOLD.into(),
-            night_color: TIMELINE_NIGHT.into(),
+            daylight_color: "#e5b93f".into(),
+            night_color: "#496a9f".into(),
             start_date: None,
             end_date: None,
             title_format: "%Y年%-m月%-d日".into(),
@@ -173,12 +178,23 @@ pub(crate) fn draw_daily_timeline(
         (mid, p.end)
     };
     let span = f64::from(end - start);
+    let r = geo.content;
     // 全部元素收在页心内（同 octan_week 的 content 纪律）：顶部为日期标题带；
     // 小时号带贴订口侧页心边缘，主刻度与昼/夜小点纹自号带铺到页心外缘。
-    let r = geo.content;
-    let title_h = p.label_size * 1.5 * MM_PER_PT;
-    let axis_top = r.y + title_h + 1.0;
-    let hh = (r.y + r.height - axis_top) / span;
+    // 两级尺度：页面级（r / timeline_h / hh）由纸张与时间跨度决定；
+    // 组件级（S / M）以 label_size 为唯一 token，决定字号、号带与刻度。
+    let s = p.label_size; // pt —— 基准字号 token
+    let m = s * MM_PER_PT; // mm —— label_size 的物理尺度
+    // 标题层级时钟刻度均为固定比例（见 docs 规范），不随页心宽度缩放。
+    let title_size = 1.50 * s;
+    let title_band_h = 1.15 * title_size * MM_PER_PT;
+    let title_gap = 1.0; // 微间距允许绝对 mm
+    let major_tick = 1.90 * m;
+    let half_tick = 0.83 * m;
+    let quarter_tick = 0.42 * m;
+    let timeline_h = r.height - title_band_h - title_gap;
+    let axis_top = r.y + title_band_h + title_gap;
+    let hh = timeline_h / span;
     let axis = if geo.binding_side == Side::Left {
         r.x
     } else {
@@ -189,7 +205,8 @@ pub(crate) fn draw_daily_timeline(
     } else {
         -1.0
     };
-    let label_w = p.label_size * MM_PER_PT;
+    // 号带宽度 = 1.00M（组件级，随 label_size 缩放）。
+    let label_w = m;
     let band = axis + direction * (label_w + 1.0);
     let outer = if geo.binding_side == Side::Left {
         r.x + r.width
@@ -202,9 +219,9 @@ pub(crate) fn draw_daily_timeline(
     if let Some(date) = date {
         texts.push(Text {
             x: r.x + r.width / 2.0,
-            y: r.y + title_h,
+            y: r.y + title_band_h,
             content: format_date(date, &p.title_format, "zh-CN"),
-            size: p.label_size * 1.5,
+            size: title_size,
             color: p.line_color.clone(),
             rotation: 0,
             font: font.into(),
@@ -214,8 +231,8 @@ pub(crate) fn draw_daily_timeline(
     for hour in start..=end {
         let color = daily_timeline_color(p, date, hour * 60);
         let y = axis_top + f64::from(hour - start) * hh;
-        // 主刻度自号带外缘向外 7mm；小点纹按半小时节奏铺满到页心外缘。
-        let tick = band + direction * 7.0;
+        // 主刻度 = 1.90M；小点纹按半小时节奏铺满到页心外缘。
+        let tick = band + direction * major_tick;
         lines.push(Line {
             x1: band,
             y1: y,
@@ -251,9 +268,19 @@ pub(crate) fn draw_daily_timeline(
             lines.push(Line {
                 x1: band,
                 y1: half,
-                x2: band + direction * 3.0,
+                x2: band + direction * half_tick,
                 y2: half,
                 color: daily_timeline_color(p, date, hour * 60 + 30),
+                width: Some(p.line_width),
+                style: LineStyle::Solid,
+            });
+            let quarter = y + hh / 4.0;
+            lines.push(Line {
+                x1: band,
+                y1: quarter,
+                x2: band + direction * quarter_tick,
+                y2: quarter,
+                color: daily_timeline_color(p, date, hour * 60 + 15),
                 width: Some(p.line_width),
                 style: LineStyle::Solid,
             });

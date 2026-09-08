@@ -124,6 +124,8 @@
     "color": "Color",
     "lineColor": "Line color",
     "centerColor": "Center dot color",
+    "textColor": "Body text color",
+    "holidayColor": "Holiday/weekend color",
     "mainColor": "Main line color",
     "fineColor": "Fine line color",
     "vlineColor": "Vertical line color",

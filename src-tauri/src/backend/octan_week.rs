@@ -1,8 +1,9 @@
-use chrono::{Datelike, Duration, NaiveDate, Utc, Weekday};
+#[cfg(test)]
+use chrono::Utc;
+use chrono::{Datelike, Duration, NaiveDate, Weekday};
 
 use serde::Deserialize;
 
-use super::colors::{BLACK, GRAY, HOLIDAY_RED, PHASE_GOLD};
 use super::month::{MOON_STEPS, moon_illumination};
 use super::{
     Dot, Geometry, HashMap, Line, LineStyle, Poly, Rect, Text, WeekdayLang, chrono_format,
@@ -11,7 +12,7 @@ use super::{
 };
 
 #[derive(Clone, Deserialize)]
-#[serde(default, deny_unknown_fields)]
+#[serde(deny_unknown_fields)]
 pub(crate) struct OctanWeekPattern {
     pub(crate) start_date: NaiveDate,
     pub(crate) end_date: NaiveDate,
@@ -23,12 +24,16 @@ pub(crate) struct OctanWeekPattern {
     /// 迷你月历星期表头，英文逗号分隔 7 项（同月历的 weekday_headers）。
     pub(crate) weekday_headers: String,
     pub(crate) line_color: String,
+    pub(crate) text_color: String,
+    pub(crate) holiday_color: String,
+    pub(crate) phase_color: String,
     pub(crate) line_width: f64,
     pub(crate) line_style: LineStyle,
     pub(crate) center_gap: f64,
     pub(crate) date_size: f64,
     pub(crate) lunar: bool,
 }
+#[cfg(test)]
 impl Default for OctanWeekPattern {
     fn default() -> Self {
         let today = Utc::now().date_naive();
@@ -41,7 +46,10 @@ impl Default for OctanWeekPattern {
             weekday_lang: WeekdayLang::Zh,
             title_format: "%Y年%-m月".into(),
             weekday_headers: "一,二,三,四,五,六,日".into(),
-            line_color: GRAY.into(),
+            line_color: "#7a7a7a".into(),
+            text_color: "#000000".into(),
+            holiday_color: "#8b0000".into(),
+            phase_color: "#e5b93f".into(),
             line_width: 0.4,
             line_style: LineStyle::Solid,
             center_gap: 2.0,
@@ -68,6 +76,9 @@ impl OctanWeekPattern {
             return Err("center_gap must be >= 0".into());
         }
         validate_color(&self.line_color)?;
+        validate_color(&self.text_color)?;
+        validate_color(&self.holiday_color)?;
+        validate_color(&self.phase_color)?;
         validate_weekday_headers(&self.weekday_headers)?;
         validate_title_format(&self.title_format, &self.date_locale, self.lunar)?;
         validate_date_format(&self.date_format, &self.date_locale)?;
@@ -146,6 +157,8 @@ fn push_mini_calendar(
             Some((week_start, week_start + Duration::days(6))),
             font,
             holidays,
+            &p.text_color,
+            &p.holiday_color,
             p.lunar,
             true,
             true,
@@ -165,6 +178,8 @@ fn push_mini_calendar(
         Some((week_start, week_start + Duration::days(6))),
         font,
         holidays,
+        &p.text_color,
+        &p.holiday_color,
         p.lunar,
         false,
         true,
@@ -185,6 +200,8 @@ pub(crate) fn push_one_month(
     highlight: Option<(NaiveDate, NaiveDate)>,
     font: &str,
     holidays: &Option<HashMap<String, String>>,
+    text_color: &str,
+    holiday_color: &str,
     lunar: bool,
     mini: bool,
     week_only: bool,
@@ -223,11 +240,11 @@ pub(crate) fn push_one_month(
         });
     }
     push_text(
-        texts, rect, cell_w, cell_h, size, font, &title, 3.0, 0, BLACK,
+        texts, rect, cell_w, cell_h, size, font, &title, 3.0, 0, text_color,
     );
     for (i, w) in head.iter().enumerate() {
         push_text(
-            texts, rect, cell_w, cell_h, size, font, w, i as f64, 1, BLACK,
+            texts, rect, cell_w, cell_h, size, font, w, i as f64, 1, text_color,
         );
     }
     for d in 1..=days {
@@ -257,7 +274,7 @@ pub(crate) fn push_one_month(
             &d.to_string(),
             (pos % 7) as f64,
             pos / 7 + 2,
-            if is_red { HOLIDAY_RED } else { BLACK },
+            if is_red { holiday_color } else { text_color },
         );
         // 副标签（农历/节日）：日期字面正下方，偏移按字号换算成 mm。年历（stack）
         // 农历在上、节日在下两行；其余视图仍一行（节日优先农历）。调休上班日不显示
@@ -265,11 +282,11 @@ pub(crate) fn push_one_month(
         if !mini {
             let holiday_sub = holiday_name
                 .filter(|_| !is_compensatory)
-                .map(|n| (n.clone(), HOLIDAY_RED));
+                .map(|n| (n.clone(), holiday_color));
             let lunar_sub = lunar
                 .then(|| lunar_date(date))
                 .flatten()
-                .map(|s| (s.to_string(), BLACK));
+                .map(|s| (s.to_string(), text_color));
             // 行序：stack 时先农历后节日；否则单行节日优先农历。
             let lines: Vec<(String, &str)> = if stack {
                 let mut ls = Vec::new();
@@ -432,7 +449,7 @@ pub(crate) fn draw_octan_week(
             };
             paths.push(Poly {
                 points: arc(0.0, tau),
-                color: PHASE_GOLD.into(),
+                color: p.phase_color.clone(),
                 fill: false,
                 arrow: false,
             });
@@ -447,7 +464,7 @@ pub(crate) fn draw_octan_week(
             }
             paths.push(Poly {
                 points: lit,
-                color: PHASE_GOLD.into(),
+                color: p.phase_color.clone(),
                 fill: true,
                 arrow: false,
             });
@@ -556,10 +573,10 @@ mod tests {
         let colored =
             |s: &str, color: &str| mini.iter().any(|t| t.content == s && t.color == color);
         // 本周 8/3–8/9 红色，8/1、8/2、8/10 及 9 月黑色。
-        assert!(colored("3", HOLIDAY_RED) && colored("9", HOLIDAY_RED));
-        assert!(colored("1", BLACK) && colored("2", BLACK));
-        assert!(colored("10", BLACK));
-        assert!(colored("30", BLACK));
+        assert!(colored("3", "#8b0000") && colored("9", "#8b0000"));
+        assert!(colored("1", "#000000") && colored("2", "#000000"));
+        assert!(colored("10", "#000000"));
+        assert!(colored("30", "#000000"));
         // 后半页（偶数序号页）没有空白格，不画月历。
         assert!(draw(&page, &p, 1).iter().all(|t| t.anchor != "center"));
     }
@@ -573,12 +590,12 @@ mod tests {
         let colored =
             |s: &str, color: &str| mini.iter().any(|t| t.content == s && t.color == color);
         // 8 月只有 31 红色；9 月 1–6 红色，7 及以后黑色。
-        assert!(colored("31", HOLIDAY_RED));
-        assert!(colored("30", BLACK));
+        assert!(colored("31", "#8b0000"));
+        assert!(colored("30", "#000000"));
         for d in 1..=6 {
-            assert!(colored(&d.to_string(), HOLIDAY_RED));
+            assert!(colored(&d.to_string(), "#8b0000"));
         }
-        assert!(colored("7", BLACK));
+        assert!(colored("7", "#000000"));
     }
 
     #[test]
@@ -592,9 +609,9 @@ mod tests {
         let colored =
             |s: &str, color: &str| mini.iter().any(|t| t.content == s && t.color == color);
         for d in 5..=11 {
-            assert!(colored(&d.to_string(), HOLIDAY_RED));
+            assert!(colored(&d.to_string(), "#8b0000"));
         }
-        assert!(colored("31", BLACK)); // 10-31 周六，当周之外
+        assert!(colored("31", "#000000")); // 10-31 周六，当周之外
     }
 
     #[test]

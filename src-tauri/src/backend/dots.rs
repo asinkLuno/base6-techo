@@ -1,11 +1,10 @@
 use serde::Deserialize;
 
-use super::colors::GRAY;
 use super::{Dot, Geometry, Line, centered, validate_color};
 
 /// 点阵：内容区内等距点阵（行距 spacing、列距 column_spacing）。
 #[derive(Clone, Deserialize)]
-#[serde(default, deny_unknown_fields)]
+#[serde(deny_unknown_fields)]
 pub(crate) struct DotsPattern {
     pub(crate) pages: usize,
     pub(crate) spacing: f64,
@@ -13,9 +12,11 @@ pub(crate) struct DotsPattern {
     pub(crate) radius: f64,
     pub(crate) color: String,
     /// 中心点单独颜色；None 表示与 color 一致。
+    #[serde(default)]
     pub(crate) center_color: Option<String>,
 }
 
+#[cfg(test)]
 impl Default for DotsPattern {
     fn default() -> Self {
         Self {
@@ -23,12 +24,11 @@ impl Default for DotsPattern {
             spacing: 5.0,
             column_spacing: 5.0,
             radius: 0.25,
-            color: GRAY.into(),
-            center_color: None,
+            color: "#a9d1ae".into(),
+            center_color: Some("#8b0000".into()),
         }
     }
 }
-
 impl DotsPattern {
     pub(crate) fn validate(&self) -> Result<(), String> {
         if !(1..=500).contains(&self.pages) {

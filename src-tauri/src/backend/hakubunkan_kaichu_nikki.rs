@@ -2,7 +2,6 @@ use chinese_lunisolar_calendar::LunisolarDate;
 use chrono::{Datelike, Duration, NaiveDate};
 use serde::Deserialize;
 
-use super::colors::GRAY;
 use super::{
     Geometry, Line, LineStyle, Text, format_date, lunar_date, validate_color, validate_date_format,
     validate_weekday_headers,
@@ -16,7 +15,7 @@ pub(crate) enum LunarStyle {
 }
 
 #[derive(Clone, Deserialize)]
-#[serde(default, deny_unknown_fields)]
+#[serde(deny_unknown_fields)]
 pub(crate) struct HakubunkanKaichuNikkiPattern {
     pub(crate) start_date: NaiveDate,
     pub(crate) end_date: NaiveDate,
@@ -29,6 +28,7 @@ pub(crate) struct HakubunkanKaichuNikkiPattern {
     pub(crate) date_size: f64,
 }
 
+#[cfg(test)]
 impl Default for HakubunkanKaichuNikkiPattern {
     fn default() -> Self {
         let today = chrono::Utc::now().date_naive();
@@ -39,7 +39,7 @@ impl Default for HakubunkanKaichuNikkiPattern {
             date_locale: "zh-CN".into(),
             weekday_headers: "月,火,水,木,金,土,日".into(),
             lunar_style: LunarStyle::Numeric,
-            line_color: GRAY.into(),
+            line_color: "#7a7a7a".into(),
             line_width: 0.4,
             date_size: 10.0,
         }

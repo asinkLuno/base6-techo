@@ -51,6 +51,14 @@ export function cleanPattern(pattern: Section["pattern"]) {
       start_date: pattern.start_date || null,
       end_date: pattern.end_date || null,
     };
+  // 月历/年历/八分周视图的语义色（周末/节假红、正文黑、月相金）由前端给出。
+  // 老存档可能缺这些字段，缺失时补上 COLORS 默认值，避免后端反序列化报错。
+  if (pattern.kind === "month-calendar")
+    return { ...pattern, holiday_color: pattern.holiday_color ?? COLORS.holidayRed };
+  if (pattern.kind === "year-calendar")
+    return { ...pattern, text_color: pattern.text_color ?? COLORS.black, holiday_color: pattern.holiday_color ?? COLORS.holidayRed };
+  if (pattern.kind === "八分周视图")
+    return { ...pattern, text_color: pattern.text_color ?? COLORS.black, holiday_color: pattern.holiday_color ?? COLORS.holidayRed, phase_color: pattern.phase_color ?? COLORS.phaseGold };
   return pattern;
 }
 

@@ -1,23 +1,27 @@
 //! 年历 — 每页 rows×cols 的月历网格（默认 1×2，左右双页为一行四个月），
 //! 复用八分周视图的迷你月历。
 
-use chrono::{Datelike, NaiveDate, Utc};
+use chrono::NaiveDate;
+#[cfg(test)]
+use chrono::{Datelike, Utc};
 use serde::Deserialize;
 
 use super::{
     Geometry, HashMap, Rect, Text, WeekdayLang, format_date,
     octan_week::{MINI_PAD, push_one_month, weekday_locale},
-    validate_title_format, validate_weekday_headers,
+    validate_color, validate_title_format, validate_weekday_headers,
 };
 
 #[derive(Clone, Deserialize)]
-#[serde(default, deny_unknown_fields)]
+#[serde(deny_unknown_fields)]
 pub(crate) struct YearPattern {
     pub(crate) start: String, // "YYYY-MM"
     pub(crate) end: String,
     pub(crate) rows: usize,
     pub(crate) cols: usize,
     pub(crate) date_size: f64,
+    pub(crate) text_color: String,
+    pub(crate) holiday_color: String,
     pub(crate) weekday_lang: WeekdayLang,
     /// 每格月历月份标题格式（同月历的 title_format）。
     pub(crate) title_format: String,
@@ -27,6 +31,7 @@ pub(crate) struct YearPattern {
     pub(crate) show_holidays: bool,
     pub(crate) lunar: bool,
 }
+#[cfg(test)]
 impl Default for YearPattern {
     fn default() -> Self {
         let year = Utc::now().year();
@@ -36,6 +41,8 @@ impl Default for YearPattern {
             rows: 1,
             cols: 2,
             date_size: 6.0,
+            text_color: "#000000".into(),
+            holiday_color: "#8b0000".into(),
             weekday_lang: WeekdayLang::Zh,
             title_format: "%Y年%-m月".into(),
             weekday_headers: "一,二,三,四,五,六,日".into(),
@@ -66,6 +73,8 @@ impl YearPattern {
         if self.date_size <= 0.0 {
             return Err("date_size must be > 0".into());
         }
+        validate_color(&self.text_color)?;
+        validate_color(&self.holiday_color)?;
         if !(1..=12).contains(&self.rows) || !(1..=12).contains(&self.cols) {
             return Err("rows and cols must be in 1..=12".into());
         }
@@ -152,6 +161,8 @@ pub(crate) fn draw_year(
             None,
             font,
             holidays,
+            &p.text_color,
+            &p.holiday_color,
             p.lunar,
             false,
             false,
@@ -163,7 +174,6 @@ pub(crate) fn draw_year(
 
 #[cfg(test)]
 mod tests {
-    use super::super::colors::{BLACK, HOLIDAY_RED};
     use super::super::{PageSettings, geometry_for};
     use super::*;
 
@@ -260,7 +270,7 @@ mod tests {
         assert_eq!(
             texts
                 .iter()
-                .filter(|t| t.content == "1" && t.color == BLACK)
+                .filter(|t| t.content == "1" && t.color == "#000000")
                 .count(),
             1,
             "只有 1 月 1 号是黑色"
@@ -268,7 +278,7 @@ mod tests {
         assert!(
             texts
                 .iter()
-                .any(|t| t.content == "1" && t.color == HOLIDAY_RED),
+                .any(|t| t.content == "1" && t.color == "#8b0000"),
             "2 月 1 号是红色（周末）"
         );
     }
@@ -303,7 +313,7 @@ mod tests {
         assert!(
             !texts
                 .iter()
-                .any(|t| t.content == "1" && t.color == HOLIDAY_RED)
+                .any(|t| t.content == "1" && t.color == "#8b0000")
         );
     }
 
@@ -321,7 +331,7 @@ mod tests {
         let holiday = texts.iter().find(|t| t.content == "情人节").expect("节日");
         let above = texts
             .iter()
-            .find(|t| (t.x - holiday.x).abs() < 0.001 && t.y < holiday.y && t.color == BLACK);
+            .find(|t| (t.x - holiday.x).abs() < 0.001 && t.y < holiday.y && t.color == "#000000");
         assert!(above.is_some(), "农历应在节日上方");
     }
 }

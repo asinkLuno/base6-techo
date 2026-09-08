@@ -1,11 +1,10 @@
 use serde::Deserialize;
 
-use super::colors::GRAY;
 use super::{Dot, Geometry, Line, LineStyle, validate_color};
 
 /// 网格：内容区内等距方格，四周封闭边框（锁边）。
 #[derive(Clone, Deserialize)]
-#[serde(default, deny_unknown_fields)]
+#[serde(deny_unknown_fields)]
 pub(crate) struct GridPattern {
     pub(crate) pages: usize,
     pub(crate) spacing: f64,
@@ -13,17 +12,17 @@ pub(crate) struct GridPattern {
     pub(crate) width: f64,
 }
 
+#[cfg(test)]
 impl Default for GridPattern {
     fn default() -> Self {
         Self {
             pages: 1,
             spacing: 5.0,
-            color: GRAY.into(),
+            color: "#7a7a7a".into(),
             width: 0.2,
         }
     }
 }
-
 impl GridPattern {
     pub(crate) fn validate(&self) -> Result<(), String> {
         if !(1..=500).contains(&self.pages) {

@@ -1,15 +1,16 @@
 use chinese_lunisolar_calendar::LunisolarDate;
-use chrono::{Duration, NaiveDate, Utc};
+#[cfg(test)]
+use chrono::Utc;
+use chrono::{Duration, NaiveDate};
 use serde::Deserialize;
 
-use super::colors::PALE_JADE;
 use super::{
     Geometry, Line, LineStyle, MM_PER_PT, Rect, Text, format_date, validate_color,
     validate_date_format,
 };
 
 #[derive(Clone, Deserialize)]
-#[serde(default, deny_unknown_fields)]
+#[serde(deny_unknown_fields)]
 pub(crate) struct HakubunkanToyoNikkiPattern {
     pub(crate) start_date: NaiveDate,
     pub(crate) end_date: NaiveDate,
@@ -18,6 +19,7 @@ pub(crate) struct HakubunkanToyoNikkiPattern {
     pub(crate) line_width: f64,
 }
 
+#[cfg(test)]
 impl Default for HakubunkanToyoNikkiPattern {
     fn default() -> Self {
         let today = Utc::now().date_naive();
@@ -25,7 +27,7 @@ impl Default for HakubunkanToyoNikkiPattern {
             start_date: today,
             end_date: today,
             date_format: "%-m月%-d日".into(),
-            line_color: PALE_JADE.into(),
+            line_color: "#a9d1ae".into(),
             line_width: 0.4,
         }
     }

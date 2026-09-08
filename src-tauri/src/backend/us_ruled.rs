@@ -6,7 +6,7 @@ use super::{Dot, Geometry, Line, LineStyle, centered, validate_color};
 /// 有意满版：线条占满整页、不经页心（geo.content）约束，
 /// 豁免于 `contained_patterns_draw_inside_content` 的页心纪律。
 #[derive(Clone, Deserialize)]
-#[serde(default, deny_unknown_fields)]
+#[serde(deny_unknown_fields)]
 pub(crate) struct UsRuledPattern {
     pub(crate) pages: usize,
     pub(crate) spacing: f64,
@@ -17,6 +17,7 @@ pub(crate) struct UsRuledPattern {
     pub(crate) margin_width: f64,
 }
 
+#[cfg(test)]
 impl Default for UsRuledPattern {
     fn default() -> Self {
         Self {
@@ -30,7 +31,6 @@ impl Default for UsRuledPattern {
         }
     }
 }
-
 impl UsRuledPattern {
     pub(crate) fn validate(&self) -> Result<(), String> {
         if !(1..=500).contains(&self.pages) {

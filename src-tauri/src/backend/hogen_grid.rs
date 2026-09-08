@@ -1,24 +1,23 @@
 use serde::Deserialize;
 
-use super::colors::PALE_JADE;
 use super::{Dot, Geometry, Line, LineStyle, region, validate_color};
 
 #[derive(Clone, Deserialize)]
-#[serde(default, deny_unknown_fields)]
+#[serde(deny_unknown_fields)]
 pub(crate) struct HogenGridPattern {
     pub(crate) pages: usize,
     pub(crate) line_color: String,
 }
 
+#[cfg(test)]
 impl Default for HogenGridPattern {
     fn default() -> Self {
         Self {
             pages: 1,
-            line_color: PALE_JADE.into(),
+            line_color: "#a9d1ae".into(),
         }
     }
 }
-
 impl HogenGridPattern {
     pub(crate) fn validate(&self) -> Result<(), String> {
         if !(1..=500).contains(&self.pages) {

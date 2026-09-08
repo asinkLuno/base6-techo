@@ -1,7 +1,6 @@
 //! 月历 — 移植自 lunar techo 的 senary 月历正面：7 列周一为首的网格
 //! （交叉处留 0.2mm 缺口）、左上角日期、右上角照面比例月相方块。
 
-use super::colors::{GRAY, HOLIDAY_RED, PHASE_GOLD};
 use chrono::{Datelike, Duration, NaiveDate, TimeZone, Utc, Weekday};
 use serde::Deserialize;
 
@@ -19,12 +18,13 @@ pub(crate) const MOON_STEPS: usize = 24; // 圆弧采样数
 const SYNODIC: f64 = 29.53058867; // 朔望月（天）
 
 #[derive(Clone, Deserialize)]
-#[serde(default, deny_unknown_fields)]
+#[serde(deny_unknown_fields)]
 pub(crate) struct MonthPattern {
     pub(crate) year: i32,
     pub(crate) month: u32,
     pub(crate) phase_color: String,
     pub(crate) line_color: String,
+    pub(crate) holiday_color: String,
     pub(crate) line_width: f64,
     pub(crate) date_size: f64,
     /// 星期表头，英文逗号分隔的 7 项（如 "Mo,Tu,We,Th,Fr,Sa,Su"）。
@@ -39,14 +39,16 @@ pub(crate) struct MonthPattern {
     pub(crate) sub_gap: f64,
     pub(crate) lunar: bool,
 }
+#[cfg(test)]
 impl Default for MonthPattern {
     fn default() -> Self {
         let now = Utc::now();
         Self {
             year: now.year(),
             month: now.month(),
-            phase_color: PHASE_GOLD.into(),
-            line_color: GRAY.into(),
+            phase_color: "#e5b93f".into(),
+            line_color: "#7a7a7a".into(),
+            holiday_color: "#8b0000".into(),
             line_width: 0.4,
             date_size: 8.0,
             weekday_headers: "Mo,Tu,We,Th,Fr,Sa,Su".into(),
@@ -68,6 +70,7 @@ impl MonthPattern {
             return Err("line_width, date_size and sub_size must be > 0".into());
         }
         validate_color(&self.line_color)?;
+        validate_color(&self.holiday_color)?;
         validate_weekday_headers(&self.weekday_headers)?;
         // 月历标题不经 format_date 渲染，不支持 %cccc（农历占位）。
         validate_title_format(&self.title_format, "zh-CN", false)?;
@@ -213,7 +216,11 @@ pub(crate) fn draw_month(
         let has_holidays = holidays.as_ref().is_some_and(|h| !h.is_empty());
         let is_red = holiday_name.is_some() && !is_compensatory
             || is_weekend && has_holidays && !is_compensatory;
-        let text_color = if is_red { HOLIDAY_RED } else { &p.line_color };
+        let text_color = if is_red {
+            &p.holiday_color
+        } else {
+            &p.line_color
+        };
         texts.push(Text {
             x: land.x + cell_w * col + PAD,
             y: gy + cell_h * row + PAD,
@@ -258,7 +265,7 @@ pub(crate) fn draw_month(
                 y: holiday_y,
                 content: name.clone(),
                 size: p.sub_size,
-                color: HOLIDAY_RED.to_string(),
+                color: p.holiday_color.clone(),
                 rotation: 0,
                 font: font.into(),
                 anchor: "north west",
@@ -366,7 +373,7 @@ const TRACKER_UP: f64 = 3.0; // mm，整体上移
 const ARROW_LANE: f64 = 6.0; // mm，内容左缘的连接箭头泳道
 
 #[derive(Clone, Deserialize)]
-#[serde(default, deny_unknown_fields)]
+#[serde(deny_unknown_fields)]
 pub(crate) struct TrackerPattern {
     pub(crate) year: i32,
     pub(crate) month: u32,
@@ -375,6 +382,7 @@ pub(crate) struct TrackerPattern {
     pub(crate) line_width: f64,
     pub(crate) date_size: f64,
 }
+#[cfg(test)]
 impl Default for TrackerPattern {
     fn default() -> Self {
         let now = Utc::now();
@@ -382,7 +390,7 @@ impl Default for TrackerPattern {
             year: now.year(),
             month: now.month(),
             items: 4,
-            line_color: GRAY.into(),
+            line_color: "#7a7a7a".into(),
             line_width: 0.4,
             date_size: 8.0,
         }
@@ -612,7 +620,7 @@ fn ym_string(year: i32, month: u32) -> String {
 
 /// 多月追踪：横轴 1–31 日期列，纵轴月份行（复用月打卡格子样式）。
 #[derive(Clone, Deserialize)]
-#[serde(default, deny_unknown_fields)]
+#[serde(deny_unknown_fields)]
 pub(crate) struct MonthTrackerPattern {
     pub(crate) start: String,
     pub(crate) end: String,
@@ -622,6 +630,7 @@ pub(crate) struct MonthTrackerPattern {
     pub(crate) line_width: f64,
     pub(crate) date_size: f64,
 }
+#[cfg(test)]
 impl Default for MonthTrackerPattern {
     fn default() -> Self {
         let now = Utc::now();
@@ -629,7 +638,7 @@ impl Default for MonthTrackerPattern {
             start: ym_string(now.year(), now.month()),
             end: ym_string(now.year(), now.month()),
             two_page: false,
-            line_color: GRAY.into(),
+            line_color: "#7a7a7a".into(),
             line_width: 0.4,
             date_size: 8.0,
         }
@@ -890,14 +899,14 @@ mod tests {
         // 2026-08-01 是周六：无 ICS 时不染色。
         let (_, _, _, texts) = draw_month(geometry_for(&page, 1), &p, 0, r"\sffamily", &None);
         let sat = texts.iter().find(|t| t.content == "1").unwrap();
-        assert_eq!(sat.color, GRAY);
+        assert_eq!(sat.color, "#7a7a7a");
         // 有 ICS 节日表时周末染红（节日名放在别的日期，专测周末分支）。
         let mut holidays = HashMap::new();
         holidays.insert("2026-08-04".into(), "收获节".into());
         let (_, _, _, texts) =
             draw_month(geometry_for(&page, 1), &p, 0, r"\sffamily", &Some(holidays));
         let sat = texts.iter().find(|t| t.content == "1").unwrap();
-        assert_eq!(sat.color, HOLIDAY_RED);
+        assert_eq!(sat.color, "#8b0000");
     }
 
     #[test]
@@ -921,7 +930,7 @@ mod tests {
         );
         assert!(!texts.iter().any(|t| t.content == "建军节"));
         let sat = texts.iter().find(|t| t.content == "1").unwrap();
-        assert_eq!(sat.color, GRAY);
+        assert_eq!(sat.color, "#7a7a7a");
         // 打开后恢复。
         let p = MonthPattern {
             show_holidays: true,

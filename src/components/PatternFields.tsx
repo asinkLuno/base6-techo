@@ -138,6 +138,9 @@ export function PatternFields({ section, set }: Props) {
         <Field label={t("field.dateFormat")} value={p.date_format} type="text" placeholder={t("field.dateFormatHint")} onChange={(v) => set("date_format", v)} />
         <SelectField label={t("field.language")} value={p.date_locale} options={DATE_LOCALE_OPTIONS} onChange={(v) => set("date_locale", v)} />
         <Field label={t("field.lineColor")} value={p.line_color} type="color" onChange={(v) => set("line_color", v)} />
+        <Field label={t("field.textColor")} value={p.text_color} type="color" onChange={(v) => set("text_color", v)} />
+        <Field label={t("field.holidayColor")} value={p.holiday_color} type="color" onChange={(v) => set("holiday_color", v)} />
+        <Field label={t("field.phaseColor")} value={p.phase_color} type="color" onChange={(v) => set("phase_color", v)} />
         <Field label={t("field.lineWidthPt")} value={p.line_width} min={0.01} step={0.05} onChange={(v) => set("line_width", v)} />
         <SelectField label={t("field.lineStyle")} value={p.line_style} options={LINE_STYLE_OPTIONS.map(([v, k]) => [v, t(k)] as [string, string])} onChange={(v) => set("line_style", v)} />
         <Field label={t("field.centerGap")} value={p.center_gap} min={0} step={0.5} onChange={(v) => set("center_gap", v)} />
@@ -171,6 +174,8 @@ export function PatternFields({ section, set }: Props) {
         <Field label={t("field.rows")} value={p.rows} min={1} max={12} onChange={(v) => set("rows", v)} />
         <Field label={t("field.cols")} value={p.cols} min={1} max={12} onChange={(v) => set("cols", v)} />
         <Field label={t("field.dateSize")} value={p.date_size} min={1} step={0.5} onChange={(v) => set("date_size", v)} />
+        <Field label={t("field.textColor")} value={p.text_color} type="color" onChange={(v) => set("text_color", v)} />
+        <Field label={t("field.holidayColor")} value={p.holiday_color} type="color" onChange={(v) => set("holiday_color", v)} />
         <WeekdayHeaderField value={String(p.weekday_headers ?? "")} onChange={(v) => set("weekday_headers", v)} />
         <Field label={t("field.monthTitleFormat")} value={p.title_format} type="text" placeholder="%Y年%-m月" onChange={(v) => set("title_format", v)} />
         <Field label={t("field.showHolidays")} value={Boolean(p.show_holidays ?? true)} type="checkbox" onChange={(v) => set("show_holidays", Boolean(v))} />
@@ -185,6 +190,7 @@ export function PatternFields({ section, set }: Props) {
         <Field label={t("field.month")} value={p.month} min={1} max={12} onChange={(v) => set("month", v)} />
         <Field label={t("field.phaseColor")} value={p.phase_color} type="color" onChange={(v) => set("phase_color", v)} />
         <Field label={t("field.lineColor")} value={p.line_color} type="color" onChange={(v) => set("line_color", v)} />
+        <Field label={t("field.holidayColor")} value={p.holiday_color} type="color" onChange={(v) => set("holiday_color", v)} />
         <Field label={t("field.lineWidthPt")} value={p.line_width} min={0.01} step={0.05} onChange={(v) => set("line_width", v)} />
         <Field label={t("field.dateSize")} value={p.date_size} min={1} step={0.5} onChange={(v) => set("date_size", v)} />
         <WeekdayHeaderField value={String(p.weekday_headers ?? "")} onChange={(v) => set("weekday_headers", v)} />

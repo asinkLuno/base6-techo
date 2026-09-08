@@ -162,7 +162,8 @@ export const defaults: Record<PatternKind, Values & { kind: PatternKind }> = {
   "八分周视图": {
     kind: "八分周视图", start_date: toISODate(currentMonday), end_date: toISODate(currentSunday),
     date_format: "%-d", date_locale: "zh-CN", weekday_lang: "zh", title_format: "%Y年%-m月",
-    weekday_headers: "一,二,三,四,五,六,日", line_color: COLORS.gray, line_width: 0.4,
+    weekday_headers: "一,二,三,四,五,六,日", line_color: COLORS.gray, text_color: COLORS.black,
+    holiday_color: COLORS.holidayRed, phase_color: COLORS.phaseGold, line_width: 0.4,
     line_style: "solid", center_gap: 2, date_size: 10,
   },
   "hakubunkan-kaichu-nikki": {
@@ -173,8 +174,8 @@ export const defaults: Record<PatternKind, Values & { kind: PatternKind }> = {
   },
   "month-calendar": {
     kind: "month-calendar", year: new Date().getFullYear(), month: new Date().getMonth() + 1,
-    phase_color: COLORS.phaseGold, line_color: COLORS.gray, line_width: 0.4, date_size: 8,
-    weekday_headers: "一,二,三,四,五,六,日", title_format: "%Y年%-m月", two_page: false,
+    phase_color: COLORS.phaseGold, line_color: COLORS.gray, holiday_color: COLORS.holidayRed,
+    line_width: 0.4, date_size: 8, weekday_headers: "一,二,三,四,五,六,日", title_format: "%Y年%-m月", two_page: false,
     show_holidays: true, sub_size: 4.2, sub_gap: 0, lunar: false,
   },
   "month-tracker": {
@@ -189,7 +190,8 @@ export const defaults: Record<PatternKind, Values & { kind: PatternKind }> = {
   },
   "year-calendar": {
     kind: "year-calendar", start: `${new Date().getFullYear()}-01`, end: `${new Date().getFullYear()}-12`,
-    rows: 1, cols: 2, date_size: 6, weekday_lang: "zh", title_format: "%Y年%-m月",
+    rows: 1, cols: 2, date_size: 6, text_color: COLORS.black, holiday_color: COLORS.holidayRed,
+    weekday_lang: "zh", title_format: "%Y年%-m月",
     weekday_headers: "一,二,三,四,五,六,日", show_holidays: true, lunar: false,
   },
   "daily_timeline": {

@@ -1,11 +1,10 @@
 use serde::Deserialize;
 
-use super::colors::GRAY;
 use super::{Dot, Geometry, Line, LineStyle, centered, validate_color};
 
 /// 横线本：内容区内等距横线，左右通边。
 #[derive(Clone, Deserialize)]
-#[serde(default, deny_unknown_fields)]
+#[serde(deny_unknown_fields)]
 pub(crate) struct RuledPattern {
     pub(crate) pages: usize,
     pub(crate) spacing: f64,
@@ -13,17 +12,17 @@ pub(crate) struct RuledPattern {
     pub(crate) width: f64,
 }
 
+#[cfg(test)]
 impl Default for RuledPattern {
     fn default() -> Self {
         Self {
-            pages: 1,
+            pages: 32,
             spacing: 8.0,
-            color: GRAY.into(),
+            color: "#7a7a7a".into(),
             width: 0.2,
         }
     }
 }
-
 impl RuledPattern {
     pub(crate) fn validate(&self) -> Result<(), String> {
         if !(1..=500).contains(&self.pages) {
