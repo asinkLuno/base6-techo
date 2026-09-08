@@ -443,10 +443,19 @@ def generate_daily():
     print(f"    -> 预览 {subdir}/daily-2026-p{{006..015}}.png")
 
 
-
+def rebuild_backend():
+    """先重新编译后端 CLI，确保生成用的是最新代码。"""
+    print('编译后端 techo-pipeline ...')
+    proc = subprocess.run(['cargo', 'build'], cwd='src-tauri',
+                          capture_output=True, text=True)
+    if proc.returncode != 0:
+        print(proc.stderr.strip(), file=sys.stderr)
+        sys.exit('后端编译失败')
+    print('    -> 编译完成')
 
 
 def main(argv):
+    rebuild_backend()
     if "--weekly" in argv:
         generate_weekly()
         return
