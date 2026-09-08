@@ -155,6 +155,7 @@ pub(crate) fn draw_year(
             p.lunar,
             false,
             false,
+            true,
         );
     }
     texts
@@ -304,5 +305,23 @@ mod tests {
                 .iter()
                 .any(|t| t.content == "1" && t.color == HOLIDAY_RED)
         );
+    }
+
+    #[test]
+    fn holiday_date_shows_lunar_above_and_holiday_below() {
+        let page = PageSettings::default();
+        let p = YearPattern {
+            lunar: true,
+            ..year("2026-01", "2026-12")
+        };
+        let mut holidays = HashMap::new();
+        holidays.insert("2026-02-14".into(), "情人节".into());
+        let texts = draw_year(geometry_for(&page, 1), &p, 0, r"\sffamily", &Some(holidays));
+        // 节日在下，其上紧邻的同列黑色文字为农历（农历在上）。
+        let holiday = texts.iter().find(|t| t.content == "情人节").expect("节日");
+        let above = texts
+            .iter()
+            .find(|t| (t.x - holiday.x).abs() < 0.001 && t.y < holiday.y && t.color == BLACK);
+        assert!(above.is_some(), "农历应在节日上方");
     }
 }

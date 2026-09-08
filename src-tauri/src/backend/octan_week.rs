@@ -149,6 +149,7 @@ fn push_mini_calendar(
             p.lunar,
             true,
             true,
+            false,
         );
     }
     push_one_month(
@@ -167,6 +168,7 @@ fn push_mini_calendar(
         p.lunar,
         false,
         true,
+        false,
     );
 }
 
@@ -186,6 +188,7 @@ pub(crate) fn push_one_month(
     lunar: bool,
     mini: bool,
     week_only: bool,
+    stack: bool,
 ) {
     let Some(next) = next_month_first(first) else {
         return;
@@ -256,33 +259,44 @@ pub(crate) fn push_one_month(
             pos / 7 + 2,
             if is_red { HOLIDAY_RED } else { BLACK },
         );
-        // 副标签（农历/节日）：日期字面正下方，偏移按字号换算成 mm——固定格高比例
-        // 在年历 4×3 的小格（cell_h ~3.8mm）里会把副字顶进日期。有节日名的日期
-        // 以节日名替换农历（小格叠不下两行，亦合挂历惯例）；调休上班日不显示名称。
-        // 微缩月历仅染色，不显示文字。
+        // 副标签（农历/节日）：日期字面正下方，偏移按字号换算成 mm。年历（stack）
+        // 农历在上、节日在下两行；其余视图仍一行（节日优先农历）。调休上班日不显示
+        // 名称；微缩月历仅染色，不显示文字。
         if !mini {
-            let sub = holiday_name
+            let holiday_sub = holiday_name
                 .filter(|_| !is_compensatory)
-                .map(|n| (n.clone(), HOLIDAY_RED))
-                .or_else(|| {
-                    lunar
-                        .then(|| lunar_date(date))
-                        .flatten()
-                        .map(|s| (s, BLACK))
-                });
-            if let Some((content, color)) = sub {
+                .map(|n| (n.clone(), HOLIDAY_RED));
+            let lunar_sub = lunar
+                .then(|| lunar_date(date))
+                .flatten()
+                .map(|s| (s.to_string(), BLACK));
+            // 行序：stack 时先农历后节日；否则单行节日优先农历。
+            let lines: Vec<(String, &str)> = if stack {
+                let mut ls = Vec::new();
+                if let Some(l) = lunar_sub {
+                    ls.push(l);
+                }
+                if let Some(h) = holiday_sub {
+                    ls.push(h);
+                }
+                ls
+            } else {
+                holiday_sub.or(lunar_sub).into_iter().collect()
+            };
+            for (li, (content, color)) in lines.into_iter().enumerate() {
                 // 副字号先取日期一半，再按字数收缩装进本格：Sarasa CJK 字宽恰为
                 // 1em（1pt = 25.4/72 mm），年历 4×3 的 a6p/a7 格宽 ~3mm，4 字农历
                 // 不收缩必与邻格相撞；两侧各留 0.25mm 间隙。
                 let chars = content.chars().count() as f64;
                 let sub_size = (size * 0.5).min((cell_w - 0.5) * 72.0 / (25.4 * chars));
+                // 首行居日期中心下 0.62 个日期 em；stack 的次行（节日）再下移一个副字号。
+                let off = 0.62 + if stack { li as f64 * 0.5 } else { 0.0 };
                 texts.push(Text {
                     x: rect.x + MINI_PAD + cell_w * ((pos % 7) as f64 + 0.5),
-                    // 日期中心下移 0.62 个日期 em：0.25 字面半高 + 0.12 间隙 + 0.25 半个副字
                     y: rect.y
                         + MINI_PAD
                         + cell_h * ((pos / 7 + 2) as f64 + 0.5)
-                        + size * 25.4 / 72.0 * 0.62,
+                        + size * 25.4 / 72.0 * off,
                     content,
                     size: sub_size,
                     color: color.into(),
