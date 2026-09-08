@@ -62,7 +62,7 @@ DEFAULT_PATTERNS = ["ruled", "dots", "grid", "seyes", "us-ruled", "vertical",
 PATTERN_PARAMS = {
     "ruled": {"kind": "ruled", "pages": 2, "spacing": 8, "color": "#7a7a7a", "width": 0.2},
     "dots": {"kind": "dots", "pages": 2, "spacing": 5, "column_spacing": 5, "radius": 0.3,
-             "color": "#7a7a7a", "center_color": "#000000"},
+             "color": "#a9d1ae", "center_color": "#8b0000"},
     "grid": {"kind": "grid", "pages": 2, "spacing": 5, "color": "#7a7a7a", "width": 0.2},
     "seyes": {"kind": "seyes", "pages": 2, "spacing": 8, "margin_line": 7,
               "main_color": "#9db0cf", "main_width": 0.2, "fine_color": "#c5d0e4",
@@ -97,8 +97,8 @@ PATTERN_PARAMS = {
                                 "line_width": 0.4, "date_size": 10},
 }
 
-# 装订水印颜色：日记 / 方眼罫用主线玉色，其余保持空（后端缺省灰）。
-WATERMARK_COLOR = {"hakubunkan-toyo-nikki": "#a9d1ae", "hogen": "#a9d1ae"}
+# 装订水印颜色：点阵/日记/方眼罫用玉色，其余保持空（后端缺省灰）。
+WATERMARK_COLOR = {"dots": "#a9d1ae", "hakubunkan-toyo-nikki": "#a9d1ae", "hogen": "#a9d1ae"}
 
 def margins(w, h):
     """按纸张尺寸算谐和页边距，与 src/lib/schema.ts 的 margins() 完全一致：
