@@ -283,20 +283,37 @@ pub(crate) fn push_one_month(
             } else {
                 holiday_sub.or(lunar_sub).into_iter().collect()
             };
+            // 副标签整块以单行位置（日期中心下 0.62 个日期 em）为中心；stack 两行时
+            // 行距按副字号缩放并在 mid 上下对称，避免次行把节日挤进下一行日期。
+            let mid = rect.y
+                + MINI_PAD
+                + cell_h * ((pos / 7 + 2) as f64 + 0.5)
+                + size * 25.4 / 72.0 * 0.62;
+            let block = stack && lines.len() > 1;
+            let gap = if block {
+                lines
+                    .iter()
+                    .map(|(c, _)| {
+                        let chars = c.chars().count() as f64;
+                        (size * 0.5).min((cell_w - 0.5) * 72.0 / (25.4 * chars))
+                    })
+                    .fold(0.0_f64, f64::max)
+                    * 25.4
+                    / 72.0
+                    * 0.85
+            } else {
+                0.0
+            };
+            let n = lines.len() as f64;
+            let x = rect.x + MINI_PAD + cell_w * ((pos % 7) as f64 + 0.5);
             for (li, (content, color)) in lines.into_iter().enumerate() {
-                // 副字号先取日期一半，再按字数收缩装进本格：Sarasa CJK 字宽恰为
-                // 1em（1pt = 25.4/72 mm），年历 4×3 的 a6p/a7 格宽 ~3mm，4 字农历
-                // 不收缩必与邻格相撞；两侧各留 0.25mm 间隙。
                 let chars = content.chars().count() as f64;
                 let sub_size = (size * 0.5).min((cell_w - 0.5) * 72.0 / (25.4 * chars));
-                // 首行居日期中心下 0.62 个日期 em；stack 的次行（节日）再下移一个副字号。
-                let off = 0.62 + if stack { li as f64 * 0.5 } else { 0.0 };
+                // 农历上行、节日下行；单行时即 mid。
+                let y = mid - (n - 1.0) * 0.5 * gap + li as f64 * gap;
                 texts.push(Text {
-                    x: rect.x + MINI_PAD + cell_w * ((pos % 7) as f64 + 0.5),
-                    y: rect.y
-                        + MINI_PAD
-                        + cell_h * ((pos / 7 + 2) as f64 + 0.5)
-                        + size * 25.4 / 72.0 * off,
+                    x,
+                    y,
                     content,
                     size: sub_size,
                     color: color.into(),
