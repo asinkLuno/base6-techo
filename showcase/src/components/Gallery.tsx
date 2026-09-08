@@ -470,7 +470,7 @@ export default function Gallery() {
     <main id="gallery" className="wrap" ref={ref}>
       <div className="sec-head reveal">
         <h2>版式样张</h2>
-        <span className="mono">16 KINDS · 3 SIZES</span>
+        <span className="mono">16 KINDS · 4 SIZES</span>
       </div>
       <p className="sec-note reveal">
         每份样张为三页 PDF：首页空白，后两页为内容页。以下对页取自第 2、3 页，中缝即装订线；

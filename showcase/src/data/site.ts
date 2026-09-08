@@ -6,7 +6,7 @@ export const TITLE = "base6 techo · 版式样张集";
 export const ENDPOINT = "https://github.com/asinkLuno/base6-techo";
 
 export interface Size {
-  id: string; // 目录名（a5s / tnp / 67m5）
+  id: string; // 目录名（a5s / a6p / tnp / 67m5）
   label: string; // 显示名
   mm: string; // “宽 × 高”
   w: number;
@@ -16,6 +16,7 @@ export interface Size {
 
 export const SIZES: Size[] = [
   { id: "a5s", label: "A5S", mm: "110 × 210", w: 110, h: 210, spread: "100.0" },
+  { id: "a6p", label: "A6P", mm: "95 × 171", w: 95, h: 171, spread: "86.4" },
   { id: "tnp", label: "TN 护照", mm: "88 × 125", w: 88, h: 125, spread: "80.0" },
   { id: "67m5", label: "67M5", mm: "67 × 105", w: 67, h: 105, spread: "60.9" },
 ];

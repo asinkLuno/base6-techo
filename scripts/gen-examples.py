@@ -48,6 +48,7 @@ SIZES = {
     "a5s": (110, 210),
     "tnp": (88, 125),
     "67m5": (67, 105),
+    "a6p": (95, 171),
 }
 
 # 与 showcase/src/data/site.ts 的 GROUPS 全集一致：缺一组，showcase 就有一组裂图
@@ -463,7 +464,7 @@ def main(argv):
         generate_daily()
         return
     patterns = argv if argv else DEFAULT_PATTERNS
-    sizes = [s.strip() for s in os.environ.get("SIZE_ARG", "a5s,tnp,67m5").split(",")]
+    sizes = [s.strip() for s in os.environ.get("SIZE_ARG", "a5s,a6p,tnp,67m5").split(",")]
     for s in sizes:
         if s not in SIZES:
             sys.exit(f"未知尺寸: {s}")
