@@ -77,12 +77,14 @@ PATTERN_PARAMS = {
                         "line_color": "#7a7a7a", "line_width": 0.4, "label_size": 10.2,
                         "start_date": "2026-08-31", "end_date": "2026-09-06",
                         "latitude": 31.23, "longitude": 121.47, "timezone": "Asia/Shanghai",
+                        "daylight_color": "#e5b93f", "night_color": "#496a9f",
                         "title_format": "%Y年%-m月%-d日"},
     "octan-week": {"kind": "八分周视图", "start_date": "2026-08-31", "end_date": "2026-09-06",
                    "date_format": "%-d", "date_locale": "zh-CN", "weekday_lang": "zh",
                    "title_format": "%Y年%-m月", "weekday_headers": "一,二,三,四,五,六,日",
-                   "line_color": "#7a7a7a", "line_width": 0.4, "line_style": "solid",
-                   "center_gap": 2, "date_size": 10},
+                   "line_color": "#7a7a7a", "text_color": "#000000", "holiday_color": "#8b0000",
+                   "phase_color": "#e5b93f", "line_width": 0.4, "line_style": "solid",
+                   "center_gap": 2, "date_size": 10, "lunar": False},
     "hogen": {"kind": "方眼罫", "pages": 2, "line_color": "#a9d1ae"},
     "month-tracker": {"kind": "month-tracker", "year": 2026, "month": 9, "items": 4,
                          "line_color": "#7a7a7a", "line_width": 0.4, "date_size": 8},
@@ -113,9 +115,30 @@ def margins(w, h):
 
 
 def doc_obj(width, height):
+    band = {
+        "text_size": 8.0, "text_2_size": 8.0, "text_spacing": 5.0,
+        "text_color": "#7a7a7a", "page_number": False,
+        "align": "center", "mode": "text",
+    }
     return {
+        "page_number": False,
+        "header": dict(band),
+        "footer": dict(band),
         "binding_text": BINDING_TEXT,
+        "binding_text_2": None,
+        "binding_text_size": 8.0,
+        "binding_text_2_size": 8.0,
+        "binding_text_spacing": 5.0,
+        "binding_text_edge": None,
         "binding_text_font": FONT,
+        "binding_text_color": "#7a7a7a",
+        "non_binding_text": None,
+        "non_binding_text_2": None,
+        "non_binding_text_size": 8.0,
+        "non_binding_text_2_size": 8.0,
+        "non_binding_text_spacing": 5.0,
+        "non_binding_text_edge": None,
+        "non_binding_text_color": "#7a7a7a",
     }
 
 
@@ -160,7 +183,8 @@ def calendar_two_page(kind, size):
 def calendar_pattern(kind, size, variant):
     if kind == "month-calendar":
         mpat = {"kind": "month-calendar", "phase_color": "#e5b93f", "line_color": "#7a7a7a",
-                "line_width": 0.4, "date_size": 8, "weekday_headers": "一,二,三,四,五,六,日",
+                "holiday_color": "#8b0000", "line_width": 0.4, "date_size": 8,
+                "weekday_headers": "一,二,三,四,五,六,日",
                 "title_format": "%Y年%-m月", "sub_size": 4.2, "sub_gap": 0}
         mpat["two_page"] = calendar_two_page(kind, size)
         mpat["year"], mpat["month"] = 2026, 1
@@ -168,7 +192,8 @@ def calendar_pattern(kind, size, variant):
         # 单页 4 行 × 每行 3 个；67M5 双页每页 3×2
         rows, cols = (3, 2) if calendar_two_page(kind, size) else (4, 3)
         mpat = {"kind": "year-calendar", "start": "2026-01", "end": "2026-12",
-                "rows": rows, "cols": cols, "date_size": 6, "weekday_lang": "zh",
+                "rows": rows, "cols": cols, "date_size": 6, "text_color": "#000000",
+                "holiday_color": "#8b0000", "weekday_lang": "zh",
                 "title_format": "%Y年%-m月", "weekday_headers": "一,二,三,四,五,六,日"}
     elif kind == "year-tracker":
         mpat = {"kind": "year-tracker", "start": "2026-01", "end": "2026-12",
@@ -223,7 +248,8 @@ def weekly_composite_request(width, height):
         "title": "2026 年历",
         "page": page, "document": doc, "holidays": holidays,
         "pattern": {"kind": "year-calendar", "start": "2026-01", "end": "2026-12",
-                    "rows": 3, "cols": 2, "date_size": 5, "weekday_lang": "zh",
+                    "rows": 3, "cols": 2, "date_size": 5, "text_color": "#000000",
+                    "holiday_color": "#8b0000", "weekday_lang": "zh",
                     "title_format": "%Y年%-m月", "weekday_headers": "一,二,三,四,五,六,日",
                     "show_holidays": True, "lunar": True},
     })
@@ -233,8 +259,8 @@ def weekly_composite_request(width, height):
         sections.append({
             "title": f"{y}年{m}月", "page": page, "document": doc, "holidays": holidays,
             "pattern": {"kind": "month-calendar", "year": y, "month": m, "two_page": False,
-                        "phase_color": "#e5b93f", "line_color": "#7a7a7a", "line_width": 0.4,
-                        "date_size": 6, "weekday_headers": "一,二,三,四,五,六,日",
+                        "phase_color": "#e5b93f", "line_color": "#7a7a7a", "holiday_color": "#8b0000",
+                        "line_width": 0.4, "date_size": 6, "weekday_headers": "一,二,三,四,五,六,日",
                         "title_format": "%Y年%-m月", "sub_size": 3.4, "sub_gap": 0,
                         "show_holidays": True, "lunar": True},
         })
@@ -251,7 +277,8 @@ def weekly_composite_request(width, height):
             "pattern": {"kind": "八分周视图", "start_date": start, "end_date": end,
                         "date_format": "%-d", "date_locale": "zh-CN", "weekday_lang": "zh",
                         "title_format": "%Y年%-m月", "weekday_headers": "一,二,三,四,五,六,日",
-                        "line_color": "#7a7a7a", "line_width": 0.4, "line_style": "solid",
+                        "line_color": "#7a7a7a", "text_color": "#000000", "holiday_color": "#8b0000",
+                        "phase_color": "#e5b93f", "line_width": 0.4, "line_style": "solid",
                         "center_gap": 2, "date_size": 6, "lunar": True},
         })
 
@@ -272,7 +299,8 @@ def daily_composite_request(width, height):
         "title": "2026 年历",
         "page": page, "document": doc, "holidays": holidays,
         "pattern": {"kind": "year-calendar", "start": "2026-01", "end": "2026-12",
-                    "rows": 3, "cols": 2, "date_size": 5, "weekday_lang": "zh",
+                    "rows": 3, "cols": 2, "date_size": 5, "text_color": "#000000",
+                    "holiday_color": "#8b0000", "weekday_lang": "zh",
                     "title_format": "%Y年%-m月", "weekday_headers": "一,二,三,四,五,六,日",
                     "show_holidays": True, "lunar": True},
     })
@@ -281,8 +309,8 @@ def daily_composite_request(width, height):
         sections.append({
             "title": f"{y}年{m}月", "page": page, "document": doc, "holidays": holidays,
             "pattern": {"kind": "month-calendar", "year": y, "month": m, "two_page": False,
-                        "phase_color": "#e5b93f", "line_color": "#7a7a7a", "line_width": 0.4,
-                        "date_size": 6, "weekday_headers": "一,二,三,四,五,六,日",
+                        "phase_color": "#e5b93f", "line_color": "#7a7a7a", "holiday_color": "#8b0000",
+                        "line_width": 0.4, "date_size": 6, "weekday_headers": "一,二,三,四,五,六,日",
                         "title_format": "%Y年%-m月", "sub_size": 3.4, "sub_gap": 0,
                         "show_holidays": True, "lunar": True},
         })
@@ -300,6 +328,7 @@ def daily_composite_request(width, height):
                         "start_date": first, "end_date": last,
                         "line_color": "#7a7a7a", "line_width": 0.4, "label_size": 8,
                         "latitude": 31.23, "longitude": 121.47, "timezone": "Asia/Shanghai",
+                        "daylight_color": "#e5b93f", "night_color": "#496a9f",
                         "title_format": "%Y年%-m月%-d日"},
         })
 
