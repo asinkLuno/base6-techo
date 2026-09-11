@@ -158,25 +158,19 @@ pub(crate) fn draw_hakubunkan_kaichu_nikki(
                 lunar_text.size = p.date_size * 0.7;
                 texts.push(lunar_text);
             }
-            // 天气竖直排在栏上部靠上、气温在栏中心；坐标由格子几何推导，
-            // 竖排两行以 center 锚点定位，随字号/页型自适应，不越出天气栏。
-            for (label, frac) in [("天気", 0.30), ("気温", 0.5)] {
-                let ly = y + header_h + (half_h - header_h) * frac;
-                texts.push(Text {
-                    x: r.x + r.width - weather_w / 2.0,
-                    y: ly,
-                    content: label
-                        .chars()
-                        .map(|c| c.to_string())
-                        .collect::<Vec<_>>()
-                        .join("\n"),
-                    size: p.date_size,
-                    color: p.line_color.clone(),
-                    rotation: 0,
-                    font: font.into(),
-                    anchor: "center",
-                });
-            }
+            // 天気竖排贴栏上缘下移 1.5mm（同当用日记 north+1.5 间距）、気温居栏中线。
+            let label = |ly, content: &str, anchor| Text {
+                x: r.x + r.width - weather_w / 2.0,
+                y: ly,
+                content: content.into(),
+                size: p.date_size,
+                color: p.line_color.clone(),
+                rotation: 0,
+                font: font.into(),
+                anchor,
+            };
+            texts.push(label(y + header_h + 1.5, "天\n気", "north"));
+            texts.push(label(y + (header_h + half_h) / 2.0, "気\n温", "center"));
         }
     }
     (lines, texts)

@@ -284,6 +284,16 @@ pub(crate) fn draw_daily_timeline(
                 width: Some(p.line_width),
                 style: LineStyle::Solid,
             });
+            let three_quarter = y + hh * 3.0 / 4.0;
+            lines.push(Line {
+                x1: band,
+                y1: three_quarter,
+                x2: band + direction * quarter_tick,
+                y2: three_quarter,
+                color: daily_timeline_color(p, date, hour * 60 + 45),
+                width: Some(p.line_width),
+                style: LineStyle::Solid,
+            });
         }
     }
     (lines, dots, texts)
@@ -323,5 +333,33 @@ mod tests {
                 .iter()
                 .any(|t| t.content == "2025年6月21日" && t.anchor == "south")
         );
+    }
+
+    #[test]
+    fn draws_half_and_quarter_ticks_per_hour() {
+        let date = NaiveDate::from_ymd_opt(2025, 6, 21).unwrap();
+        let p = DailyTimelinePattern {
+            start_date: Some(date),
+            end_date: Some(date),
+            ..Default::default()
+        };
+        let geo = Geometry {
+            page: Rect {
+                x: 0.0,
+                y: 0.0,
+                width: 100.0,
+                height: 100.0,
+            },
+            content: Rect {
+                x: 15.0,
+                y: 10.0,
+                width: 77.0,
+                height: 80.0,
+            },
+            binding_side: Side::Left,
+        };
+        let (lines, _, _) = draw_daily_timeline(geo, &p, 0, "font");
+        // 每小时：1 主刻度 + 1 半刻度（30 分）+ 2 刻度（15/45 分）；共 25 个主刻度。
+        assert_eq!(lines.len(), 24 * 4 + 1);
     }
 }

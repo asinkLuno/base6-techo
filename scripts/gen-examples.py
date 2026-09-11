@@ -65,7 +65,7 @@ PATTERN_PARAMS = {
     "ruled": {"kind": "ruled", "pages": 2, "spacing": 8, "color": "#7a7a7a", "width": 0.2},
     "dots": {"kind": "dots", "pages": 2, "spacing": 5, "column_spacing": 5, "radius": 0.3,
              "color": "#a9d1ae", "center_color": "#8b0000"},
-    "grid": {"kind": "grid", "pages": 2, "spacing": 5, "color": "#7a7a7a", "width": 0.2},
+    "grid": {"kind": "grid", "pages": 2, "spacing": 5, "color": "#7a9ac9", "width": 0.2},
     "seyes": {"kind": "seyes", "pages": 2, "spacing": 8, "margin_line": 7,
               "main_color": "#9db0cf", "main_width": 0.2, "fine_color": "#c5d0e4",
               "fine_width": 0.1, "vline_color": "#c5d0e4", "vline_width": 0.1,

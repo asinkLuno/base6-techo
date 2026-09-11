@@ -18,7 +18,7 @@ impl Default for GridPattern {
         Self {
             pages: 1,
             spacing: 5.0,
-            color: "#7a7a7a".into(),
+            color: "#7a9ac9".into(),
             width: 0.2,
         }
     }

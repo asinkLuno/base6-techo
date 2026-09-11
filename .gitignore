@@ -22,3 +22,6 @@ compile.log
 # Generated example assets (regenerate via scripts/gen-examples.py)
 examples/*
 !examples/ics/
+
+# Bundled font asset (downloaded/build-time, too large for git)
+src-tauri/fonts/*.ttf

@@ -87,6 +87,7 @@ export const PATTERN_GROUPS: PatternGroup[] = [
 // 默认颜色，须与后端 src-tauri/src/backend/colors.rs 一一对应。
 export const COLORS = {
   gray: "#7a7a7a",
+  blue: "#7a9ac9",
   phaseGold: "#e5b93f",
   timelineNight: "#496a9f",
   holidayRed: "#8b0000",
@@ -143,7 +144,7 @@ currentSunday.setDate(currentMonday.getDate() + 6);
 export const defaults: Record<PatternKind, Values & { kind: PatternKind }> = {
   ruled: { kind: "ruled", pages: 32, spacing: 8, color: COLORS.gray, width: 0.2 },
   dots: { kind: "dots", pages: 1, spacing: 5, column_spacing: 5, radius: 0.25, color: COLORS.gray, center_color: COLORS.black },
-  grid: { kind: "grid", pages: 1, spacing: 5, color: COLORS.gray, width: 0.2 },
+  grid: { kind: "grid", pages: 1, spacing: 5, color: COLORS.blue, width: 0.2 },
   seyes: {
     kind: "seyes", pages: 1, spacing: 8, margin_line: 7,
     main_color: "#9db0cf", main_width: 0.2, fine_color: "#c5d0e4", fine_width: 0.1,

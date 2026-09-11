@@ -613,11 +613,6 @@ fn parse_ym(s: &str) -> Option<(i32, u32)> {
     (1..=12).contains(&month).then_some((year, month))
 }
 
-/// "2026-12" → "2026-12"（固定补零，便于排列表头）。
-fn ym_string(year: i32, month: u32) -> String {
-    format!("{year}-{month:02}")
-}
-
 /// 多月追踪：横轴 1–31 日期列，纵轴月份行（复用月打卡格子样式）。
 #[derive(Clone, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -629,6 +624,11 @@ pub(crate) struct MonthTrackerPattern {
     pub(crate) line_color: String,
     pub(crate) line_width: f64,
     pub(crate) date_size: f64,
+}
+/// "YYYY-MM"（parse_ym 输入格式，固定补零）——仅测试默认值用。
+#[cfg(test)]
+fn ym_string(year: i32, month: u32) -> String {
+    format!("{year}-{month:02}")
 }
 #[cfg(test)]
 impl Default for MonthTrackerPattern {
@@ -757,7 +757,7 @@ fn push_month_grid(
             texts.push(Text {
                 x: lm + label_w / 2.0,
                 y: top + (m as f64 + 1.5) * cell,
-                content: ym_string(year, month),
+                content: format!("{year}/{month:02}"),
                 size: (p.date_size * 0.7).max(3.0),
                 color: p.line_color.clone(),
                 rotation: 0,
@@ -1113,9 +1113,9 @@ mod tests {
         // 31 个日期数字 + 13 个月份标签。
         assert_eq!(texts.len(), days + months);
         assert_eq!(texts[0].content, "1");
-        assert_eq!(texts[days].content, "2026-12");
+        assert_eq!(texts[days].content, "2026/12");
         assert!(texts.iter().any(|t| t.content == "31"));
-        assert!(texts.iter().any(|t| t.content == "2027-12"));
+        assert!(texts.iter().any(|t| t.content == "2027/12"));
     }
 
     #[test]
@@ -1144,7 +1144,7 @@ mod tests {
         assert_eq!(texts1.len(), 17);
         assert!(!texts1.iter().any(|t| t.content.contains('-')));
         assert_eq!(texts0[0].content, "1");
-        assert_eq!(texts0[days0].content, "2026-12");
+        assert_eq!(texts0[days0].content, "2026/12");
         // 双页竖放：文字不旋转。
         assert!(texts0.iter().all(|t| t.rotation == 0));
         assert!(texts1.iter().all(|t| t.rotation == 0));
