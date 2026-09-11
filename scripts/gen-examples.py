@@ -24,21 +24,23 @@
 
 import json
 import os
+from pathlib import Path
 import shutil
 import subprocess
 import sys
 from concurrent.futures import ThreadPoolExecutor
 import calendar
 from datetime import date, timedelta
-
 OUT_DIR = "examples"
 BIN = "target/debug/techo-pipeline"
-# 装订侧/日期文字字体：Sarasa Mono Slab SC（等距更纱黑体 Slab SC，独立 TTF 单文件 ~25MB）。
-# 实测单任务（octan-week A5）峰值内存 ~0.55GB、耗时 ~2.4s，与 Noto 同量级。
-# 前提：794MB 的 Sarasa-SuperTTC.ttc 必须不在 fontconfig 字体路径里——tectonic 按族名
-# 模糊匹配 Sarasa 时会把整个 TTC 解析一遍（实测 ~5.8GB/19s，当初 PARALLEL=4 OOM 即因此）。
-# TTC 现移存 ~/.local/share/fonts-disabled/；若恢复它，请改回 FONT='Noto Sans CJK SC'。
-FONT = os.environ.get("FONT", "Sarasa Mono Slab SC")
+# 装订侧/日期文字字体：Sarasa Mono Slab J（更纱等距 Slab J，v1.0.41，独立 TTF ~26MB）。
+# 后端 font_command() 对以 .ttf/.otf 结尾的字符串走 \fontspec[Path=...]{...} 分支，
+# 直接按文件绝对路径加载，不经 fontconfig 按族名模糊匹配，
+# 也就绕开了 Sarasa-SuperTTC.ttc 整包解析（实测 ~5.8GB/19s）导致的 OOM。
+FONT = os.environ.get("FONT", str(
+    Path(__file__).resolve().parent.parent
+    / "src-tauri/fonts/SarasaMonoSlabJ-Regular.ttf"
+))
 BINDING_TEXT = "base6"
 RES_DPI = 400                      # 对页图片分辨率（≤150 时 0.2pt 细线被抗锯齿冲淡，看不清）
 HOLIDAYS = "examples/ics/holidays-2026.json"

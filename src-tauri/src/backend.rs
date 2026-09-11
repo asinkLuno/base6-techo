@@ -1102,7 +1102,10 @@ fn font_command(font: &str) -> String {
 }
 
 fn font_family_definition(command: &str, font: &str) -> String {
-    font_command(font).replacen(r"\fontspec", &format!(r"\newfontfamily\{command}"), 1)
+    // 用 \newCJKfontfamily 而非 \newfontfamily：在 xeCJK 下 CJK 字符（如博文館的
+    // 天気/気温）由 xeCJK 接管排版，普通 fontspec 族指令不作用于汉字，会导致
+    // 汉字落到 xeCJK 默认 CJK 字体（如 FandolSong），日文字形缺失（気 变豆腐块）。
+    font_command(font).replacen(r"\fontspec", &format!(r"\newCJKfontfamily\{command}"), 1)
 }
 
 /// 判断一组点是否构成均匀正方网格（等间距、圆且实心、完整矩形）。
@@ -1356,7 +1359,7 @@ fn render_latex(pages: &[OutputPage]) -> String {
             String::new()
         } else {
             format!(
-                "\\usepackage{{fontspec}}\n{}\n\\usepackage{{xeCJK}}\n\\xeCJKsetup{{CJKecglue={{\\hskip 0.15em plus 0.04em minus 0.03em}}}}",
+                "\\usepackage{{fontspec}}\n\\usepackage{{xeCJK}}\n\\xeCJKsetup{{CJKecglue={{\\hskip 0.15em plus 0.04em minus 0.03em}}}}\n{}",
                 fonts
                     .iter()
                     .map(|(font, command)| font_family_definition(command, font))
