@@ -167,7 +167,7 @@
     "startHour": "起始时间",
     "endHour": "结束时间",
     "span": "跨页",
-    "labelSize": "标签字号（pt）",
+    "labelSize": "标签字号（pt，随页高缩放取整，A5 基准）",
     "latitude": "纬度（留空不绘制日照）",
     "longitude": "经度",
     "latitudeHint": "如 30°15′N 或 30.25",

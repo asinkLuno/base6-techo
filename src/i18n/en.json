@@ -167,7 +167,7 @@
     "startHour": "Start hour",
     "endHour": "End hour",
     "span": "Span",
-    "labelSize": "Label size (pt)",
+    "labelSize": "Label size (pt, scales with page height, rounded, A5 baseline)",
     "latitude": "Latitude (blank = no daylight)",
     "longitude": "Longitude",
     "latitudeHint": "e.g. 30°15′N or 30.25",

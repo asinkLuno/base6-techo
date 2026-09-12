@@ -175,7 +175,7 @@ ______________________________________________________________________
 
 - **用途**：按小时的一天时间轴，可叠加日出日落昼夜着色。
 - **参数**：`start`/`end`（小时，0..30，end>start）、`pages`（1 单页 / 2 左右双页分半）、
-  `line_color/line_width`、`label_size`、`title_format`、`start_date`/`end_date`、
+  `line_color/line_width`、`label_size`（字号随页面高度等比缩放并取整，A5 = 210mm 为基准）、`title_format`、`start_date`/`end_date`、
   以及可选的 `latitude`/`longitude`/`timezone`（三者须同时设置）、`daylight_color`/`night_color`。
 - **页数**：**= 起止日天数 × pages**（`pages=1` 单页，`pages=2` 每天跨左右两页）。
 - **绘版**：轴线在装订侧；奇数页画 `start..mid` 小时、偶数页画 `mid..end`；整点刻度 + 半小时间隔；

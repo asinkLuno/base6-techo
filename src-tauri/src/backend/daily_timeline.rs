@@ -183,12 +183,11 @@ pub(crate) fn draw_daily_timeline(
     // 小时号带贴订口侧页心边缘，主刻度与昼/夜小点纹自号带铺到页心外缘。
     // 两级尺度：页面级（r / timeline_h / hh）由纸张与时间跨度决定；
     // 组件级（S / M）以 label_size 为唯一 token，决定字号、号带与刻度。
-    let s = p.label_size; // pt —— 基准字号 token
+    let s = (p.label_size * geo.page.height / 210.0).round().max(1.0); // pt，随页面高度缩放取整（A5 = 210mm 为基准）
     let m = s * MM_PER_PT; // mm —— label_size 的物理尺度
-    // 标题层级时钟刻度均为固定比例（见 docs 规范），不随页心宽度缩放。
-    let title_size = 1.50 * s;
+    let title_size = (1.50 * s).round();
     let title_band_h = 1.15 * title_size * MM_PER_PT;
-    let title_gap = 1.0; // 微间距允许绝对 mm
+    let title_gap = 0.50 * title_size * MM_PER_PT; // 标题与最上刻度的间隙，随字号缩放
     let major_tick = 1.90 * m;
     let half_tick = 0.83 * m;
     let quarter_tick = 0.42 * m;
@@ -217,15 +216,21 @@ pub(crate) fn draw_daily_timeline(
     let mut dots = Vec::new();
     let mut texts = Vec::new();
     if let Some(date) = date {
+        // 日期标题靠外装订边（距页心外缘 1mm），与贴订口的时刻带镜像。
+        let (title_x, title_anchor) = if geo.binding_side == Side::Left {
+            (r.x + r.width - 1.0, "south east")
+        } else {
+            (r.x + 1.0, "south west")
+        };
         texts.push(Text {
-            x: r.x + r.width / 2.0,
+            x: title_x,
             y: r.y + title_band_h,
             content: format_date(date, &p.title_format, "en-US"),
             size: title_size,
             color: p.line_color.clone(),
             rotation: 0,
             font: font.into(),
-            anchor: "south",
+            anchor: title_anchor,
         });
     }
     for hour in start..=end {
@@ -257,7 +262,7 @@ pub(crate) fn draw_daily_timeline(
             x: axis + direction * (label_w / 2.0 + 0.5),
             y,
             content: format!("{hour:02}"),
-            size: p.label_size,
+            size: s,
             color: color.unwrap_or_else(|| p.line_color.clone()),
             rotation: 0,
             font: font.into(),
@@ -331,7 +336,7 @@ mod tests {
         assert!(
             texts
                 .iter()
-                .any(|t| t.content == "[ Sat. 06/21 ]" && t.anchor == "south")
+                .any(|t| t.content == "[ Sat. 06/21 ]" && t.anchor == "south east")
         );
     }
 
@@ -361,5 +366,44 @@ mod tests {
         let (lines, _, _) = draw_daily_timeline(geo, &p, 0, "font");
         // 每小时：1 主刻度 + 1 半刻度（30 分）+ 2 刻度（15/45 分）；共 25 个主刻度。
         assert_eq!(lines.len(), 24 * 4 + 1);
+    }
+
+    #[test]
+    fn scales_text_with_page_height() {
+        let date = NaiveDate::from_ymd_opt(2025, 6, 21).unwrap();
+        let p = DailyTimelinePattern {
+            start_date: Some(date),
+            end_date: Some(date),
+            ..Default::default()
+        };
+        let geo = |h: f64| Geometry {
+            page: Rect {
+                x: 0.0,
+                y: 0.0,
+                width: h * 148.0 / 210.0,
+                height: h,
+            },
+            content: Rect {
+                x: 15.0,
+                y: 10.0,
+                width: 77.0,
+                height: 80.0,
+            },
+            binding_side: Side::Left,
+        };
+        let size = |g: Geometry, anchor: &str| {
+            draw_daily_timeline(g, &p, 0, "font")
+                .2
+                .into_iter()
+                .find(|t| t.anchor == anchor)
+                .unwrap()
+                .size
+        };
+        // 标题与小时号字号均为整数，且随页面高度变大。
+        for anchor in ["south east", "center"] {
+            let a = size(geo(210.0), anchor);
+            assert_eq!(a.fract(), 0.0);
+            assert!(size(geo(420.0), anchor) > a);
+        }
     }
 }
