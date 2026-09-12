@@ -80,7 +80,7 @@ PATTERN_PARAMS = {
                         "start_date": "2026-08-31", "end_date": "2026-09-06",
                         "latitude": 31.23, "longitude": 121.47, "timezone": "Asia/Shanghai",
                         "daylight_color": "#e5b93f", "night_color": "#496a9f",
-                        "title_format": "%Y年%-m月%-d日"},
+                        "title_format": "[ %a. %m/%d ]"},
     "octan-week": {"kind": "八分周视图", "start_date": "2026-08-31", "end_date": "2026-09-06",
                    "date_format": "%-d", "date_locale": "zh-CN", "weekday_lang": "zh",
                    "title_format": "%Y年%-m月", "weekday_headers": "一,二,三,四,五,六,日",
@@ -331,7 +331,7 @@ def daily_composite_request(width, height):
                         "line_color": "#7a7a7a", "line_width": 0.4, "label_size": 8,
                         "latitude": 31.23, "longitude": 121.47, "timezone": "Asia/Shanghai",
                         "daylight_color": "#e5b93f", "night_color": "#496a9f",
-                        "title_format": "%Y年%-m月%-d日"},
+                        "title_format": "[ %a. %m/%d ]"},
         })
 
     return request(f"{OUT_DIR}/daily/daily-2026.pdf", sections)

@@ -51,7 +51,7 @@ impl Default for DailyTimelinePattern {
             night_color: "#496a9f".into(),
             start_date: None,
             end_date: None,
-            title_format: "%Y年%-m月%-d日".into(),
+            title_format: "[ %a. %m/%d ]".into(),
         }
     }
 }
@@ -96,7 +96,7 @@ impl DailyTimelinePattern {
         }
         validate_color(&self.line_color)?;
         validate_color(&self.daylight_color)?;
-        validate_title_format(&self.title_format, "zh-CN", false)?;
+        validate_title_format(&self.title_format, "en-US", false)?;
         validate_color(&self.night_color)
     }
     pub(crate) fn page_count(&self) -> usize {
@@ -220,7 +220,7 @@ pub(crate) fn draw_daily_timeline(
         texts.push(Text {
             x: r.x + r.width / 2.0,
             y: r.y + title_band_h,
-            content: format_date(date, &p.title_format, "zh-CN"),
+            content: format_date(date, &p.title_format, "en-US"),
             size: title_size,
             color: p.line_color.clone(),
             rotation: 0,
@@ -331,7 +331,7 @@ mod tests {
         assert!(
             texts
                 .iter()
-                .any(|t| t.content == "2025年6月21日" && t.anchor == "south")
+                .any(|t| t.content == "[ Sat. 06/21 ]" && t.anchor == "south")
         );
     }
 

@@ -247,7 +247,7 @@ export function PatternFields({ section, set }: Props) {
       />
       <Field label={t("field.startDate")} value={p.start_date} type="date" onChange={(v) => set("start_date", v || "")} />
       <Field label={t("field.endDate")} value={p.end_date} type="date" onChange={(v) => set("end_date", v || "")} />
-      <Field label={t("field.titleFormat")} value={p.title_format} type="text" placeholder="%Y年%-m月%-d日" onChange={(v) => set("title_format", v)} />
+      <Field label={t("field.titleFormat")} value={p.title_format} type="text" placeholder="[ %a. %m/%d ]" onChange={(v) => set("title_format", v)} />
       <Field label={t("field.lineColor")} value={p.line_color} type="color" onChange={(v) => set("line_color", v)} />
       <Field label={t("field.lineWidthBare")} value={p.line_width} min={0.01} step={0.05} onChange={(v) => set("line_width", v)} />
       <Field label={t("field.labelSize")} value={p.label_size} min={1} step={0.1} onChange={(v) => set("label_size", v)} />

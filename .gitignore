@@ -25,3 +25,7 @@ examples/*
 
 # Bundled font asset (downloaded/build-time, too large for git)
 src-tauri/fonts/*.ttf
+
+# Generated render output
+output/
+tmp/

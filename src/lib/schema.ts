@@ -197,7 +197,7 @@ export const defaults: Record<PatternKind, Values & { kind: PatternKind }> = {
   },
   "daily_timeline": {
     kind: "daily_timeline", start: 0, end: 24, pages: 1, start_date: toISODate(currentMonday), end_date: toISODate(currentSunday),
-    title_format: "%Y年%-m月%-d日", line_color: COLORS.gray, line_width: 1.138, label_size: 10.2,
+    title_format: "[ %a. %m/%d ]", line_color: COLORS.gray, line_width: 1.138, label_size: 10.2,
     latitude: "", longitude: "", timezone: "Etc/GMT-8", daylight_color: COLORS.phaseGold, night_color: COLORS.timelineNight,
   },
   blank: { kind: "blank", pages: 1 },
