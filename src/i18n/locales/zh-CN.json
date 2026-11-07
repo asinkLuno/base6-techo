@@ -46,7 +46,8 @@
       "sheetsPerSignature": "每帖纸张数",
       "impositionInfoNone": "按阅读顺序逐页输出，适合普通打印与阅读。",
       "impositionInfoBooklet": "整本作为一帖拼到纸张正反面，尾部补齐到 4 的倍数；打印后沿中缝对折装订成册。",
-      "impositionInfoThread": "每帖纸张数 × 4 为一帖的阅读页数，逐帖叠放后锁线装订；最后一帖自动补齐空白页。"
+      "impositionInfoThread": "每帖纸张数 × 4 为一帖的阅读页数，逐帖叠放后锁线装订；最后一帖自动补齐空白页。",
+      "impositionInfoAria": "装订方式说明"
     }
   },
   "settings": {

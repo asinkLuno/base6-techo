@@ -46,7 +46,8 @@
       "sheetsPerSignature": "Sheets per signature",
       "impositionInfoNone": "Prints pages in reading order — best for plain printing and reading.",
       "impositionInfoBooklet": "Imposes the whole book onto front/back sheets, padded to a multiple of 4; fold at the spine after printing.",
-      "impositionInfoThread": "Each signature holds sheets × 4 reading pages, stacked and thread-sewn; the last signature is padded with blanks."
+      "impositionInfoThread": "Each signature holds sheets × 4 reading pages, stacked and thread-sewn; the last signature is padded with blanks.",
+      "impositionInfoAria": "About imposition"
     }
   },
   "settings": {

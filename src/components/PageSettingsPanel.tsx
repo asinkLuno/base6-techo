@@ -17,7 +17,7 @@ const PAPER_PRESETS = ["a4", "a5", "b5", "a6", "b6", "letter"] as const;
 function InfoIcon() {
   return (
     <svg
-      className="size-5 shrink-0"
+      className="size-3.5"
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
@@ -45,6 +45,13 @@ export function PageSettingsPanel() {
   const updatePage = useDocumentStore((s) => s.updatePage);
   const updateImposition = useDocumentStore((s) => s.updateImposition);
   const paper = page.paper;
+  const impositionInfo = t(
+    imposition.mode === "thread"
+      ? "editor.page.impositionInfoThread"
+      : imposition.mode === "booklet"
+        ? "editor.page.impositionInfoBooklet"
+        : "editor.page.impositionInfoNone",
+  );
 
   return (
     <section className="card bg-base-100 shadow-md">
@@ -111,7 +118,19 @@ export function PageSettingsPanel() {
         </fieldset>
 
         <fieldset className="fieldset">
-          <legend className="fieldset-legend">{t("editor.page.imposition")}</legend>
+          <legend className="fieldset-legend flex items-center gap-1">
+            {t("editor.page.imposition")}
+            {/* 悬停/聚焦显示当前装订方式的说明 */}
+            <span className="tooltip tooltip-left" data-tip={impositionInfo}>
+              <button
+                type="button"
+                className="btn btn-ghost btn-circle btn-xs"
+                aria-label={t("editor.page.impositionInfoAria")}
+              >
+                <InfoIcon />
+              </button>
+            </span>
+          </legend>
           <select
             className="select w-full"
             value={imposition.mode}
@@ -145,19 +164,6 @@ export function PageSettingsPanel() {
             }
           />
         )}
-
-        <div role="note" className="alert alert-info items-start text-sm">
-          <InfoIcon />
-          <span>
-            {t(
-              imposition.mode === "thread"
-                ? "editor.page.impositionInfoThread"
-                : imposition.mode === "booklet"
-                  ? "editor.page.impositionInfoBooklet"
-                  : "editor.page.impositionInfoNone",
-            )}
-          </span>
-        </div>
       </div>
     </section>
   );
