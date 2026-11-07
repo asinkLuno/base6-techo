@@ -1,5 +1,6 @@
 mod cache;
 pub mod compile;
+pub mod templates;
 
 use std::path::Path;
 use std::time::{SystemTime, UNIX_EPOCH};
