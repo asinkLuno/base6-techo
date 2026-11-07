@@ -1,21 +1,30 @@
 {
   "app": { "name": "base6-techo", "tagline": "LaTeX 手帐模板生成工具" },
-  "nav": { "home": "首页", "lined": "横线本", "settings": "设置" },
-  "home": {
-    "title": "把参数交给 LaTeX，拿到排版好的手帐 PDF",
-    "description": "内置 Tectonic 引擎，离线生成横线本等手帐模板，可直接打印装订。",
-    "cta": { "lined": "开始生成", "settings": "前往设置" },
-    "cards": {
-      "lined": {
-        "title": "横线本",
-        "description": "配置页数、行距与页边距，生成可打印的内页 PDF。"
-      },
-      "engine": {
-        "title": "排版引擎",
-        "description": "Tectonic 已集成并支持 Android 构建，模板参数界面开发中。"
-      }
+  "nav": { "home": "编辑器", "lined": "横线本", "settings": "设置" },
+  "editor": {
+    "title": "排版编辑器",
+    "description": "按 section 组合模板：拖动手柄排序，每个 section 可选择模板并配置参数。",
+    "addSection": "添加 section",
+    "empty": {
+      "title": "还没有 section",
+      "hint": "点击下方按钮添加第一个 section。"
     },
-    "badge": { "ready": "引擎就绪", "wip": "界面开发中" }
+    "totalPages": "共 {{total}} 页",
+    "totalPagesOverflow": "全书已超过 {{max}} 页",
+    "section": {
+      "label": "Section {{index}}",
+      "pages": "页数",
+      "numbered": "计入页码",
+      "template": "模板",
+      "delete": "删除",
+      "dragHandle": "拖动排序"
+    },
+    "template": { "blank": "空白页", "linear": "横线页" },
+    "config": {
+      "spacingMm": "行距（mm）",
+      "color": "线色",
+      "lineWidthPt": "线宽（pt）"
+    }
   },
   "lined": {
     "title": "横线本模板",

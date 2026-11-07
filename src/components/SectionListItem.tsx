@@ -1,0 +1,260 @@
+import { useEffect, useState } from "react";
+import { useSortable } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+import clsx from "clsx";
+import { useTranslation } from "react-i18next";
+import { useDocumentStore } from "../stores/document";
+import {
+  clampLineWidthPt,
+  clampPages,
+  clampSpacingMm,
+  DEFAULT_LINEAR,
+  LINE_WIDTH_PT_MAX,
+  LINE_WIDTH_PT_MIN,
+  PAGES_MAX,
+  PAGES_MIN,
+  SPACING_MM_MAX,
+  SPACING_MM_MIN,
+  type LinearPattern,
+  type SectionDraft,
+} from "../types/document";
+
+function GripIcon() {
+  return (
+    <svg
+      className="size-4"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+    >
+      <circle cx="9" cy="5" r="1" />
+      <circle cx="9" cy="12" r="1" />
+      <circle cx="9" cy="19" r="1" />
+      <circle cx="15" cy="5" r="1" />
+      <circle cx="15" cy="12" r="1" />
+      <circle cx="15" cy="19" r="1" />
+    </svg>
+  );
+}
+
+function TrashIcon() {
+  return (
+    <svg
+      className="size-4"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M3 6h18" />
+      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" />
+      <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+      <path d="M10 11v6M14 11v6" />
+    </svg>
+  );
+}
+
+/**
+ * 数字输入：打字过程中仅在值合法（在 min–max 内）时提交，
+ * 失焦时 clamp 后提交并回写文本，避免打字中途被改值。
+ */
+function NumberField({
+  label,
+  value,
+  min,
+  max,
+  step,
+  clamp,
+  onCommit,
+}: {
+  label: string;
+  value: number;
+  min: number;
+  max: number;
+  step: number;
+  clamp: (value: number) => number;
+  onCommit: (value: number) => void;
+}) {
+  const [text, setText] = useState(String(value));
+  useEffect(() => setText(String(value)), [value]);
+
+  const commit = () => {
+    const next = clamp(Number(text));
+    setText(String(next));
+    onCommit(next);
+  };
+
+  return (
+    <fieldset className="fieldset">
+      <legend className="fieldset-legend">{label}</legend>
+      <input
+        type="number"
+        className="input w-full"
+        min={min}
+        max={max}
+        step={step}
+        value={text}
+        onChange={(e) => {
+          const nextText = e.target.value;
+          setText(nextText);
+          const parsed = Number(nextText);
+          if (nextText !== "" && Number.isFinite(parsed) && parsed >= min && parsed <= max) {
+            onCommit(parsed);
+          }
+        }}
+        onBlur={commit}
+      />
+    </fieldset>
+  );
+}
+
+/** linear 模板配置项：行距 / 线色 / 线宽。 */
+function LinearFields({ sectionId, body }: { sectionId: string; body: LinearPattern }) {
+  const { t } = useTranslation();
+  const updateSection = useDocumentStore((s) => s.updateSection);
+
+  const setLinear = (patch: Partial<LinearPattern>) =>
+    updateSection(sectionId, { body: { ...body, ...patch } });
+
+  return (
+    <div className="grid gap-4 sm:grid-cols-3">
+      <NumberField
+        label={t("editor.config.spacingMm")}
+        value={body.spacingMm}
+        min={SPACING_MM_MIN}
+        max={SPACING_MM_MAX}
+        step={0.5}
+        clamp={clampSpacingMm}
+        onCommit={(spacingMm) => setLinear({ spacingMm })}
+      />
+      <fieldset className="fieldset">
+        <legend className="fieldset-legend">{t("editor.config.color")}</legend>
+        <input
+          type="color"
+          className="input h-12 w-full cursor-pointer p-1"
+          value={body.color}
+          onChange={(e) => setLinear({ color: e.target.value })}
+        />
+      </fieldset>
+      <NumberField
+        label={t("editor.config.lineWidthPt")}
+        value={body.lineWidthPt}
+        min={LINE_WIDTH_PT_MIN}
+        max={LINE_WIDTH_PT_MAX}
+        step={0.1}
+        clamp={clampLineWidthPt}
+        onCommit={(lineWidthPt) => setLinear({ lineWidthPt })}
+      />
+    </div>
+  );
+}
+
+interface SectionListItemProps {
+  section: SectionDraft;
+  index: number;
+}
+
+/** 可拖拽排序的 section 列表项：summary 常显汇总，展开配置模板与参数。 */
+export default function SectionListItem({ section, index }: SectionListItemProps) {
+  const { t } = useTranslation();
+  const updateSection = useDocumentStore((s) => s.updateSection);
+  const removeSection = useDocumentStore((s) => s.removeSection);
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    setActivatorNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: section.id });
+  const body = section.body;
+
+  return (
+    <details
+      ref={setNodeRef}
+      className={clsx(
+        "collapse collapse-arrow rounded-box bg-base-100 shadow-md",
+        isDragging && "z-10 opacity-80 shadow-lg",
+      )}
+      style={{ transform: CSS.Translate.toString(transform), transition }}
+    >
+      <summary className="collapse-title flex items-center gap-2">
+        <button
+          type="button"
+          ref={setActivatorNodeRef}
+          className="btn btn-ghost btn-circle btn-xs touch-none cursor-grab active:cursor-grabbing"
+          aria-label={t("editor.section.dragHandle")}
+          {...attributes}
+          {...listeners}
+          // 拖拽手柄的单击不应触发展开/折叠
+          onClick={(e) => e.preventDefault()}
+        >
+          <GripIcon />
+        </button>
+        <span className="font-semibold">{t("editor.section.label", { index: index + 1 })}</span>
+        <span className="badge badge-outline">{t(`editor.template.${body.kind}`)}</span>
+        <span className="text-sm opacity-60">× {section.pages}</span>
+        <button
+          type="button"
+          className="btn btn-ghost btn-circle btn-xs ml-auto text-error"
+          aria-label={t("editor.section.delete")}
+          onClick={(e) => {
+            e.preventDefault();
+            removeSection(section.id);
+          }}
+        >
+          <TrashIcon />
+        </button>
+      </summary>
+
+      <div className="collapse-content">
+        <div className="grid gap-4">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <fieldset className="fieldset">
+              <legend className="fieldset-legend">{t("editor.section.template")}</legend>
+              <select
+                className="select w-full"
+                value={body.kind}
+                onChange={(e) =>
+                  updateSection(section.id, {
+                    body: e.target.value === "linear" ? { ...DEFAULT_LINEAR } : { kind: "blank" },
+                  })
+                }
+              >
+                <option value="blank">{t("editor.template.blank")}</option>
+                <option value="linear">{t("editor.template.linear")}</option>
+              </select>
+            </fieldset>
+
+            <NumberField
+              label={t("editor.section.pages")}
+              value={section.pages}
+              min={PAGES_MIN}
+              max={PAGES_MAX}
+              step={1}
+              clamp={clampPages}
+              onCommit={(pages) => updateSection(section.id, { pages })}
+            />
+          </div>
+
+          <fieldset className="fieldset">
+            <legend className="fieldset-legend">{t("editor.section.numbered")}</legend>
+            <input
+              type="checkbox"
+              className="toggle"
+              checked={section.numbered}
+              onChange={(e) => updateSection(section.id, { numbered: e.target.checked })}
+            />
+          </fieldset>
+
+          {body.kind === "linear" && <LinearFields sectionId={section.id} body={body} />}
+        </div>
+      </div>
+    </details>
+  );
+}

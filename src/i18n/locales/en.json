@@ -1,21 +1,30 @@
 {
   "app": { "name": "base6-techo", "tagline": "LaTeX planner template generator" },
-  "nav": { "home": "Home", "lined": "Lined", "settings": "Settings" },
-  "home": {
-    "title": "Hand your parameters to LaTeX, get print-ready planner PDFs",
-    "description": "The bundled Tectonic engine generates lined-paper and other planner templates fully offline.",
-    "cta": { "lined": "Start generating", "settings": "Open settings" },
-    "cards": {
-      "lined": {
-        "title": "Lined paper",
-        "description": "Configure pages, line spacing and margins, then export a printable PDF."
-      },
-      "engine": {
-        "title": "Typesetting engine",
-        "description": "Tectonic is integrated with Android support; the template form UI is on the way."
-      }
+  "nav": { "home": "Editor", "lined": "Lined", "settings": "Settings" },
+  "editor": {
+    "title": "Layout Editor",
+    "description": "Compose templates by section: drag the handle to reorder, pick a template and tune its parameters per section.",
+    "addSection": "Add section",
+    "empty": {
+      "title": "No sections yet",
+      "hint": "Click the button below to add your first section."
     },
-    "badge": { "ready": "Engine ready", "wip": "UI in progress" }
+    "totalPages": "{{total}} pages in total",
+    "totalPagesOverflow": "Over {{max}} pages in the book",
+    "section": {
+      "label": "Section {{index}}",
+      "pages": "Pages",
+      "numbered": "Count in page numbers",
+      "template": "Template",
+      "delete": "Delete",
+      "dragHandle": "Drag to reorder"
+    },
+    "template": { "blank": "Blank page", "linear": "Lined page" },
+    "config": {
+      "spacingMm": "Line spacing (mm)",
+      "color": "Line color",
+      "lineWidthPt": "Line width (pt)"
+    }
   },
   "lined": {
     "title": "Lined paper template",
