@@ -113,14 +113,21 @@ fn fancy_footer(pos: PageNumberPos) -> &'static str {
 }
 
 /// 生成横线本 LaTeX 源码。
+///
+/// 几何常量在 Rust 一处定义，同时生成 `\geometry` 选项与 TikZ 画线坐标；
+/// 画线用 eso-pic（原点 = 纸张左下角）+ 绝对 mm 坐标，不依赖 remember
+/// picture 的两遍编译，也不依赖 extra 宏包。
 pub fn generate_lined_latex(p: &LinedDocParams) -> Result<String, String> {
     validate_params(p)?;
     let (w, h) = p.paper.dims_mm();
 
-    // 正文区行数：floor(正文高 / 间距)，+0.001 抵消 pt↔mm 浮点误差。
+    // 正文区：宽 = 纸宽 - 左右边距；高 = 纸高 - 上下边距（geometry
+    // includehead/includefoot 语义下 \textheight 与此一致）。
+    let body_w_mm = w - 2.0 * MARGIN_X_MM;
+    let body_h_mm = h - MARGIN_TOP_MM - MARGIN_BOTTOM_MM;
+    // 行数 = floor(正文高 / 间距)，+0.001 抵消浮点误差；
     // 行从正文区底边（i=0）向上画，剩余空隙留在顶部。
-    let body_height_mm = h - MARGIN_TOP_MM - MARGIN_BOTTOM_MM;
-    let line_count = (body_height_mm / p.line_spacing_mm + 0.001).floor() as i64;
+    let line_count = (body_h_mm / p.line_spacing_mm + 0.001).floor() as i64;
 
     let tex = format!(
         r#"% 由 base6-techo 自动生成：横线本模板
@@ -130,7 +137,6 @@ pub fn generate_lined_latex(p: &LinedDocParams) -> Result<String, String> {
 \usepackage{{fancyhdr}}
 \usepackage{{eso-pic}}
 \usepackage{{tikz}}
-\usetikzlibrary{{calc}}
 
 \geometry{{
   paperwidth={w}mm, paperheight={h}mm, twoside,
@@ -140,8 +146,8 @@ pub fn generate_lined_latex(p: &LinedDocParams) -> Result<String, String> {
 }}
 
 \definecolor{{ruleline}}{{gray}}{{0.62}}
-\newlength{{\lsp}}\setlength{{\lsp}}{{{spacing}mm}}
-\pgfmathtruncatemacro{{\ruledLines}}{{{line_count}}}
+\newcommand{{\lspMm}}{{{spacing}}}          % 横线间距（mm）
+\newcommand{{\ruledLines}}{{{line_count}}}  % 每页横线数（正文高 / 间距 向下取整）
 
 \pagestyle{{fancy}}
 \fancyhf{{}}
@@ -149,13 +155,13 @@ pub fn generate_lined_latex(p: &LinedDocParams) -> Result<String, String> {
 \fancyhead[C]{{\rule[0.55ex]{{2.6em}}{{0.35pt}}\hspace{{0.35em}}年\hspace{{0.35em}}\rule[0.55ex]{{2.6em}}{{0.35pt}}月}}
 {footer}
 
-% 每页背景：TikZ overlay，沿正文区底边向上按 \lsp 画横线
+% 每页背景：eso-pic 原点在纸张左下角，坐标均为毫米。
+% 正文区 x ∈ [左边距, 纸宽-右边距]，y 从下边距起向上按 \lspMm 画横线。
 \AddToShipoutPictureBG{{%
-  \begin{{tikzpicture}}[remember picture, overlay]
-    \foreach \i in {{0,...,{line_count}}}{{%
+  \begin{{tikzpicture}}[x=1mm, y=1mm, overlay]
+    \foreach \i in {{0,...,\ruledLines}}{{%
       \draw[ruleline, line width=0.4pt]
-        ($(current page text area.south west) + (0, \i*\lsp)$) --
-        ($(current page text area.south east) + (0, \i*\lsp)$);%
+        ({lx}, {ly} + \i*\lspMm) -- ({rx}, {ly} + \i*\lspMm);%
     }}%
   \end{{tikzpicture}}%
 }}
@@ -175,6 +181,9 @@ pub fn generate_lined_latex(p: &LinedDocParams) -> Result<String, String> {
         mb = fmt_mm(MARGIN_BOTTOM_MM),
         spacing = fmt_mm(p.line_spacing_mm),
         line_count = line_count,
+        lx = fmt_mm(MARGIN_X_MM),
+        rx = fmt_mm(MARGIN_X_MM + body_w_mm),
+        ly = fmt_mm(MARGIN_BOTTOM_MM),
         footer = fancy_footer(p.page_number_pos),
         pages = p.pages,
     );
@@ -230,9 +239,12 @@ mod tests {
     #[test]
     fn spacing_and_line_count_match_geometry() {
         // A4 正文区高 = 297 - 16 - 16 = 265mm；间距 7mm → floor(265/7)=37 → 画 0..37
+        // 画线 x ∈ [18, 210-18]，y 从下边距 16mm 起。
         let tex = generate_lined_latex(&params(PaperSize::A4, 7.0, PageNumberPos::Outer)).unwrap();
-        assert!(tex.contains(r"\setlength{\lsp}{7mm}"), "{tex}");
-        assert!(tex.contains("{0,...,37}"), "{tex}");
+        assert!(tex.contains(r"\newcommand{\lspMm}{7}"), "{tex}");
+        assert!(tex.contains(r"\newcommand{\ruledLines}{37}"), "{tex}");
+        assert!(tex.contains(r"(18, 16 + \i*\lspMm)"), "{tex}");
+        assert!(tex.contains(r"(192, 16 + \i*\lspMm)"), "{tex}");
     }
 
     #[test]

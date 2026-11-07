@@ -7,37 +7,35 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use tauri::Manager;
 
-/// Compile a LaTeX document and return a raw IPC payload:
-/// `[u32 log_len LE][log utf8][pdf bytes]` — avoids JSON-encoding the PDF.
+/// 生成横线本 PDF 的原始 IPC payload：
+/// `[u32 log_len LE][log utf8][u32 tex_len LE][tex utf8][pdf bytes]`
+/// — PDF 走裸字节避免 JSON 编码，同时把生成的 LaTeX 源码一并回传。
 #[tauri::command]
-async fn compile_tex(
+async fn generate_lined_pdf(
     app: tauri::AppHandle,
-    source: String,
-    extra_files: Option<Vec<ExtraFile>>,
+    params: templates::lined::LinedDocParams,
 ) -> Result<tauri::ipc::Response, String> {
     tauri::async_runtime::spawn_blocking(move || {
-        let out = compile_document(&app, &source, extra_files.unwrap_or_default())?;
+        let tex = templates::lined::generate_lined_latex(&params)?;
+        let out = compile_document(&app, &tex, vec![])?;
         let log = out.log.into_bytes();
-        let mut payload = Vec::with_capacity(4 + log.len() + out.pdf.len());
+        let tex_bytes = tex.into_bytes();
+        let mut payload = Vec::with_capacity(8 + log.len() + tex_bytes.len() + out.pdf.len());
         payload.extend_from_slice(&(log.len() as u32).to_le_bytes());
         payload.extend_from_slice(&log);
+        payload.extend_from_slice(&(tex_bytes.len() as u32).to_le_bytes());
+        payload.extend_from_slice(&tex_bytes);
         payload.extend_from_slice(&out.pdf);
         Ok(tauri::ipc::Response::new(payload))
     })
     .await
-    .map_err(|e| format!("编译任务异常终止：{e}"))?
-}
-
-#[derive(serde::Deserialize)]
-struct ExtraFile {
-    name: String,
-    content: Vec<u8>,
+    .map_err(|e| format!("生成任务异常终止：{e}"))?
 }
 
 fn compile_document(
     app: &tauri::AppHandle,
     source: &str,
-    extra_files: Vec<ExtraFile>,
+    extra_files: Vec<(String, Vec<u8>)>,
 ) -> Result<compile::CompileOutput, String> {
     let data_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
     let stamp = SystemTime::now()
@@ -45,9 +43,7 @@ fn compile_document(
         .unwrap_or_default()
         .as_millis();
     let job_root = data_dir.join("jobs").join(stamp.to_string());
-    let extras: Vec<(String, Vec<u8>)> =
-        extra_files.into_iter().map(|f| (f.name, f.content)).collect();
-    let result = compile::compile(source, &job_root, &extras);
+    let result = compile::compile(source, &job_root, &extra_files);
     prune_jobs(&data_dir.join("jobs"), 5);
     result
 }
@@ -81,7 +77,7 @@ pub fn run() {
             }
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![compile_tex])
+        .invoke_handler(tauri::generate_handler![generate_lined_pdf])
         .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .expect("error while running tauri application")
 }
