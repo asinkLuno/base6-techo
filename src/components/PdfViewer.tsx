@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import * as pdfjsLib from "pdfjs-dist";
 import workerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
+import { useTranslation } from "react-i18next";
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = workerUrl;
 
 /** Canvas 版 PDF 预览（Android WebView 不能直接显示 PDF，pdf.js 是标准方案）。 */
 export function PdfViewer({ pdfBytes }: { pdfBytes: ArrayBuffer | null }) {
+  const { t } = useTranslation();
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const taskRef = useRef<pdfjsLib.PDFDocumentLoadingTask | null>(null);
   const [pageNum, setPageNum] = useState(1);
@@ -74,16 +76,40 @@ export function PdfViewer({ pdfBytes }: { pdfBytes: ArrayBuffer | null }) {
     };
   }, [pageNum, pageCount]);
 
-  if (error) return <div className="pdf-error">PDF 渲染失败：{error}</div>;
+  if (error) {
+    return (
+      <div role="alert" className="alert alert-error">
+        <span>
+          {t("editor.pdfError")}：{error}
+        </span>
+      </div>
+    );
+  }
   if (!pdfBytes) return null;
   return (
-    <div className="pdf-viewer">
-      <div className="pdf-toolbar">
-        <button disabled={pageNum <= 1} onClick={() => setPageNum((n) => n - 1)}>◀</button>
-        <span>{pageCount ? `${pageNum} / ${pageCount}` : "…"}</span>
-        <button disabled={pageNum >= pageCount} onClick={() => setPageNum((n) => n + 1)}>▶</button>
+    <div className="flex w-full flex-col items-center gap-3">
+      <div className="flex items-center gap-3">
+        <button
+          type="button"
+          className="btn btn-circle btn-ghost btn-sm"
+          disabled={pageNum <= 1}
+          aria-label={t("editor.prevPage")}
+          onClick={() => setPageNum((n) => n - 1)}
+        >
+          ◀
+        </button>
+        <span className="text-sm opacity-70">{pageCount ? `${pageNum} / ${pageCount}` : "…"}</span>
+        <button
+          type="button"
+          className="btn btn-circle btn-ghost btn-sm"
+          disabled={pageNum >= pageCount}
+          aria-label={t("editor.nextPage")}
+          onClick={() => setPageNum((n) => n + 1)}
+        >
+          ▶
+        </button>
       </div>
-      <canvas ref={canvasRef} className="pdf-canvas" />
+      <canvas ref={canvasRef} />
     </div>
   );
 }

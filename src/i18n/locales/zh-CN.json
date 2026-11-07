@@ -24,7 +24,14 @@
       "spacingMm": "行距（mm）",
       "color": "线色",
       "lineWidthPt": "线宽（pt）"
-    }
+    },
+    "generate": "生成 PDF",
+    "generating": "生成中…",
+    "preview": "预览",
+    "pdfError": "PDF 渲染失败",
+    "prevPage": "上一页",
+    "nextPage": "下一页",
+    "needDesktop": "生成需要在桌面应用中运行：浏览器页面不含内置的 Tectonic 引擎。"
   },
   "settings": {
     "title": "设置",

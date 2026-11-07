@@ -24,7 +24,14 @@
       "spacingMm": "Line spacing (mm)",
       "color": "Line color",
       "lineWidthPt": "Line width (pt)"
-    }
+    },
+    "generate": "Generate PDF",
+    "generating": "Generating…",
+    "preview": "Preview",
+    "pdfError": "Failed to render PDF",
+    "prevPage": "Previous page",
+    "nextPage": "Next page",
+    "needDesktop": "Generation requires the desktop app: the browser page does not include the bundled Tectonic engine."
   },
   "settings": {
     "title": "Settings",

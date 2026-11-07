@@ -1,3 +1,4 @@
+import { useRef, useState } from "react";
 import {
   DndContext,
   KeyboardSensor,
@@ -12,11 +13,14 @@ import {
   sortableKeyboardCoordinates,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
+import { isTauri } from "@tauri-apps/api/core";
 import clsx from "clsx";
 import { useTranslation } from "react-i18next";
+import { PdfViewer } from "../components/PdfViewer";
 import SectionListItem from "../components/SectionListItem";
+import { generatePdf } from "../lib/generatePdf";
 import { useDocumentStore } from "../stores/document";
-import { PAGES_MAX } from "../types/document";
+import { PAGES_MAX, toSectionSpecs } from "../types/document";
 
 function PlusIcon() {
   return (
@@ -34,12 +38,17 @@ function PlusIcon() {
   );
 }
 
-/** 主界面：按 section 组合模板的可编辑列表（拖拽排序、增删、逐项配置模板参数）。 */
+/** 主界面：按 section 组合模板的可编辑列表（拖拽排序、增删、逐项配置模板参数）+ 生成预览。 */
 export default function HomePage() {
   const { t } = useTranslation();
   const sections = useDocumentStore((s) => s.sections);
   const addSection = useDocumentStore((s) => s.addSection);
   const moveSection = useDocumentStore((s) => s.moveSection);
+
+  const [generating, setGenerating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [pdfBytes, setPdfBytes] = useState<ArrayBuffer | null>(null);
+  const previewRef = useRef<HTMLElement | null>(null);
 
   // distance 约束让卡内输入框/下拉的单击不触发拖拽，拖动需移动 6px。
   const sensors = useSensors(
@@ -49,6 +58,30 @@ export default function HomePage() {
 
   const handleDragEnd = ({ active, over }: DragEndEvent) => {
     if (over && active.id !== over.id) moveSection(String(active.id), String(over.id));
+  };
+
+  const handleGenerate = async () => {
+    if (!isTauri()) {
+      setPdfBytes(null);
+      setError(t("editor.needDesktop"));
+      return;
+    }
+    setGenerating(true);
+    setError(null);
+    try {
+      const out = await generatePdf({ sections: toSectionSpecs(sections) });
+      setPdfBytes(out.pdf);
+      // 预览卡片在 setState 后才挂载，等一帧再滚动
+      setTimeout(
+        () => previewRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }),
+        60,
+      );
+    } catch (e) {
+      setPdfBytes(null);
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setGenerating(false);
+    }
   };
 
   const total = sections.reduce((sum, section) => sum + section.pages, 0);
@@ -92,10 +125,36 @@ export default function HomePage() {
         </div>
       )}
 
-      <button type="button" className="btn btn-primary btn-block" onClick={addSection}>
-        <PlusIcon />
-        {t("editor.addSection")}
-      </button>
+      {error && (
+        <div role="alert" className="alert alert-error">
+          <span>{error}</span>
+        </div>
+      )}
+
+      <div className="grid grid-cols-2 gap-3">
+        <button type="button" className="btn" onClick={addSection}>
+          <PlusIcon />
+          {t("editor.addSection")}
+        </button>
+        <button
+          type="button"
+          className="btn btn-primary"
+          disabled={sections.length === 0 || generating}
+          onClick={handleGenerate}
+        >
+          {generating && <span className="loading loading-spinner loading-xs" />}
+          {generating ? t("editor.generating") : t("editor.generate")}
+        </button>
+      </div>
+
+      {pdfBytes && (
+        <section ref={previewRef} className="card bg-base-100 shadow-md">
+          <div className="card-body gap-4">
+            <h2 className="card-title">{t("editor.preview")}</h2>
+            <PdfViewer pdfBytes={pdfBytes} />
+          </div>
+        </section>
+      )}
     </div>
   );
 }
