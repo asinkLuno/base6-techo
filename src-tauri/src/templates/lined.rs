@@ -37,6 +37,7 @@ fn document(p: &LinedDocParams) -> Document {
         PageNumberPos::Center => Align::Center,
     };
     Document {
+        imposition: Default::default(),
         page: PageSettings {
             paper: p.paper.clone(),
             ..Default::default()

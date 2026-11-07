@@ -1,5 +1,10 @@
 //! LaTeX 输出后端。数值格式与用户文字转义只在此处处理。
-use super::{components::TextStyle, document::PlannedDocument, layout::Rect};
+use super::{
+    components::TextStyle,
+    document::{PlannedDocument, PlannedPage},
+    imposition::plan_output,
+    layout::Rect,
+};
 use std::fmt::Write;
 
 pub(crate) fn validate_color(color: &str) -> Result<(), String> {
@@ -117,7 +122,7 @@ impl Canvas {
 }
 
 pub(crate) fn render(plan: &PlannedDocument<'_>) -> String {
-    let (width, height) = plan.document.page.paper.dims_mm();
+    let output = plan_output(plan);
     let mut tex = format!(
         r"% 由 base6-techo 自动生成：整本布局框架
 \documentclass[11pt]{{article}}
@@ -130,32 +135,44 @@ pub(crate) fn render(plan: &PlannedDocument<'_>) -> String {
 \setlength{{\parindent}}{{0pt}}
 \begin{{document}}
 ",
-        number(width),
-        number(height)
+        number(output.width_mm),
+        number(output.height_mm)
     );
-    for page in plan.pages() {
+    for output_page in output.pages() {
         let mut canvas = Canvas::new();
-        canvas.begin_region(page.layout.body);
-        page.section
-            .body
-            .draw(&mut canvas, &page.layout, &page.context);
-        canvas.end_region();
-        plan.document.decorations.draw(&mut canvas, page);
-        writeln!(
-            tex,
-            "% physical={} section={} local={} display={:?}",
-            page.context.physical_page,
-            page.context.section_index,
-            page.context.local_index,
-            page.context.display_number
-        )
-        .unwrap();
+        for placement in &output_page.placements {
+            if let Some(physical_page) = placement.physical_page {
+                let page = &plan.pages()[physical_page - 1];
+                render_page(&mut canvas, plan, page, placement.x_mm);
+            }
+        }
         tex.push_str("\\AddToShipoutPictureBG*{%\n\\AtPageUpperLeft{%\n\\begin{tikzpicture}[overlay,x=1mm,y=-1mm]\n");
         tex.push_str(&canvas.source);
         tex.push_str("\\end{tikzpicture}%\n}%\n}\n\\null\\clearpage\n");
     }
     tex.push_str("\\end{document}\n");
     tex
+}
+
+/// 页内坐标不变；仅把整张阅读页平移到印刷面的对应半边。
+fn render_page(canvas: &mut Canvas, plan: &PlannedDocument<'_>, page: &PlannedPage<'_>, x_mm: f64) {
+    writeln!(canvas.source, "\\begin{{scope}}[xshift={}mm]", number(x_mm)).unwrap();
+    canvas.begin_region(page.layout.paper);
+    writeln!(
+        canvas.source,
+        "% physical={} section={} local={} display={:?}",
+        page.context.physical_page,
+        page.context.section_index,
+        page.context.local_index,
+        page.context.display_number
+    )
+    .unwrap();
+    canvas.begin_region(page.layout.body);
+    page.section.body.draw(canvas, &page.layout, &page.context);
+    canvas.end_region();
+    plan.document.decorations.draw(canvas, page);
+    canvas.end_region();
+    canvas.end_region();
 }
 
 #[cfg(test)]

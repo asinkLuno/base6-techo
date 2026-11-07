@@ -1,6 +1,7 @@
-//! 入口：边界校验 → 整本编排 → 各区域绘制 → LaTeX。
+//! 入口：边界校验 → 整本编排与区域布局 → 印刷拼版 → LaTeX。
 use super::{
     components::Decorations,
+    imposition::Imposition,
     layout::{PageLayout, PageSettings},
     patterns::BodyTemplate,
 };
@@ -14,6 +15,7 @@ pub struct Document {
     pub page: PageSettings,
     pub decorations: Decorations,
     pub sections: Vec<Section>,
+    pub imposition: Imposition,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -63,6 +65,7 @@ impl<'a> PlannedDocument<'a> {
 
 fn validate(document: &Document) -> Result<usize, String> {
     document.page.validate()?;
+    document.imposition.validate()?;
     document.decorations.validate()?;
     if document.sections.is_empty() {
         return Err("文档至少需要一个 section".into());
