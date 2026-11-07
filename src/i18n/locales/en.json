@@ -1,8 +1,7 @@
 {
   "app": { "name": "base6-techo", "tagline": "LaTeX planner template generator" },
   "editor": {
-    "title": "Layout Editor",
-    "description": "Compose templates by section: drag the handle to reorder, pick a template and tune its parameters per section.",
+    "sectionsTitle": "Section layout",
     "addSection": "Add section",
     "empty": {
       "title": "No sections yet",
@@ -44,7 +43,10 @@
       "impositionNone": "Single pages",
       "impositionBooklet": "Saddle stitch",
       "impositionThread": "Thread sewn",
-      "sheetsPerSignature": "Sheets per signature"
+      "sheetsPerSignature": "Sheets per signature",
+      "impositionInfoNone": "Prints pages in reading order — best for plain printing and reading.",
+      "impositionInfoBooklet": "Imposes the whole book onto front/back sheets, padded to a multiple of 4; fold at the spine after printing.",
+      "impositionInfoThread": "Each signature holds sheets × 4 reading pages, stacked and thread-sewn; the last signature is padded with blanks."
     }
   },
   "settings": {

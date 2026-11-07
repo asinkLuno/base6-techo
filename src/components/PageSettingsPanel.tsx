@@ -14,6 +14,23 @@ import {
 
 const PAPER_PRESETS = ["a4", "a5", "b5", "a6", "b6", "letter"] as const;
 
+function InfoIcon() {
+  return (
+    <svg
+      className="size-5 shrink-0"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <circle cx="12" cy="12" r="10" />
+      <path d="M12 16v-4M12 8h.01" />
+    </svg>
+  );
+}
+
 // NumberField 的 clamp 是数字级的，这里按字段配上范围与回落值。
 const clampPaperMm = (fallback: number) => (value: number) =>
   clampNumber(value, PAPER_MM_MIN, PAPER_MM_MAX, fallback);
@@ -128,6 +145,19 @@ export function PageSettingsPanel() {
             }
           />
         )}
+
+        <div role="note" className="alert alert-info items-start text-sm">
+          <InfoIcon />
+          <span>
+            {t(
+              imposition.mode === "thread"
+                ? "editor.page.impositionInfoThread"
+                : imposition.mode === "booklet"
+                  ? "editor.page.impositionInfoBooklet"
+                  : "editor.page.impositionInfoNone",
+            )}
+          </span>
+        </div>
       </div>
     </section>
   );

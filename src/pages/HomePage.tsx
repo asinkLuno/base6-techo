@@ -39,7 +39,7 @@ function PlusIcon() {
   );
 }
 
-/** 主界面：左栏是 section 列表（拖拽排序、增删、逐项配置模板），右栏是页面设置与生成。 */
+/** 主界面：左栏版式组合（section 列表：拖拽排序、增删、逐项配置模板），右栏页面设置与生成。 */
 export default function HomePage() {
   const { t } = useTranslation();
   const sections = useDocumentStore((s) => s.sections);
@@ -91,23 +91,20 @@ export default function HomePage() {
   const overflow = total > PAGES_MAX;
 
   return (
-    <div className="space-y-6">
-      <header className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold">{t("editor.title")}</h1>
-          <p className="opacity-70">{t("editor.description")}</p>
-        </div>
-        {sections.length > 0 && (
-          <span className={clsx("badge", overflow ? "badge-error" : "badge-outline")}>
-            {overflow
-              ? t("editor.totalPagesOverflow", { max: PAGES_MAX })
-              : t("editor.totalPages", { total })}
-          </span>
-        )}
-      </header>
-
+    <>
       <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_18rem]">
         <div className="min-w-0 space-y-3">
+          <div className="flex items-center justify-between gap-2">
+            <h2 className="card-title">{t("editor.sectionsTitle")}</h2>
+            {sections.length > 0 && (
+              <span className={clsx("badge", overflow ? "badge-error" : "badge-outline")}>
+                {overflow
+                  ? t("editor.totalPagesOverflow", { max: PAGES_MAX })
+                  : t("editor.totalPages", { total })}
+              </span>
+            )}
+          </div>
+
           <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
             <SortableContext
               items={sections.map((section) => section.id)}
@@ -162,6 +159,6 @@ export default function HomePage() {
           </div>
         </section>
       )}
-    </div>
+    </>
   );
 }
