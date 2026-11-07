@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 /**
  * 数字输入：打字过程中仅在值合法（在 min–max 内）时提交，
@@ -22,7 +22,13 @@ export function NumberField({
   onCommit: (value: number) => void;
 }) {
   const [text, setText] = useState(String(value));
-  useEffect(() => setText(String(value)), [value]);
+  // 外部 value 变化时在渲染期调整本地文本（React 官方「props 变化时调整 state」模式），
+  // 比塞进 useEffect 少一次提交渲染，也不会闪现旧文本。
+  const [prevValue, setPrevValue] = useState(value);
+  if (prevValue !== value) {
+    setPrevValue(value);
+    setText(String(value));
+  }
 
   const commit = () => {
     const next = clamp(Number(text));
@@ -44,7 +50,12 @@ export function NumberField({
           const nextText = e.target.value;
           setText(nextText);
           const parsed = Number(nextText);
-          if (nextText !== "" && Number.isFinite(parsed) && parsed >= min && parsed <= max) {
+          if (
+            nextText !== "" &&
+            Number.isFinite(parsed) &&
+            parsed >= min &&
+            parsed <= max
+          ) {
             onCommit(parsed);
           }
         }}

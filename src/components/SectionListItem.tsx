@@ -1,8 +1,8 @@
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import clsx from "clsx";
+import { memo } from "react";
 import { useTranslation } from "react-i18next";
-import { NumberField } from "./NumberField";
 import { useDocumentStore } from "../stores/document";
 import {
   clampLineWidthPt,
@@ -11,17 +11,19 @@ import {
   DEFAULT_LINEAR,
   LINE_WIDTH_PT_MAX,
   LINE_WIDTH_PT_MIN,
+  type LinearPattern,
   PAGES_MAX,
   PAGES_MIN,
+  type SectionDraft,
   SPACING_MM_MAX,
   SPACING_MM_MIN,
-  type LinearPattern,
-  type SectionDraft,
 } from "../types/document";
+import { NumberField } from "./NumberField";
 
 function GripIcon() {
   return (
     <svg
+      aria-hidden="true"
       className="size-4"
       viewBox="0 0 24 24"
       fill="none"
@@ -42,6 +44,7 @@ function GripIcon() {
 function TrashIcon() {
   return (
     <svg
+      aria-hidden="true"
       className="size-4"
       viewBox="0 0 24 24"
       fill="none"
@@ -59,7 +62,13 @@ function TrashIcon() {
 }
 
 /** linear 模板配置项：行距 / 线色 / 线宽。 */
-function LinearFields({ sectionId, body }: { sectionId: string; body: LinearPattern }) {
+function LinearFields({
+  sectionId,
+  body,
+}: {
+  sectionId: string;
+  body: LinearPattern;
+}) {
   const { t } = useTranslation();
   const updateSection = useDocumentStore((s) => s.updateSection);
 
@@ -104,8 +113,11 @@ interface SectionListItemProps {
   index: number;
 }
 
-/** 可拖拽排序的 section 列表项：summary 常显汇总，展开配置模板与参数。 */
-export default function SectionListItem({ section, index }: SectionListItemProps) {
+/** 可拖拽排序的 section 列表项：summary 常显汇总，展开配置模板与参数。未变的 section 引用稳定，memo 跳过无关重渲。 */
+export default memo(function SectionListItem({
+  section,
+  index,
+}: SectionListItemProps) {
   const { t } = useTranslation();
   const updateSection = useDocumentStore((s) => s.updateSection);
   const removeSection = useDocumentStore((s) => s.removeSection);
@@ -124,7 +136,7 @@ export default function SectionListItem({ section, index }: SectionListItemProps
     <details
       ref={setNodeRef}
       className={clsx(
-        "collapse collapse-arrow rounded-box bg-base-100 shadow-md",
+        "collapse-arrow rounded-box bg-base-100 collapse shadow-md",
         isDragging && "z-10 opacity-80 shadow-lg",
       )}
       style={{ transform: CSS.Translate.toString(transform), transition }}
@@ -133,7 +145,7 @@ export default function SectionListItem({ section, index }: SectionListItemProps
         <button
           type="button"
           ref={setActivatorNodeRef}
-          className="btn btn-ghost btn-circle btn-xs touch-none cursor-grab active:cursor-grabbing"
+          className="btn btn-ghost btn-circle btn-xs cursor-grab touch-none active:cursor-grabbing"
           aria-label={t("editor.section.dragHandle")}
           {...attributes}
           {...listeners}
@@ -142,12 +154,16 @@ export default function SectionListItem({ section, index }: SectionListItemProps
         >
           <GripIcon />
         </button>
-        <span className="font-semibold">{t("editor.section.label", { index: index + 1 })}</span>
-        <span className="badge badge-outline">{t(`editor.template.${body.kind}`)}</span>
-        <span className="text-sm opacity-60">× {section.pages}</span>
+        <span className="font-semibold">
+          {t("editor.section.label", { index: index + 1 })}
+        </span>
+        <span className="badge badge-outline">
+          {t(`editor.template.${body.kind}`)}
+        </span>
+        <span className="text-sm opacity-70">× {section.pages}</span>
         <button
           type="button"
-          className="btn btn-ghost btn-circle btn-xs ml-auto text-error"
+          className="btn btn-ghost btn-circle btn-xs text-error ml-auto"
           aria-label={t("editor.section.delete")}
           onClick={(e) => {
             e.preventDefault();
@@ -162,13 +178,18 @@ export default function SectionListItem({ section, index }: SectionListItemProps
         <div className="grid gap-4">
           <div className="grid gap-4 sm:grid-cols-2">
             <fieldset className="fieldset">
-              <legend className="fieldset-legend">{t("editor.section.template")}</legend>
+              <legend className="fieldset-legend">
+                {t("editor.section.template")}
+              </legend>
               <select
                 className="select w-full"
                 value={body.kind}
                 onChange={(e) =>
                   updateSection(section.id, {
-                    body: e.target.value === "linear" ? { ...DEFAULT_LINEAR } : { kind: "blank" },
+                    body:
+                      e.target.value === "linear"
+                        ? { ...DEFAULT_LINEAR }
+                        : { kind: "blank" },
                   })
                 }
               >
@@ -189,18 +210,24 @@ export default function SectionListItem({ section, index }: SectionListItemProps
           </div>
 
           <fieldset className="fieldset">
-            <legend className="fieldset-legend">{t("editor.section.numbered")}</legend>
+            <legend className="fieldset-legend">
+              {t("editor.section.numbered")}
+            </legend>
             <input
               type="checkbox"
               className="toggle"
               checked={section.numbered}
-              onChange={(e) => updateSection(section.id, { numbered: e.target.checked })}
+              onChange={(e) =>
+                updateSection(section.id, { numbered: e.target.checked })
+              }
             />
           </fieldset>
 
-          {body.kind === "linear" && <LinearFields sectionId={section.id} body={body} />}
+          {body.kind === "linear" && (
+            <LinearFields sectionId={section.id} body={body} />
+          )}
         </div>
       </div>
     </details>
   );
-}
+});

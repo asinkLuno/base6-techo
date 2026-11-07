@@ -1,11 +1,12 @@
-import { Link, Outlet, useLocation } from "react-router";
 import { useTranslation } from "react-i18next";
+import { Link, Outlet, useLocation } from "react-router";
 import { useSettingsSync } from "../hooks/useSettingsSync";
 
 /** 设置入口：右上角齿轮按钮。 */
 function SettingsIcon() {
   return (
     <svg
+      aria-hidden="true"
       className="size-5"
       viewBox="0 0 24 24"
       fill="none"

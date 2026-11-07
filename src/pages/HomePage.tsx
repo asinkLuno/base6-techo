@@ -1,12 +1,11 @@
-import { useRef, useState } from "react";
 import {
+  closestCenter,
   DndContext,
+  type DragEndEvent,
   KeyboardSensor,
   PointerSensor,
-  closestCenter,
   useSensor,
   useSensors,
-  type DragEndEvent,
 } from "@dnd-kit/core";
 import {
   SortableContext,
@@ -15,8 +14,8 @@ import {
 } from "@dnd-kit/sortable";
 import { isTauri } from "@tauri-apps/api/core";
 import clsx from "clsx";
+import { lazy, Suspense, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { PdfViewer } from "../components/PdfViewer";
 import { PageSettingsPanel } from "../components/PageSettingsPanel";
 import SectionListItem from "../components/SectionListItem";
 import { generatePdf } from "../lib/generatePdf";
@@ -26,6 +25,7 @@ import { PAGES_MAX, toSectionSpecs } from "../types/document";
 function PlusIcon() {
   return (
     <svg
+      aria-hidden="true"
       className="size-5"
       viewBox="0 0 24 24"
       fill="none"
@@ -39,12 +39,15 @@ function PlusIcon() {
   );
 }
 
+// pdfjs-dist 体积大且只在生成预览后才需要，懒加载避免进首屏 chunk。
+const PdfViewer = lazy(() =>
+  import("../components/PdfViewer").then((m) => ({ default: m.PdfViewer })),
+);
+
 /** 主界面：左栏版式组合（section 列表：拖拽排序、增删、逐项配置模板），右栏页面设置与生成。 */
 export default function HomePage() {
   const { t } = useTranslation();
   const sections = useDocumentStore((s) => s.sections);
-  const page = useDocumentStore((s) => s.page);
-  const imposition = useDocumentStore((s) => s.imposition);
   const addSection = useDocumentStore((s) => s.addSection);
   const moveSection = useDocumentStore((s) => s.moveSection);
 
@@ -56,11 +59,14 @@ export default function HomePage() {
   // distance 约束让卡内输入框/下拉的单击不触发拖拽，拖动需移动 6px。
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
-    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    }),
   );
 
   const handleDragEnd = ({ active, over }: DragEndEvent) => {
-    if (over && active.id !== over.id) moveSection(String(active.id), String(over.id));
+    if (over && active.id !== over.id)
+      moveSection(String(active.id), String(over.id));
   };
 
   const handleGenerate = async () => {
@@ -69,14 +75,24 @@ export default function HomePage() {
       setError(t("editor.needDesktop"));
       return;
     }
+    // page/imposition 只在这里用到，回调内按需读取，避免设置变更时重渲整个主界面
+    const { page, imposition, sections: current } = useDocumentStore.getState();
     setGenerating(true);
     setError(null);
     try {
-      const out = await generatePdf({ page, imposition, sections: toSectionSpecs(sections) });
+      const out = await generatePdf({
+        page,
+        imposition,
+        sections: toSectionSpecs(current),
+      });
       setPdfBytes(out.pdf);
       // 预览卡片在 setState 后才挂载，等一帧再滚动
       setTimeout(
-        () => previewRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }),
+        () =>
+          previewRef.current?.scrollIntoView({
+            behavior: "smooth",
+            block: "start",
+          }),
         60,
       );
     } catch (e) {
@@ -97,7 +113,12 @@ export default function HomePage() {
           <div className="flex items-center justify-between gap-2">
             <h2 className="card-title">{t("editor.sectionsTitle")}</h2>
             {sections.length > 0 && (
-              <span className={clsx("badge", overflow ? "badge-error" : "badge-outline")}>
+              <span
+                className={clsx(
+                  "badge",
+                  overflow ? "badge-error" : "badge-outline",
+                )}
+              >
                 {overflow
                   ? t("editor.totalPagesOverflow", { max: PAGES_MAX })
                   : t("editor.totalPages", { total })}
@@ -105,22 +126,30 @@ export default function HomePage() {
             )}
           </div>
 
-          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragEnd={handleDragEnd}
+          >
             <SortableContext
               items={sections.map((section) => section.id)}
               strategy={verticalListSortingStrategy}
             >
               {sections.map((section, index) => (
-                <SectionListItem key={section.id} section={section} index={index} />
+                <SectionListItem
+                  key={section.id}
+                  section={section}
+                  index={index}
+                />
               ))}
             </SortableContext>
           </DndContext>
 
           {sections.length === 0 && (
-            <div className="card border border-dashed border-base-300 bg-base-200/50">
+            <div className="card border-base-300 bg-base-200/50 border border-dashed">
               <div className="card-body items-center text-center">
                 <p className="font-medium">{t("editor.empty.title")}</p>
-                <p className="text-sm opacity-60">{t("editor.empty.hint")}</p>
+                <p className="text-sm opacity-70">{t("editor.empty.hint")}</p>
               </div>
             </div>
           )}
@@ -139,23 +168,34 @@ export default function HomePage() {
             disabled={sections.length === 0 || generating}
             onClick={handleGenerate}
           >
-            {generating && <span className="loading loading-spinner loading-xs" />}
+            {generating && (
+              <span className="loading loading-spinner loading-xs" />
+            )}
             {generating ? t("editor.generating") : t("editor.generate")}
           </button>
+
+          {/* 生成失败提示贴着触发按钮，避免长列表时页面底部不可见 */}
+          {error && (
+            <div role="alert" className="alert alert-error">
+              <span>{error}</span>
+            </div>
+          )}
         </aside>
       </div>
-
-      {error && (
-        <div role="alert" className="alert alert-error">
-          <span>{error}</span>
-        </div>
-      )}
 
       {pdfBytes && (
         <section ref={previewRef} className="card bg-base-100 shadow-md">
           <div className="card-body gap-4">
             <h2 className="card-title">{t("editor.preview")}</h2>
-            <PdfViewer pdfBytes={pdfBytes} />
+            <Suspense
+              fallback={
+                <div className="flex justify-center py-8">
+                  <span className="loading loading-spinner loading-md" />
+                </div>
+              }
+            >
+              <PdfViewer pdfBytes={pdfBytes} />
+            </Suspense>
           </div>
         </section>
       )}
