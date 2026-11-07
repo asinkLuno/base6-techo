@@ -8,31 +8,35 @@ use std::fs;
 use std::path::PathBuf;
 
 use base6_techo_lib::compile;
+use base6_techo_lib::templates::lined::{
+    generate_lined_latex, LinedDocParams, PageNumberPos, PaperSize,
+};
 
-/// Documents whose dependencies get pulled into the cache. Keep in sync with
-/// what the app's default/sample documents need — anything missing is still
+/// Documents whose dependencies get pulled into the cache: the actual product
+/// templates across paper-size/position code paths. Anything missing is still
 /// fetchable online, but offline devices can only use cached packages.
-const SAMPLES: &[(&str, &str)] = &[
-    (
-        "article",
-        r#"\documentclass{article}
-\usepackage{amsmath,amssymb}
-\usepackage{geometry}
-\begin{document}
-Hello, Tectonic on Android!
-\[ \int_0^\infty e^{-x^2}\,dx = \frac{\sqrt{\pi}}{2} \]
-\end{document}
-"#,
-    ),
-    (
-        "ctexart",
-        r#"\documentclass{ctexart}
-\begin{document}
-你好，Tectonic！这是一段中文排版测试。
-\end{document}
-"#,
-    ),
-];
+fn warm_docs() -> Vec<(&'static str, String)> {
+    let doc = |paper, spacing, pos| LinedDocParams {
+        paper,
+        line_spacing_mm: spacing,
+        page_number_pos: pos,
+        pages: 2,
+    };
+    vec![
+        (
+            "lined-a4-outer",
+            generate_lined_latex(&doc(PaperSize::A4, 7.0, PageNumberPos::Outer)).expect("参数合法"),
+        ),
+        (
+            "lined-a5-center",
+            generate_lined_latex(&doc(PaperSize::A5, 8.0, PageNumberPos::Center)).expect("参数合法"),
+        ),
+        (
+            "lined-custom-a6-inner",
+            generate_lined_latex(&doc(PaperSize::A6, 5.0, PageNumberPos::Inner)).expect("参数合法"),
+        ),
+    ]
+}
 
 fn main() {
     let mut out_dir = PathBuf::from("prewarmed-cache");
@@ -60,9 +64,9 @@ fn main() {
     // the cache; only bundles/ + formats/ accumulate.
     let job_root = out_dir.join("job");
     let mut all_ok = true;
-    for (name, doc) in SAMPLES {
+    for (name, doc) in warm_docs() {
         eprintln!("== warming {name} ==");
-        match compile::compile(doc, &job_root, &[]) {
+        match compile::compile(&doc, &job_root, &[]) {
             Ok(out) => eprintln!("   ok: {} bytes pdf", out.pdf.len()),
             Err(e) => {
                 eprintln!("   FAILED: {e}");
