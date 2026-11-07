@@ -76,3 +76,66 @@ export const clampBody = (body: BodyTemplate): BodyTemplate =>
 /** 剥离前端专用 id，得到可直接 invoke 的 sections 负载。 */
 export const toSectionSpecs = (sections: SectionDraft[]): SectionSpec[] =>
   sections.map(({ id: _id, ...spec }) => spec);
+
+/** 纸张尺寸，与 Rust PaperSize（内部 tagged enum）一致；预设名为小写。 */
+export type PaperSize =
+  | { kind: "a4" }
+  | { kind: "a5" }
+  | { kind: "b5" }
+  | { kind: "a6" }
+  | { kind: "b6" }
+  | { kind: "letter" }
+  | { kind: "custom"; widthMm: number; heightMm: number };
+
+export type Binding = "left" | "right";
+
+export interface Margins {
+  headerMm: number;
+  footerMm: number;
+  innerMm: number;
+  outerMm: number;
+}
+
+export interface PageSettings {
+  paper: PaperSize;
+  binding: Binding;
+  margins: Margins;
+}
+
+/** 自定义纸张范围 30–1000mm（Rust validate），回落值取 A5 尺寸。 */
+export const PAPER_MM_MIN = 30;
+export const PAPER_MM_MAX = 1000;
+export const MARGIN_MM_MIN = 0;
+export const MARGIN_MM_MAX = 1000;
+
+/** 与 Rust PageSettings::default 一致。 */
+export const DEFAULT_PAGE: PageSettings = {
+  paper: { kind: "a5" },
+  binding: "left",
+  margins: { headerMm: 16, footerMm: 16, innerMm: 18, outerMm: 18 },
+};
+
+/** 自定义纸张非法时的回落尺寸（取 A5）。 */
+export const A5_DIMS = { widthMm: 148, heightMm: 210 } as const;
+
+export const clampPaperSize = (paper: PaperSize): PaperSize =>
+  paper.kind === "custom"
+    ? {
+        kind: "custom",
+        widthMm: clampNumber(paper.widthMm, PAPER_MM_MIN, PAPER_MM_MAX, A5_DIMS.widthMm),
+        heightMm: clampNumber(paper.heightMm, PAPER_MM_MIN, PAPER_MM_MAX, A5_DIMS.heightMm),
+      }
+    : paper;
+
+export const clampMargins = (margins: Margins): Margins => ({
+  headerMm: clampNumber(margins.headerMm, MARGIN_MM_MIN, MARGIN_MM_MAX, DEFAULT_PAGE.margins.headerMm),
+  footerMm: clampNumber(margins.footerMm, MARGIN_MM_MIN, MARGIN_MM_MAX, DEFAULT_PAGE.margins.footerMm),
+  innerMm: clampNumber(margins.innerMm, MARGIN_MM_MIN, MARGIN_MM_MAX, DEFAULT_PAGE.margins.innerMm),
+  outerMm: clampNumber(margins.outerMm, MARGIN_MM_MIN, MARGIN_MM_MAX, DEFAULT_PAGE.margins.outerMm),
+});
+
+export const clampPageSettings = (page: PageSettings): PageSettings => ({
+  paper: clampPaperSize(page.paper),
+  binding: page.binding === "right" ? "right" : "left",
+  margins: clampMargins(page.margins),
+});

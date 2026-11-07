@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { DEFAULT_LINEAR, toSectionSpecs } from "../types/document";
+import { DEFAULT_LINEAR, DEFAULT_PAGE, toSectionSpecs } from "../types/document";
 import { useDocumentStore } from "./document";
 
 // persist 中间件在 store 创建时就读 localStorage，vitest node 环境没有，先挂内存实现。
@@ -123,5 +123,46 @@ describe("toSectionSpecs", () => {
       { pages: 2, numbered: true, body: DEFAULT_LINEAR },
       { pages: 1, numbered: false, body: { kind: "blank" } },
     ]);
+  });
+});
+
+describe("page settings", () => {
+  beforeEach(() => useDocumentStore.setState({ sections: [] }));
+
+  it("初始页面设置为 Rust 默认：A5、左装订、16/16/18/18", () => {
+    expect(state().page).toEqual(DEFAULT_PAGE);
+  });
+
+  it("updatePage 可切换装订与预设纸张", () => {
+    state().updatePage({ binding: "right", paper: { kind: "b6" } });
+    expect(state().page.binding).toBe("right");
+    expect(state().page.paper).toEqual({ kind: "b6" });
+  });
+
+  it("updatePage 把自定义纸张 clamp 到 30–1000mm，非法值回落 A5 尺寸", () => {
+    state().updatePage({ paper: { kind: "custom", widthMm: 5, heightMm: 5000 } });
+    expect(state().page.paper).toEqual({ kind: "custom", widthMm: 30, heightMm: 1000 });
+    state().updatePage({ paper: { kind: "custom", widthMm: Number.NaN, heightMm: 200 } });
+    expect(state().page.paper).toEqual({ kind: "custom", widthMm: 148, heightMm: 200 });
+  });
+
+  it("updatePage 把边距 clamp 到 0–1000mm", () => {
+    state().updatePage({
+      margins: { headerMm: -3, footerMm: 12, innerMm: 14, outerMm: 16 },
+    });
+    expect(state().page.margins).toEqual({
+      headerMm: 0,
+      footerMm: 12,
+      innerMm: 14,
+      outerMm: 16,
+    });
+  });
+
+  it("updatePage 不认识的节不受影响，可整体换纸", () => {
+    state().addSection();
+    const before = state().sections;
+    state().updatePage({ paper: { kind: "letter" } });
+    expect(state().sections).toEqual(before);
+    expect(state().page.paper).toEqual({ kind: "letter" });
   });
 });
