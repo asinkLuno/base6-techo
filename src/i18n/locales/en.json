@@ -1,5 +1,5 @@
 {
-  "app": { "name": "base6-techo", "tagline": "LaTeX planner template generator" },
+  "app": { "name": "base6-techo" },
   "editor": {
     "sectionsTitle": "Section layout",
     "addSection": "Add section",
@@ -52,7 +52,6 @@
   },
   "settings": {
     "title": "Settings",
-    "description": "Preferences are stored locally and survive app restarts.",
     "language": "Language"
   },
   "notFound": { "title": "Page not found", "back": "Back to home" }

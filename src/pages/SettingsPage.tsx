@@ -10,7 +10,6 @@ export default function SettingsPage() {
     <div className="space-y-4">
       <header>
         <h1 className="text-2xl font-bold">{t("settings.title")}</h1>
-        <p className="opacity-70">{t("settings.description")}</p>
       </header>
 
       <div className="card bg-base-100 shadow-md">

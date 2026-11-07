@@ -49,10 +49,6 @@ export default function RootLayout() {
       <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-8">
         <Outlet />
       </main>
-
-      <footer className="py-4 text-center text-sm opacity-60">
-        {t("app.tagline")}
-      </footer>
     </div>
   );
 }
