@@ -1,45 +1,27 @@
 import { Link, NavLink, Outlet } from "react-router";
 import { useTranslation } from "react-i18next";
 import clsx from "clsx";
-import { useSettingsStore } from "../stores/settings";
 import { useSettingsSync } from "../hooks/useSettingsSync";
 
 const NAV_ITEMS = [
   { to: "/", key: "nav.home", end: true },
-  { to: "/settings", key: "nav.settings" },
 ] as const;
 
-function SunIcon() {
+/** 设置入口：右上角齿轮按钮。 */
+function SettingsIcon() {
   return (
-    <svg className="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="12" cy="12" r="4" />
-      <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41" />
-    </svg>
-  );
-}
-
-function MoonIcon() {
-  return (
-    <svg className="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z" />
-    </svg>
-  );
-}
-
-/** 明暗快速切换：非 light/dark 主题一律视为亮色系。 */
-function ThemeToggle() {
-  const theme = useSettingsStore((s) => s.theme);
-  const setTheme = useSettingsStore((s) => s.setTheme);
-  const isDark = theme === "dark";
-  return (
-    <button
-      type="button"
-      className="btn btn-ghost btn-circle"
-      onClick={() => setTheme(isDark ? "light" : "dark")}
-      aria-label={isDark ? "light" : "dark"}
+    <svg
+      className="size-5"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
     >
-      {isDark ? <SunIcon /> : <MoonIcon />}
-    </button>
+      <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
+      <circle cx="12" cy="12" r="3" />
+    </svg>
   );
 }
 
@@ -71,7 +53,13 @@ export default function RootLayout() {
           </ul>
         </nav>
         <div className="navbar-end">
-          <ThemeToggle />
+          <Link
+            to="/settings"
+            className="btn btn-ghost btn-circle"
+            aria-label={t("nav.settings")}
+          >
+            <SettingsIcon />
+          </Link>
         </div>
       </header>
 
