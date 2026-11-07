@@ -1,4 +1,4 @@
-import { Link, Outlet } from "react-router";
+import { Link, Outlet, useLocation } from "react-router";
 import { useTranslation } from "react-i18next";
 import { useSettingsSync } from "../hooks/useSettingsSync";
 
@@ -23,6 +23,7 @@ function SettingsIcon() {
 export default function RootLayout() {
   useSettingsSync();
   const { t } = useTranslation();
+  const onSettings = useLocation().pathname === "/settings";
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -33,8 +34,9 @@ export default function RootLayout() {
           </Link>
         </div>
         <div className="navbar-end">
+          {/* 设置按钮往返：在设置页时点击回主界面 */}
           <Link
-            to="/settings"
+            to={onSettings ? "/" : "/settings"}
             className="btn btn-ghost btn-circle"
             aria-label={t("settings.title")}
           >
@@ -43,7 +45,8 @@ export default function RootLayout() {
         </div>
       </header>
 
-      <main className="mx-auto w-full max-w-3xl flex-1 px-4 py-8">
+      {/* 宽屏放开到 5xl：编辑器是双栏布局，3xl 会挤成窄条 */}
+      <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-8">
         <Outlet />
       </main>
 

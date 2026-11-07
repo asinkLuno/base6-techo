@@ -7,3 +7,8 @@
     light --default,
     dark --prefersdark;
 }
+
+/* daisyUI tooltip 的气泡伪元素默认居中；左侧弹出的说明文字左对齐更易读。 */
+.tooltip.tooltip-left[data-tip]::before {
+  text-align: left;
+}
