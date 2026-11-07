@@ -232,3 +232,24 @@ fn exact_rule_spacing_includes_both_body_edges() {
     assert!(rules.first().unwrap().contains("(18,194) -- (130,194)"));
     assert!(rules.last().unwrap().contains("(18,16) -- (130,16)"));
 }
+
+/// 前端编辑器发出的确切负载形状（src/lib/generatePdf.ts 的 DocumentPayload）：
+/// 省略 page/decorations 走 serde 默认，linear 三个 camelCase 字段齐全。
+#[test]
+fn frontend_section_payload_parses_and_generates() {
+    let doc: Document = serde_json::from_str(
+        r##"{
+        "sections": [
+            {"pages": 4, "numbered": true,
+             "body": {"kind": "linear", "spacingMm": 8, "color": "#112233", "lineWidthPt": 0.8}},
+            {"pages": 1, "numbered": false, "body": {"kind": "blank"}}
+        ]
+    }"##,
+    )
+    .unwrap();
+    assert_eq!(plan_document(&doc).unwrap().pages().len(), 5);
+    let tex = generate_document_latex(&doc).unwrap();
+    assert!(tex.contains("tikzpicture"));
+    // 前端写法 #RRGGBB 进入 TikZ 时按 HTML 模型去井号
+    assert!(tex.contains("\\definecolor{ink}{HTML}{112233}"));
+}
