@@ -16,10 +16,12 @@ val tauriProperties = Properties().apply {
 
 android {
     compileSdk = 37
-    namespace = "ink.syncmoon.base6_techo"
+    // keep in sync with the NDK installed under $ANDROID_HOME/ndk (see scripts/env.sh)
+    ndkVersion = "29.0.13846066"
+    namespace = "ink.syncmoon.base6techo"
     defaultConfig {
         manifestPlaceholders["usesCleartextTraffic"] = "false"
-        applicationId = "ink.syncmoon.base6_techo"
+        applicationId = "ink.syncmoon.base6techo"
         minSdk = 24
         targetSdk = 37
         versionCode = tauriProperties.getProperty("tauri.android.versionCode", "1").toInt()

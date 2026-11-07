@@ -1,4 +1,4 @@
-package ink.syncmoon.base6_techo
+package ink.syncmoon.base6techo
 
 import android.os.Bundle
 import androidx.activity.enableEdgeToEdge

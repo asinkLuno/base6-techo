@@ -4,6 +4,9 @@ version = "0.1.0"
 description = "A Tauri App"
 authors = ["you"]
 edition = "2024"
+# two binaries exist (main app + desktop prewarm tool) — tauri CLI runs plain
+# `cargo run`, so the default must be unambiguous
+default-run = "base6-techo"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -22,6 +25,12 @@ tauri = { version = "2", features = [] }
 tauri-plugin-opener = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+# tectonic: pinned exactly so the Android registry patches in scripts/patch-tectonic.sh
+# apply deterministically. native-tls-vendored = static OpenSSL built from source by
+# the NDK (no system OpenSSL needed when cross-compiling).
+tectonic = { version = "=0.16.9", features = ["native-tls-vendored"] }
+# unpacks the prewarmed offline cache (src-tauri/assets/tectonic-cache.zip) on first run
+zip = { version = "2", default-features = false, features = ["deflate"] }
 
 
 # Read the optimization guideline for more details: https://tauri.app/concept/size/#cargo-configuration
