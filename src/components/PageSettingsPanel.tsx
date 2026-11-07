@@ -4,11 +4,11 @@ import { useDocumentStore } from "../stores/document";
 import {
   A5_DIMS,
   clampNumber,
-  DEFAULT_PAGE,
-  MARGIN_MM_MAX,
-  MARGIN_MM_MIN,
+  DEFAULT_SHEETS_PER_SIGNATURE,
   PAPER_MM_MAX,
   PAPER_MM_MIN,
+  SHEETS_PER_SIGNATURE_MAX,
+  SHEETS_PER_SIGNATURE_MIN,
   type PaperSize,
 } from "../types/document";
 
@@ -17,14 +17,16 @@ const PAPER_PRESETS = ["a4", "a5", "b5", "a6", "b6", "letter"] as const;
 // NumberField 的 clamp 是数字级的，这里按字段配上范围与回落值。
 const clampPaperMm = (fallback: number) => (value: number) =>
   clampNumber(value, PAPER_MM_MIN, PAPER_MM_MAX, fallback);
-const clampMarginMm = (fallback: number) => (value: number) =>
-  clampNumber(value, MARGIN_MM_MIN, MARGIN_MM_MAX, fallback);
+const clampSheets = (value: number) =>
+  clampNumber(value, SHEETS_PER_SIGNATURE_MIN, SHEETS_PER_SIGNATURE_MAX, DEFAULT_SHEETS_PER_SIGNATURE);
 
-/** 右侧栏的页面设置卡片：纸张（含自定义宽高）、装订方向、四边留白。 */
+/** 右侧栏的设置卡片：纸张（含自定义宽高）、装订边、装订方式。 */
 export function PageSettingsPanel() {
   const { t } = useTranslation();
   const page = useDocumentStore((s) => s.page);
+  const imposition = useDocumentStore((s) => s.imposition);
   const updatePage = useDocumentStore((s) => s.updatePage);
+  const updateImposition = useDocumentStore((s) => s.updateImposition);
   const paper = page.paper;
 
   return (
@@ -91,44 +93,41 @@ export function PageSettingsPanel() {
           </select>
         </fieldset>
 
-        <div className="grid grid-cols-2 gap-3">
+        <fieldset className="fieldset">
+          <legend className="fieldset-legend">{t("editor.page.imposition")}</legend>
+          <select
+            className="select w-full"
+            value={imposition.mode}
+            onChange={(e) => {
+              const mode = e.target.value;
+              updateImposition(
+                mode === "thread"
+                  ? { mode: "thread", sheetsPerSignature: DEFAULT_SHEETS_PER_SIGNATURE }
+                  : mode === "booklet"
+                    ? { mode: "booklet" }
+                    : { mode: "none" },
+              );
+            }}
+          >
+            <option value="none">{t("editor.page.impositionNone")}</option>
+            <option value="booklet">{t("editor.page.impositionBooklet")}</option>
+            <option value="thread">{t("editor.page.impositionThread")}</option>
+          </select>
+        </fieldset>
+
+        {imposition.mode === "thread" && (
           <NumberField
-            label={t("editor.page.headerMm")}
-            value={page.margins.headerMm}
-            min={MARGIN_MM_MIN}
-            max={MARGIN_MM_MAX}
+            label={t("editor.page.sheetsPerSignature")}
+            value={imposition.sheetsPerSignature}
+            min={SHEETS_PER_SIGNATURE_MIN}
+            max={SHEETS_PER_SIGNATURE_MAX}
             step={1}
-            clamp={clampMarginMm(DEFAULT_PAGE.margins.headerMm)}
-            onCommit={(headerMm) => updatePage({ margins: { ...page.margins, headerMm } })}
+            clamp={clampSheets}
+            onCommit={(sheetsPerSignature) =>
+              updateImposition({ mode: "thread", sheetsPerSignature })
+            }
           />
-          <NumberField
-            label={t("editor.page.footerMm")}
-            value={page.margins.footerMm}
-            min={MARGIN_MM_MIN}
-            max={MARGIN_MM_MAX}
-            step={1}
-            clamp={clampMarginMm(DEFAULT_PAGE.margins.footerMm)}
-            onCommit={(footerMm) => updatePage({ margins: { ...page.margins, footerMm } })}
-          />
-          <NumberField
-            label={t("editor.page.innerMm")}
-            value={page.margins.innerMm}
-            min={MARGIN_MM_MIN}
-            max={MARGIN_MM_MAX}
-            step={1}
-            clamp={clampMarginMm(DEFAULT_PAGE.margins.innerMm)}
-            onCommit={(innerMm) => updatePage({ margins: { ...page.margins, innerMm } })}
-          />
-          <NumberField
-            label={t("editor.page.outerMm")}
-            value={page.margins.outerMm}
-            min={MARGIN_MM_MIN}
-            max={MARGIN_MM_MAX}
-            step={1}
-            clamp={clampMarginMm(DEFAULT_PAGE.margins.outerMm)}
-            onCommit={(outerMm) => updatePage({ margins: { ...page.margins, outerMm } })}
-          />
-        </div>
+        )}
       </div>
     </section>
   );

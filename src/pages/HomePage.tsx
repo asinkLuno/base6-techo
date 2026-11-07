@@ -44,6 +44,7 @@ export default function HomePage() {
   const { t } = useTranslation();
   const sections = useDocumentStore((s) => s.sections);
   const page = useDocumentStore((s) => s.page);
+  const imposition = useDocumentStore((s) => s.imposition);
   const addSection = useDocumentStore((s) => s.addSection);
   const moveSection = useDocumentStore((s) => s.moveSection);
 
@@ -71,7 +72,7 @@ export default function HomePage() {
     setGenerating(true);
     setError(null);
     try {
-      const out = await generatePdf({ page, sections: toSectionSpecs(sections) });
+      const out = await generatePdf({ page, imposition, sections: toSectionSpecs(sections) });
       setPdfBytes(out.pdf);
       // 预览卡片在 setState 后才挂载，等一帧再滚动
       setTimeout(

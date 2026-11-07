@@ -37,13 +37,14 @@
       "custom": "Custom",
       "widthMm": "Width (mm)",
       "heightMm": "Height (mm)",
-      "binding": "Binding",
+      "binding": "Binding edge",
       "bindingLeft": "Left",
       "bindingRight": "Right",
-      "headerMm": "Header (top)",
-      "footerMm": "Footer (bottom)",
-      "innerMm": "Inner",
-      "outerMm": "Outer"
+      "imposition": "Imposition",
+      "impositionNone": "Single pages",
+      "impositionBooklet": "Saddle stitch",
+      "impositionThread": "Thread sewn",
+      "sheetsPerSignature": "Sheets per signature"
     }
   },
   "settings": {

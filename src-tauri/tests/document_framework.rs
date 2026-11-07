@@ -234,8 +234,8 @@ fn exact_rule_spacing_includes_both_body_edges() {
 }
 
 /// 前端编辑器发出的确切负载形状（src/lib/generatePdf.ts 的 DocumentPayload）：
-/// page 带自定义纸张/右装订/边距，sections 为 camelCase linear 三字段齐全；
-/// imposition 省略走 serde 默认（单页阅读输出）。
+/// page 带自定义纸张/右装订边/默认边距，imposition 为锁线 2 张一帖，
+/// sections 为 camelCase linear 三字段齐全。
 #[test]
 fn frontend_section_payload_parses_and_generates() {
     let doc: Document = serde_json::from_str(
@@ -243,8 +243,9 @@ fn frontend_section_payload_parses_and_generates() {
         "page": {
             "paper": {"kind": "custom", "widthMm": 120, "heightMm": 200},
             "binding": "right",
-            "margins": {"headerMm": 10, "footerMm": 12, "innerMm": 14, "outerMm": 16}
+            "margins": {"headerMm": 16, "footerMm": 16, "innerMm": 18, "outerMm": 18}
         },
+        "imposition": {"mode": "thread", "sheetsPerSignature": 2},
         "sections": [
             {"pages": 4, "numbered": true,
              "body": {"kind": "linear", "spacingMm": 8, "color": "#112233", "lineWidthPt": 0.8}},
@@ -253,6 +254,10 @@ fn frontend_section_payload_parses_and_generates() {
     }"##,
     )
     .unwrap();
+    assert_eq!(
+        doc.imposition,
+        base6_techo_lib::templates::imposition::Imposition::Thread { sheets_per_signature: 2 }
+    );
     assert_eq!(plan_document(&doc).unwrap().pages().len(), 5);
     let tex = generate_document_latex(&doc).unwrap();
     assert!(tex.contains("tikzpicture"));

@@ -37,13 +37,14 @@
       "custom": "自定义",
       "widthMm": "宽（mm）",
       "heightMm": "高（mm）",
-      "binding": "装订",
+      "binding": "装订边",
       "bindingLeft": "左侧",
       "bindingRight": "右侧",
-      "headerMm": "页眉（上）",
-      "footerMm": "页脚（下）",
-      "innerMm": "内侧",
-      "outerMm": "外侧"
+      "imposition": "装订方式",
+      "impositionNone": "单页",
+      "impositionBooklet": "骑马订",
+      "impositionThread": "锁线",
+      "sheetsPerSignature": "每帖纸张数"
     }
   },
   "settings": {
