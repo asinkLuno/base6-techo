@@ -1,0 +1,11 @@
+@import "tailwindcss";
+
+/* daisyUI 5 作为 Tailwind v4 的 CSS 插件引入。
+   主题列表须与 src/stores/settings.ts 里的 THEMES 保持一致。 */
+@plugin "daisyui" {
+  themes:
+    light --default,
+    dark --prefersdark,
+    cupcake,
+    nord;
+}

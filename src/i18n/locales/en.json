@@ -1,0 +1,38 @@
+{
+  "app": { "name": "base6-techo", "tagline": "LaTeX planner template generator" },
+  "nav": { "home": "Home", "lined": "Lined", "settings": "Settings" },
+  "home": {
+    "title": "Hand your parameters to LaTeX, get print-ready planner PDFs",
+    "description": "The bundled Tectonic engine generates lined-paper and other planner templates fully offline.",
+    "cta": { "lined": "Start generating", "settings": "Open settings" },
+    "cards": {
+      "lined": {
+        "title": "Lined paper",
+        "description": "Configure pages, line spacing and margins, then export a printable PDF."
+      },
+      "engine": {
+        "title": "Typesetting engine",
+        "description": "Tectonic is integrated with Android support; the template form UI is on the way."
+      }
+    },
+    "badge": { "ready": "Engine ready", "wip": "UI in progress" }
+  },
+  "lined": {
+    "title": "Lined paper template",
+    "description": "Tune the parameters and generate a PDF.",
+    "pages": "Pages",
+    "lineSpacing": "Line spacing (mm)",
+    "margin": "Margin (mm)",
+    "generate": "Generate PDF",
+    "pending": "The generate command is wired up; preview rendering lands in the next milestone."
+  },
+  "settings": {
+    "title": "Settings",
+    "description": "Preferences are stored locally and survive app restarts.",
+    "appearance": "Appearance & language",
+    "language": "Language",
+    "theme": "Theme",
+    "themes": { "light": "Light", "dark": "Dark", "cupcake": "Cupcake", "nord": "Nord" }
+  },
+  "notFound": { "title": "Page not found", "back": "Back to home" }
+}

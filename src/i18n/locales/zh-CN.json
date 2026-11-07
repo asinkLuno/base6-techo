@@ -1,0 +1,38 @@
+{
+  "app": { "name": "base6-techo", "tagline": "LaTeX 手帐模板生成工具" },
+  "nav": { "home": "首页", "lined": "横线本", "settings": "设置" },
+  "home": {
+    "title": "把参数交给 LaTeX，拿到排版好的手帐 PDF",
+    "description": "内置 Tectonic 引擎，离线生成横线本等手帐模板，可直接打印装订。",
+    "cta": { "lined": "开始生成", "settings": "前往设置" },
+    "cards": {
+      "lined": {
+        "title": "横线本",
+        "description": "配置页数、行距与页边距，生成可打印的内页 PDF。"
+      },
+      "engine": {
+        "title": "排版引擎",
+        "description": "Tectonic 已集成并支持 Android 构建，模板参数界面开发中。"
+      }
+    },
+    "badge": { "ready": "引擎就绪", "wip": "界面开发中" }
+  },
+  "lined": {
+    "title": "横线本模板",
+    "description": "调整参数后生成 PDF。",
+    "pages": "页数",
+    "lineSpacing": "行距（mm）",
+    "margin": "页边距（mm）",
+    "generate": "生成 PDF",
+    "pending": "生成命令已接入，预览渲染将在下阶段打通。"
+  },
+  "settings": {
+    "title": "设置",
+    "description": "偏好保存在本地，重启应用后仍然生效。",
+    "appearance": "外观与语言",
+    "language": "界面语言",
+    "theme": "主题",
+    "themes": { "light": "浅色", "dark": "深色", "cupcake": "纸杯蛋糕", "nord": "北欧" }
+  },
+  "notFound": { "title": "页面不存在", "back": "回到首页" }
+}
