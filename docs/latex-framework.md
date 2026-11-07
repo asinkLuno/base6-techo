@@ -4,15 +4,15 @@ Rust 入口为 `templates::document::generate_document_latex(&Document)`；`plan
 
 ## 模块与职责
 
-| 模块 | 职责 |
-| --- | --- |
-| `document.rs` | 校验整个文档，遍历 section，生成实际页序、显示页码及节内索引 |
-| `layout.rs` | 纸张、装订方向、四周留白；统一计算页心、页头、页脚、两侧区域 |
-| `components.rs` | 页头、页脚、装订侧水印、外侧水印 |
-| `patterns.rs` | 页心模板注册与分发，当前为 `blank`、`linear`（兼容别名 `lined`） |
-| `imposition.rs` | 不拼版／骑马订／锁线分帖，补白与纸张正反面配页 |
-| `latex.rs` | 按输出计划平移阅读页到印刷面，TikZ 输出、普通文字转义、数字格式化 |
-| `lined.rs` | 原 `LinedDocParams` 和 `generate_lined_latex` 的兼容适配器 |
+| 模块            | 职责                                                              |
+| --------------- | ----------------------------------------------------------------- |
+| `document.rs`   | 校验整个文档，遍历 section，生成实际页序、显示页码及节内索引      |
+| `layout.rs`     | 纸张、装订方向、四周留白；统一计算页心、页头、页脚、两侧区域      |
+| `components.rs` | 页头、页脚、装订侧水印、外侧水印                                  |
+| `patterns.rs`   | 页心模板注册与分发，当前为 `blank`、`linear`（兼容别名 `lined`）  |
+| `imposition.rs` | 不拼版／骑马订／锁线分帖，补白与纸张正反面配页                    |
+| `latex.rs`      | 按输出计划平移阅读页到印刷面，TikZ 输出、普通文字转义、数字格式化 |
+| `lined.rs`      | 原 `LinedDocParams` 和 `generate_lined_latex` 的兼容适配器        |
 
 ## 页序与区域约定
 
@@ -30,30 +30,38 @@ Rust 入口为 `templates::document::generate_document_latex(&Document)`；`plan
 新增 `generate_document_pdf` 命令，参数名为 `document`。原 `generate_lined_pdf({ params })` 继续可用。
 
 ```ts
-const payload = await invoke<ArrayBuffer>('generate_document_pdf', {
+const payload = await invoke<ArrayBuffer>("generate_document_pdf", {
   document: {
     page: {
-      paper: { kind: 'a5' },
-      binding: 'left',
+      paper: { kind: "a5" },
+      binding: "left",
       margins: { headerMm: 16, footerMm: 16, innerMm: 20, outerMm: 8 },
     },
     decorations: {
       header: {
-        content: { kind: 'text', text: '我的手帐' },
-        align: 'center',
-        style: { sizePt: 10, color: '#333333' },
+        content: { kind: "text", text: "我的手帐" },
+        align: "center",
+        style: { sizePt: 10, color: "#333333" },
       },
-      footer: { pageNumber: true, align: 'outer' },
-      innerWatermark: { text: '装订侧' },
-      outerWatermark: { text: 'base6' },
+      footer: { pageNumber: true, align: "outer" },
+      innerWatermark: { text: "装订侧" },
+      outerWatermark: { text: "base6" },
     },
-    imposition: { mode: 'none' }, // 可改为 booklet 或 thread，见下文
+    imposition: { mode: "none" }, // 可改为 booklet 或 thread，见下文
     sections: [
-      { pages: 3, numbered: false, body: { kind: 'blank' } },
-      { pages: 20, body: { kind: 'linear', spacingMm: 7.5, color: '#9E9E9E', lineWidthPt: 0.4 } },
+      { pages: 3, numbered: false, body: { kind: "blank" } },
+      {
+        pages: 20,
+        body: {
+          kind: "linear",
+          spacingMm: 7.5,
+          color: "#9E9E9E",
+          lineWidthPt: 0.4,
+        },
+      },
     ],
   },
-})
+});
 ```
 
 响应维持原二进制协议：`[u32 log_len LE][log UTF-8][u32 tex_len LE][tex UTF-8][PDF bytes]`。
@@ -67,13 +75,13 @@ const payload = await invoke<ArrayBuffer>('generate_document_pdf', {
 纸张尺寸始终指折叠后的成品阅读页。默认 `imposition: {"mode":"none"}`，输出仍为阅读顺序的单页 PDF。旧调用省略此字段即可。
 
 ```json
-{"imposition": {"mode": "booklet"}}
+{ "imposition": { "mode": "booklet" } }
 ```
 
 骑马订将整本视为一帖，尾部补齐到 4 的倍数。8 页左装订的印刷顺序为 `[8,1]`、`[2,7]`、`[6,3]`、`[4,5]`；相邻两个 PDF 页面是一张纸的正、反面，纸张从外到内输出。
 
 ```json
-{"imposition": {"mode": "thread", "sheetsPerSignature": 4}}
+{ "imposition": { "mode": "thread", "sheetsPerSignature": 4 } }
 ```
 
 锁线按帖连续分组，每张纸对折后对应 4 个阅读页。`sheetsPerSignature` 范围为 1–250，省略时默认 4（每帖 16 页）。各帖保持相同纸张数，最后一帖不足时在全书末尾补白。section 边界不分帖，也不插白或重置全书页序。

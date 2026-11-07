@@ -15,7 +15,9 @@ export default function SettingsPage() {
       <div className="card bg-base-100 shadow-md">
         <div className="card-body gap-4">
           <fieldset className="fieldset">
-            <legend className="fieldset-legend">{t("settings.language")}</legend>
+            <legend className="fieldset-legend">
+              {t("settings.language")}
+            </legend>
             <select
               className="select w-full max-w-xs"
               value={language}

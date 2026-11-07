@@ -29,13 +29,13 @@ adb install -r src-tauri/gen/android/app/build/outputs/apk/universal/debug/*.apk
 
 ## 脚本一览
 
-| 脚本 | 作用 |
-| --- | --- |
-| `scripts/env.sh` | 统一环境变量（ANDROID_HOME/NDK/VCPKG/ACLOCAL_PATH 等），供其他脚本 source |
-| `scripts/setup-android-env.sh` | 幂等安装：SDK 组件、cargo-ndk、vcpkg、gperf/autoconf-archive（用户空间）、arm64-android C 依赖 |
-| `scripts/patch-tectonic.sh` | 给 cargo registry 里的 tectonic 源码打 Android 必打补丁（见下），幂等、自校验 |
-| `scripts/make-offline-cache.sh` | 构建 `prewarm` 工具并预热离线缓存 → `public/tectonic-cache.zip` |
-| `scripts/build-android.sh` | 交叉编译 + 出 APK（自动拷贝 NDK 的 `libc++_shared.so` 进 jniLibs） |
+| 脚本                            | 作用                                                                                           |
+| ------------------------------- | ---------------------------------------------------------------------------------------------- |
+| `scripts/env.sh`                | 统一环境变量（ANDROID_HOME/NDK/VCPKG/ACLOCAL_PATH 等），供其他脚本 source                      |
+| `scripts/setup-android-env.sh`  | 幂等安装：SDK 组件、cargo-ndk、vcpkg、gperf/autoconf-archive（用户空间）、arm64-android C 依赖 |
+| `scripts/patch-tectonic.sh`     | 给 cargo registry 里的 tectonic 源码打 Android 必打补丁（见下），幂等、自校验                  |
+| `scripts/make-offline-cache.sh` | 构建 `prewarm` 工具并预热离线缓存 → `public/tectonic-cache.zip`                                |
+| `scripts/build-android.sh`      | 交叉编译 + 出 APK（自动拷贝 NDK 的 `libc++_shared.so` 进 jniLibs）                             |
 
 ## Tectonic 的 Android 适配要点（为什么有这些补丁/配置）
 

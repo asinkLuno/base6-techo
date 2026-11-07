@@ -1,5 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { DEFAULT_IMPOSITION, DEFAULT_LINEAR, DEFAULT_PAGE, toSectionSpecs } from "../types/document";
+import {
+  DEFAULT_IMPOSITION,
+  DEFAULT_LINEAR,
+  DEFAULT_PAGE,
+  toSectionSpecs,
+} from "../types/document";
 import { useDocumentStore } from "./document";
 
 // persist 中间件在 store 创建时就读 localStorage，vitest node 环境没有，先挂内存实现。
@@ -26,7 +31,11 @@ describe("document store", () => {
     const { sections } = state();
     expect(sections).toHaveLength(2);
     expect(new Set(sections.map((s) => s.id)).size).toBe(2);
-    expect(sections[0]).toMatchObject({ pages: 1, numbered: true, body: DEFAULT_LINEAR });
+    expect(sections[0]).toMatchObject({
+      pages: 1,
+      numbered: true,
+      body: DEFAULT_LINEAR,
+    });
   });
 
   it("removeSection 只删指定 id", () => {
@@ -79,7 +88,12 @@ describe("document store", () => {
       lineWidthPt: 10,
     });
     state().updateSection(id, {
-      body: { kind: "linear", spacingMm: 5, color: "#112233", lineWidthPt: 0.8 },
+      body: {
+        kind: "linear",
+        spacingMm: 5,
+        color: "#112233",
+        lineWidthPt: 0.8,
+      },
     });
     expect(state().sections[0].body).toEqual({
       kind: "linear",
@@ -140,10 +154,22 @@ describe("page settings", () => {
   });
 
   it("updatePage 把自定义纸张 clamp 到 30–1000mm，非法值回落 A5 尺寸", () => {
-    state().updatePage({ paper: { kind: "custom", widthMm: 5, heightMm: 5000 } });
-    expect(state().page.paper).toEqual({ kind: "custom", widthMm: 30, heightMm: 1000 });
-    state().updatePage({ paper: { kind: "custom", widthMm: Number.NaN, heightMm: 200 } });
-    expect(state().page.paper).toEqual({ kind: "custom", widthMm: 148, heightMm: 200 });
+    state().updatePage({
+      paper: { kind: "custom", widthMm: 5, heightMm: 5000 },
+    });
+    expect(state().page.paper).toEqual({
+      kind: "custom",
+      widthMm: 30,
+      heightMm: 1000,
+    });
+    state().updatePage({
+      paper: { kind: "custom", widthMm: Number.NaN, heightMm: 200 },
+    });
+    expect(state().page.paper).toEqual({
+      kind: "custom",
+      widthMm: 148,
+      heightMm: 200,
+    });
   });
 
   it("updatePage 把边距 clamp 到 0–1000mm", () => {
@@ -178,16 +204,31 @@ describe("imposition", () => {
     state().updateImposition({ mode: "booklet" });
     expect(state().imposition).toEqual({ mode: "booklet" });
     state().updateImposition({ mode: "thread", sheetsPerSignature: 2 });
-    expect(state().imposition).toEqual({ mode: "thread", sheetsPerSignature: 2 });
+    expect(state().imposition).toEqual({
+      mode: "thread",
+      sheetsPerSignature: 2,
+    });
   });
 
   it("锁线每帖纸张数 clamp 到 1–250，非法值回落默认 4", () => {
     state().updateImposition({ mode: "thread", sheetsPerSignature: 0 });
-    expect(state().imposition).toEqual({ mode: "thread", sheetsPerSignature: 1 });
+    expect(state().imposition).toEqual({
+      mode: "thread",
+      sheetsPerSignature: 1,
+    });
     state().updateImposition({ mode: "thread", sheetsPerSignature: 999 });
-    expect(state().imposition).toEqual({ mode: "thread", sheetsPerSignature: 250 });
-    state().updateImposition({ mode: "thread", sheetsPerSignature: Number.NaN });
-    expect(state().imposition).toEqual({ mode: "thread", sheetsPerSignature: 4 });
+    expect(state().imposition).toEqual({
+      mode: "thread",
+      sheetsPerSignature: 250,
+    });
+    state().updateImposition({
+      mode: "thread",
+      sheetsPerSignature: Number.NaN,
+    });
+    expect(state().imposition).toEqual({
+      mode: "thread",
+      sheetsPerSignature: 4,
+    });
   });
 
   it("切换到非锁线模式时不携带纸张数字段", () => {

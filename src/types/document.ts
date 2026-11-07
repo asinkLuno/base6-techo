@@ -45,8 +45,15 @@ export const DEFAULT_LINEAR: LinearPattern = {
   lineWidthPt: 0.4,
 };
 
-export function clampNumber(value: number, min: number, max: number, fallback: number): number {
-  return Number.isFinite(value) ? Math.min(max, Math.max(min, value)) : fallback;
+export function clampNumber(
+  value: number,
+  min: number,
+  max: number,
+  fallback: number,
+): number {
+  return Number.isFinite(value)
+    ? Math.min(max, Math.max(min, value))
+    : fallback;
 }
 
 export const clampPages = (value: number): number =>
@@ -56,7 +63,12 @@ export const clampSpacingMm = (value: number): number =>
   clampNumber(value, SPACING_MM_MIN, SPACING_MM_MAX, DEFAULT_LINEAR.spacingMm);
 
 export const clampLineWidthPt = (value: number): number =>
-  clampNumber(value, LINE_WIDTH_PT_MIN, LINE_WIDTH_PT_MAX, DEFAULT_LINEAR.lineWidthPt);
+  clampNumber(
+    value,
+    LINE_WIDTH_PT_MIN,
+    LINE_WIDTH_PT_MAX,
+    DEFAULT_LINEAR.lineWidthPt,
+  );
 
 const HEX_COLOR = /^#[0-9a-fA-F]{6}$/;
 
@@ -122,16 +134,46 @@ export const clampPaperSize = (paper: PaperSize): PaperSize =>
   paper.kind === "custom"
     ? {
         kind: "custom",
-        widthMm: clampNumber(paper.widthMm, PAPER_MM_MIN, PAPER_MM_MAX, A5_DIMS.widthMm),
-        heightMm: clampNumber(paper.heightMm, PAPER_MM_MIN, PAPER_MM_MAX, A5_DIMS.heightMm),
+        widthMm: clampNumber(
+          paper.widthMm,
+          PAPER_MM_MIN,
+          PAPER_MM_MAX,
+          A5_DIMS.widthMm,
+        ),
+        heightMm: clampNumber(
+          paper.heightMm,
+          PAPER_MM_MIN,
+          PAPER_MM_MAX,
+          A5_DIMS.heightMm,
+        ),
       }
     : paper;
 
 export const clampMargins = (margins: Margins): Margins => ({
-  headerMm: clampNumber(margins.headerMm, MARGIN_MM_MIN, MARGIN_MM_MAX, DEFAULT_PAGE.margins.headerMm),
-  footerMm: clampNumber(margins.footerMm, MARGIN_MM_MIN, MARGIN_MM_MAX, DEFAULT_PAGE.margins.footerMm),
-  innerMm: clampNumber(margins.innerMm, MARGIN_MM_MIN, MARGIN_MM_MAX, DEFAULT_PAGE.margins.innerMm),
-  outerMm: clampNumber(margins.outerMm, MARGIN_MM_MIN, MARGIN_MM_MAX, DEFAULT_PAGE.margins.outerMm),
+  headerMm: clampNumber(
+    margins.headerMm,
+    MARGIN_MM_MIN,
+    MARGIN_MM_MAX,
+    DEFAULT_PAGE.margins.headerMm,
+  ),
+  footerMm: clampNumber(
+    margins.footerMm,
+    MARGIN_MM_MIN,
+    MARGIN_MM_MAX,
+    DEFAULT_PAGE.margins.footerMm,
+  ),
+  innerMm: clampNumber(
+    margins.innerMm,
+    MARGIN_MM_MIN,
+    MARGIN_MM_MAX,
+    DEFAULT_PAGE.margins.innerMm,
+  ),
+  outerMm: clampNumber(
+    margins.outerMm,
+    MARGIN_MM_MIN,
+    MARGIN_MM_MAX,
+    DEFAULT_PAGE.margins.outerMm,
+  ),
 });
 
 export const clampPageSettings = (page: PageSettings): PageSettings => ({

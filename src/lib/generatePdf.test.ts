@@ -5,7 +5,9 @@ import { parseCompileResponse } from "./generatePdf";
 function buildResponse(log: string, tex: string, pdf: Uint8Array): ArrayBuffer {
   const logBytes = new TextEncoder().encode(log);
   const texBytes = new TextEncoder().encode(tex);
-  const out = new Uint8Array(8 + logBytes.length + texBytes.length + pdf.length);
+  const out = new Uint8Array(
+    8 + logBytes.length + texBytes.length + pdf.length,
+  );
   const view = new DataView(out.buffer);
   view.setUint32(0, logBytes.length, true);
   out.set(logBytes, 4);
@@ -18,7 +20,11 @@ function buildResponse(log: string, tex: string, pdf: Uint8Array): ArrayBuffer {
 describe("parseCompileResponse", () => {
   it("按 [log_len][log][tex_len][tex][pdf] 切分三段", () => {
     const pdf = new Uint8Array([0x25, 0x50, 0x44, 0x46, 0x2d]); // "%PDF-"
-    const buffer = buildResponse("compile log", "\\documentclass{article}", pdf);
+    const buffer = buildResponse(
+      "compile log",
+      "\\documentclass{article}",
+      pdf,
+    );
     const out = parseCompileResponse(buffer);
     expect(out.log).toBe("compile log");
     expect(out.tex).toBe("\\documentclass{article}");

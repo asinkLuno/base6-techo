@@ -13,7 +13,9 @@ export const router = createHashRouter([
       { index: true, Component: HomePage },
       {
         path: "settings",
-        lazy: async () => ({ Component: (await import("./pages/SettingsPage")).default }),
+        lazy: async () => ({
+          Component: (await import("./pages/SettingsPage")).default,
+        }),
       },
       { path: "*", Component: NotFoundPage },
     ],

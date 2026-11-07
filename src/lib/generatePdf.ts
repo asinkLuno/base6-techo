@@ -45,10 +45,14 @@ export function parseCompileResponse(buffer: ArrayBuffer): CompileOutput {
 }
 
 /** 调用 Rust 侧 Tectonic 编译整本文档，返回编译输出。非 Tauri 环境直接抛错。 */
-export async function generatePdf(payload: DocumentPayload): Promise<CompileOutput> {
+export async function generatePdf(
+  payload: DocumentPayload,
+): Promise<CompileOutput> {
   if (!isTauri()) {
     throw new Error("not-tauri");
   }
-  const response = await invoke<ArrayBuffer>("generate_document_pdf", { document: payload });
+  const response = await invoke<ArrayBuffer>("generate_document_pdf", {
+    document: payload,
+  });
   return parseCompileResponse(response);
 }

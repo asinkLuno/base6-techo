@@ -7,20 +7,20 @@
     <script>
       // 首帧前恢复持久化偏好，避免主题/语言闪变。
       // 键名与结构须与 src/stores/settings.ts 的 zustand persist 配置保持一致。
-      (function () {
+      (() => {
         try {
-          var raw = localStorage.getItem("base6-techo:settings");
+          const raw = localStorage.getItem("base6-techo:settings");
           if (!raw) return;
-          var parsed = JSON.parse(raw);
+          const parsed = JSON.parse(raw);
           if (parsed.version !== 1) return;
-          var state = parsed.state;
-          var themes = ["light", "dark"];
+          const state = parsed.state;
+          const themes = ["light", "dark"];
           document.documentElement.setAttribute(
             "data-theme",
             state && themes.indexOf(state.theme) !== -1 ? state.theme : "light",
           );
-          if (state && state.language) document.documentElement.lang = state.language;
-        } catch (e) {}
+          if (state?.language) document.documentElement.lang = state.language;
+        } catch {}
       })();
     </script>
   </head>

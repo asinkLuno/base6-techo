@@ -3,8 +3,8 @@ import { persist } from "zustand/middleware";
 import {
   clampBody,
   clampImposition,
-  clampPages,
   clampPageSettings,
+  clampPages,
   DEFAULT_IMPOSITION,
   DEFAULT_LINEAR,
   DEFAULT_PAGE,
@@ -26,7 +26,10 @@ interface DocumentState {
   /** 按 arrayMove 语义把 activeId 的节移到 overId 的位置；未知 id 或原地拖动是 no-op。 */
   moveSection: (activeId: string, overId: string) => void;
   /** patch 里的非法值（页数、linear 参数、颜色）在写入前 clamp。 */
-  updateSection: (id: string, patch: Partial<Omit<SectionSpec, "body">> & { body?: SectionDraft["body"] }) => void;
+  updateSection: (
+    id: string,
+    patch: Partial<Omit<SectionSpec, "body">> & { body?: SectionDraft["body"] },
+  ) => void;
   /** patch 与当前 page 合并后整体 clamp。 */
   updatePage: (patch: Partial<PageSettings>) => void;
   /** 整体替换装订方式，锁线每帖纸张数写入前 clamp。 */
@@ -46,15 +49,26 @@ export const useDocumentStore = create<DocumentState>()(
         set((state) => ({
           sections: [
             ...state.sections,
-            { id: newId(), pages: 1, numbered: true, body: { ...DEFAULT_LINEAR } },
+            {
+              id: newId(),
+              pages: 1,
+              numbered: true,
+              body: { ...DEFAULT_LINEAR },
+            },
           ],
         })),
       removeSection: (id) =>
-        set((state) => ({ sections: state.sections.filter((section) => section.id !== id) })),
+        set((state) => ({
+          sections: state.sections.filter((section) => section.id !== id),
+        })),
       moveSection: (activeId, overId) =>
         set((state) => {
-          const from = state.sections.findIndex((section) => section.id === activeId);
-          const to = state.sections.findIndex((section) => section.id === overId);
+          const from = state.sections.findIndex(
+            (section) => section.id === activeId,
+          );
+          const to = state.sections.findIndex(
+            (section) => section.id === overId,
+          );
           if (from < 0 || to < 0 || from === to) return state;
           const sections = [...state.sections];
           const [moved] = sections.splice(from, 1);
@@ -67,14 +81,18 @@ export const useDocumentStore = create<DocumentState>()(
             if (section.id !== id) return section;
             return {
               ...section,
-              ...(patch.pages !== undefined && { pages: clampPages(patch.pages) }),
+              ...(patch.pages !== undefined && {
+                pages: clampPages(patch.pages),
+              }),
               ...(patch.numbered !== undefined && { numbered: patch.numbered }),
               ...(patch.body !== undefined && { body: clampBody(patch.body) }),
             };
           }),
         })),
       updatePage: (patch) =>
-        set((state) => ({ page: clampPageSettings({ ...state.page, ...patch }) })),
+        set((state) => ({
+          page: clampPageSettings({ ...state.page, ...patch }),
+        })),
       updateImposition: (imposition) =>
         set(() => ({ imposition: clampImposition(imposition) })),
     }),
