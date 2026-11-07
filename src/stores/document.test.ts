@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { DEFAULT_LINEAR, DEFAULT_PAGE, toSectionSpecs } from "../types/document";
+import { DEFAULT_IMPOSITION, DEFAULT_LINEAR, DEFAULT_PAGE, toSectionSpecs } from "../types/document";
 import { useDocumentStore } from "./document";
 
 // persist 中间件在 store 创建时就读 localStorage，vitest node 环境没有，先挂内存实现。
@@ -164,5 +164,35 @@ describe("page settings", () => {
     state().updatePage({ paper: { kind: "letter" } });
     expect(state().sections).toEqual(before);
     expect(state().page.paper).toEqual({ kind: "letter" });
+  });
+});
+
+describe("imposition", () => {
+  beforeEach(() => useDocumentStore.setState({ sections: [] }));
+
+  it("初始为单页输出（Rust Imposition::None）", () => {
+    expect(state().imposition).toEqual(DEFAULT_IMPOSITION);
+  });
+
+  it("可切换骑马订与锁线", () => {
+    state().updateImposition({ mode: "booklet" });
+    expect(state().imposition).toEqual({ mode: "booklet" });
+    state().updateImposition({ mode: "thread", sheetsPerSignature: 2 });
+    expect(state().imposition).toEqual({ mode: "thread", sheetsPerSignature: 2 });
+  });
+
+  it("锁线每帖纸张数 clamp 到 1–250，非法值回落默认 4", () => {
+    state().updateImposition({ mode: "thread", sheetsPerSignature: 0 });
+    expect(state().imposition).toEqual({ mode: "thread", sheetsPerSignature: 1 });
+    state().updateImposition({ mode: "thread", sheetsPerSignature: 999 });
+    expect(state().imposition).toEqual({ mode: "thread", sheetsPerSignature: 250 });
+    state().updateImposition({ mode: "thread", sheetsPerSignature: Number.NaN });
+    expect(state().imposition).toEqual({ mode: "thread", sheetsPerSignature: 4 });
+  });
+
+  it("切换到非锁线模式时不携带纸张数字段", () => {
+    state().updateImposition({ mode: "thread", sheetsPerSignature: 8 });
+    state().updateImposition({ mode: "booklet" });
+    expect(state().imposition).toEqual({ mode: "booklet" });
   });
 });

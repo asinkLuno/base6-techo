@@ -2,10 +2,13 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import {
   clampBody,
+  clampImposition,
   clampPages,
   clampPageSettings,
+  DEFAULT_IMPOSITION,
   DEFAULT_LINEAR,
   DEFAULT_PAGE,
+  type Imposition,
   type PageSettings,
   type SectionDraft,
   type SectionSpec,
@@ -14,8 +17,10 @@ import {
 interface DocumentState {
   /** 允许为空：空是合法编辑态，生成时才要求至少一节（Rust validate）。 */
   sections: SectionDraft[];
-  /** 全书共用的页面设置（纸张/装订/边距），形状对齐 Rust PageSettings。 */
+  /** 全书共用的页面设置（纸张/装订边/边距），形状对齐 Rust PageSettings。 */
   page: PageSettings;
+  /** 拼版/装订方式（单页/骑马订/锁线），形状对齐 Rust Imposition。 */
+  imposition: Imposition;
   addSection: () => void;
   removeSection: (id: string) => void;
   /** 按 arrayMove 语义把 activeId 的节移到 overId 的位置；未知 id 或原地拖动是 no-op。 */
@@ -24,6 +29,8 @@ interface DocumentState {
   updateSection: (id: string, patch: Partial<Omit<SectionSpec, "body">> & { body?: SectionDraft["body"] }) => void;
   /** patch 与当前 page 合并后整体 clamp。 */
   updatePage: (patch: Partial<PageSettings>) => void;
+  /** 整体替换装订方式，锁线每帖纸张数写入前 clamp。 */
+  updateImposition: (imposition: Imposition) => void;
 }
 
 const newId = (): string => crypto.randomUUID();
@@ -34,6 +41,7 @@ export const useDocumentStore = create<DocumentState>()(
     (set) => ({
       sections: [],
       page: DEFAULT_PAGE,
+      imposition: DEFAULT_IMPOSITION,
       addSection: () =>
         set((state) => ({
           sections: [
@@ -67,6 +75,8 @@ export const useDocumentStore = create<DocumentState>()(
         })),
       updatePage: (patch) =>
         set((state) => ({ page: clampPageSettings({ ...state.page, ...patch }) })),
+      updateImposition: (imposition) =>
+        set(() => ({ imposition: clampImposition(imposition) })),
     }),
     {
       name: "base6-techo:document",

@@ -139,3 +139,31 @@ export const clampPageSettings = (page: PageSettings): PageSettings => ({
   binding: page.binding === "right" ? "right" : "left",
   margins: clampMargins(page.margins),
 });
+
+/** 拼版/装订方式，与 Rust Imposition（tag = "mode"）一致；每张纸对折提供 4 个阅读页。 */
+export type Imposition =
+  | { mode: "none" }
+  | { mode: "booklet" }
+  | { mode: "thread"; sheetsPerSignature: number };
+
+export const SHEETS_PER_SIGNATURE_MIN = 1;
+export const SHEETS_PER_SIGNATURE_MAX = 250;
+
+/** 与 Rust default_sheets / Imposition::default 一致。 */
+export const DEFAULT_SHEETS_PER_SIGNATURE = 4;
+export const DEFAULT_IMPOSITION: Imposition = { mode: "none" };
+
+export const clampImposition = (imposition: Imposition): Imposition =>
+  imposition.mode === "thread"
+    ? {
+        mode: "thread",
+        sheetsPerSignature: clampNumber(
+          imposition.sheetsPerSignature,
+          SHEETS_PER_SIGNATURE_MIN,
+          SHEETS_PER_SIGNATURE_MAX,
+          DEFAULT_SHEETS_PER_SIGNATURE,
+        ),
+      }
+    : imposition.mode === "booklet"
+      ? { mode: "booklet" }
+      : { mode: "none" };
