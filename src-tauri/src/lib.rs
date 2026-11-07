@@ -51,6 +51,32 @@ async fn generate_pdf(
     .map_err(|e| format!("生成任务异常终止：{e}"))?
 }
 
+/// 把预览的 PDF 字节写到用户在「另存为」对话框选定的路径（桌面端）。
+/// Android 的 content:// URI 由 fs 插件的 writeFile 处理，不走本命令。
+/// 字节走原始 IPC body，路径放 header（前端 encodeURIComponent，非 ASCII 进不了 header）。
+#[tauri::command]
+async fn write_pdf_file(request: tauri::ipc::Request<'_>) -> Result<(), String> {
+    let raw_path = request
+        .headers()
+        .get("path")
+        .and_then(|v| v.to_str().ok())
+        .ok_or("缺少保存路径")?;
+    let path = percent_encoding::percent_decode_str(raw_path)
+        .decode_utf8()
+        .map_err(|e| format!("保存路径无效：{e}"))?
+        .into_owned();
+    let tauri::ipc::InvokeBody::Raw(bytes) = request.body() else {
+        return Err("请求体应为原始字节".to_string());
+    };
+    // spawn_blocking 要求 'static，把字节复制出来再移进闭包
+    let bytes = bytes.to_vec();
+    tauri::async_runtime::spawn_blocking(move || {
+        std::fs::write(&path, bytes).map_err(|e| format!("写入文件失败：{e}"))
+    })
+    .await
+    .map_err(|e| format!("写入任务异常终止：{e}"))?
+}
+
 fn compile_document(
     app: &tauri::AppHandle,
     source: &str,
@@ -84,6 +110,8 @@ fn prune_jobs(jobs_dir: &Path, keep: usize) {
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_fs::init())
         .setup(|app| {
             // Must run before any compile: pins tectonic's cache/home dirs and
             // unpacks the prewarmed offline cache on first launch.
@@ -98,7 +126,8 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             generate_lined_pdf,
-            generate_document_pdf
+            generate_document_pdf,
+            write_pdf_file
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application")

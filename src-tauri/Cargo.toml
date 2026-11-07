@@ -23,8 +23,14 @@ tauri-build = { version = "2", features = [] }
 [dependencies]
 tauri = { version = "2", features = [] }
 tauri-plugin-opener = "2"
+# 保存对话框：桌面返回文件路径，Android 走 SAF 返回 content:// URI
+tauri-plugin-dialog = "2"
+# Android 上向 SAF 选定的 content:// URI 写入 PDF 字节
+tauri-plugin-fs = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+# 解码 write_pdf_file 的 path header（前端 encodeURIComponent）
+percent-encoding = "2"
 # tectonic: pinned exactly so the Android registry patches in scripts/patch-tectonic.sh
 # apply deterministically. native-tls-vendored = static OpenSSL built from source by
 # the NDK (no system OpenSSL needed when cross-compiling).

@@ -14,11 +14,12 @@ import {
 } from "@dnd-kit/sortable";
 import { isTauri } from "@tauri-apps/api/core";
 import clsx from "clsx";
-import { lazy, Suspense, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { PageSettingsPanel } from "../components/PageSettingsPanel";
 import SectionListItem from "../components/SectionListItem";
 import { generatePdf } from "../lib/generatePdf";
+import { describeTarget, savePdfFile } from "../lib/savePdf";
 import { useDocumentStore } from "../stores/document";
 import { PAGES_MAX, toSectionSpecs } from "../types/document";
 
@@ -54,6 +55,9 @@ export default function HomePage() {
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pdfBytes, setPdfBytes] = useState<ArrayBuffer | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [savedToast, setSavedToast] = useState<string | null>(null);
   const previewRef = useRef<HTMLElement | null>(null);
 
   // distance 约束让卡内输入框/下拉的单击不触发拖拽，拖动需移动 6px。
@@ -79,6 +83,8 @@ export default function HomePage() {
     const { page, imposition, sections: current } = useDocumentStore.getState();
     setGenerating(true);
     setError(null);
+    setSaveError(null);
+    setSavedToast(null);
     try {
       const out = await generatePdf({
         page,
@@ -100,6 +106,31 @@ export default function HomePage() {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
       setGenerating(false);
+    }
+  };
+
+  // 保存成功 toast 约四秒后自动消失
+  useEffect(() => {
+    if (!savedToast) return;
+    const timer = setTimeout(() => setSavedToast(null), 4000);
+    return () => clearTimeout(timer);
+  }, [savedToast]);
+
+  const handleSave = async () => {
+    if (!pdfBytes || saving) return;
+    setSaving(true);
+    setSaveError(null);
+    setSavedToast(null);
+    try {
+      const result = await savePdfFile(pdfBytes);
+      if (!result.ok) return; // 用户取消，静默
+      setSavedToast(
+        t("editor.savedTo", { target: describeTarget(result.target) }),
+      );
+    } catch (e) {
+      setSaveError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -162,22 +193,42 @@ export default function HomePage() {
 
         <aside className="space-y-3">
           <PageSettingsPanel />
-          <button
-            type="button"
-            className="btn btn-primary btn-block"
-            disabled={sections.length === 0 || generating}
-            onClick={handleGenerate}
-          >
-            {generating && (
-              <span className="loading loading-spinner loading-xs" />
-            )}
-            {generating ? t("editor.generating") : t("editor.generate")}
-          </button>
+          <div className="grid grid-cols-2 gap-3">
+            <button
+              type="button"
+              className="btn btn-primary"
+              disabled={sections.length === 0 || generating || saving}
+              onClick={handleGenerate}
+            >
+              {generating && (
+                <span className="loading loading-spinner loading-xs" />
+              )}
+              {generating ? t("editor.generating") : t("editor.generate")}
+            </button>
+            <button
+              type="button"
+              className="btn"
+              disabled={!pdfBytes || generating || saving}
+              onClick={handleSave}
+            >
+              {saving && (
+                <span className="loading loading-spinner loading-xs" />
+              )}
+              {saving ? t("editor.saving") : t("editor.save")}
+            </button>
+          </div>
 
           {/* 生成失败提示贴着触发按钮，避免长列表时页面底部不可见 */}
           {error && (
             <div role="alert" className="alert alert-error">
               <span>{error}</span>
+            </div>
+          )}
+
+          {/* 保存失败提示贴着保存按钮，与生成失败提示同款 */}
+          {saveError && (
+            <div role="alert" className="alert alert-error">
+              <span>{t("editor.saveError", { message: saveError })}</span>
             </div>
           )}
         </aside>
@@ -198,6 +249,14 @@ export default function HomePage() {
             </Suspense>
           </div>
         </section>
+      )}
+
+      {savedToast && (
+        <div className="toast toast-center toast-bottom z-50">
+          <div className="alert alert-success shadow-lg">
+            <span>{savedToast}</span>
+          </div>
+        </div>
       )}
     </>
   );
