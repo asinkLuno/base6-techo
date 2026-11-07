@@ -15,8 +15,27 @@ async fn generate_lined_pdf(
     app: tauri::AppHandle,
     params: templates::lined::LinedDocParams,
 ) -> Result<tauri::ipc::Response, String> {
+    generate_pdf(app, move || templates::lined::generate_lined_latex(&params)).await
+}
+
+/// 整本框架入口，与旧横线本命令共享相同的响应格式。
+#[tauri::command]
+async fn generate_document_pdf(
+    app: tauri::AppHandle,
+    document: templates::document::Document,
+) -> Result<tauri::ipc::Response, String> {
+    generate_pdf(app, move || {
+        templates::document::generate_document_latex(&document)
+    })
+    .await
+}
+
+async fn generate_pdf(
+    app: tauri::AppHandle,
+    generate: impl FnOnce() -> Result<String, String> + Send + 'static,
+) -> Result<tauri::ipc::Response, String> {
     tauri::async_runtime::spawn_blocking(move || {
-        let tex = templates::lined::generate_lined_latex(&params)?;
+        let tex = generate()?;
         let out = compile_document(&app, &tex, vec![])?;
         let log = out.log.into_bytes();
         let tex_bytes = tex.into_bytes();
@@ -77,7 +96,10 @@ pub fn run() {
             }
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![generate_lined_pdf])
+        .invoke_handler(tauri::generate_handler![
+            generate_lined_pdf,
+            generate_document_pdf
+        ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application")
 }
