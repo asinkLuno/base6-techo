@@ -1,6 +1,6 @@
 {
   "app": { "name": "base6-techo", "tagline": "LaTeX planner template generator" },
-  "nav": { "home": "Editor", "lined": "Lined", "settings": "Settings" },
+  "nav": { "home": "Editor", "settings": "Settings" },
   "editor": {
     "title": "Layout Editor",
     "description": "Compose templates by section: drag the handle to reorder, pick a template and tune its parameters per section.",
@@ -25,15 +25,6 @@
       "color": "Line color",
       "lineWidthPt": "Line width (pt)"
     }
-  },
-  "lined": {
-    "title": "Lined paper template",
-    "description": "Tune the parameters and generate a PDF.",
-    "pages": "Pages",
-    "lineSpacing": "Line spacing (mm)",
-    "margin": "Margin (mm)",
-    "generate": "Generate PDF",
-    "pending": "The generate command is wired up; preview rendering lands in the next milestone."
   },
   "settings": {
     "title": "Settings",

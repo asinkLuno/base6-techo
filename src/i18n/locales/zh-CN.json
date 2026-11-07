@@ -1,6 +1,6 @@
 {
   "app": { "name": "base6-techo", "tagline": "LaTeX 手帐模板生成工具" },
-  "nav": { "home": "编辑器", "lined": "横线本", "settings": "设置" },
+  "nav": { "home": "编辑器", "settings": "设置" },
   "editor": {
     "title": "排版编辑器",
     "description": "按 section 组合模板：拖动手柄排序，每个 section 可选择模板并配置参数。",
@@ -25,15 +25,6 @@
       "color": "线色",
       "lineWidthPt": "线宽（pt）"
     }
-  },
-  "lined": {
-    "title": "横线本模板",
-    "description": "调整参数后生成 PDF。",
-    "pages": "页数",
-    "lineSpacing": "行距（mm）",
-    "margin": "页边距（mm）",
-    "generate": "生成 PDF",
-    "pending": "生成命令已接入，预览渲染将在下阶段打通。"
   },
   "settings": {
     "title": "设置",

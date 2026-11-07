@@ -6,7 +6,6 @@ import { useSettingsSync } from "../hooks/useSettingsSync";
 
 const NAV_ITEMS = [
   { to: "/", key: "nav.home", end: true },
-  { to: "/lined", key: "nav.lined" },
   { to: "/settings", key: "nav.settings" },
 ] as const;
 
@@ -57,7 +56,7 @@ export default function RootLayout() {
           </Link>
         </div>
         <nav className="navbar-center">
-          <ul className="menu menu-horizontal">
+          <ul className="menu menu-horizontal gap-2">
             {NAV_ITEMS.map((item) => (
               <li key={item.to}>
                 <NavLink
