@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" fill="none">
+  <!-- V5 一笔六：锁线针脚连成一笔写出 6，起笔留在针眼里 -->
+  <g stroke="currentColor" stroke-linecap="round">
+    <path d="M 66 23.5 C 64 36 56 47 46 47 A 16 16 0 1 0 62 63" stroke-width="4.5"/>
+    <circle cx="66" cy="19" r="4.2" stroke-width="3"/>
+  </g>
+</svg>

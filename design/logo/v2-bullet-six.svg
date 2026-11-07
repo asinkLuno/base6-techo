@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- V2 点数六：五颗实心点 + 一颗空心孔（待写的一天） -->
+  <g fill="currentColor">
+    <circle cx="68" cy="26" r="7.5"/>
+    <circle cx="32" cy="50" r="7.5"/>
+    <circle cx="68" cy="50" r="7.5"/>
+    <circle cx="32" cy="74" r="7.5"/>
+    <circle cx="68" cy="74" r="7.5"/>
+  </g>
+  <circle cx="32" cy="26" r="5.75" fill="none" stroke="currentColor" stroke-width="3.5"/>
+</svg>

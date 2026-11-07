@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" fill="none">
+  <!-- V4 骑马订：对折的册子 + 书脊上两道订线 -->
+  <g stroke="currentColor" stroke-linecap="round">
+    <rect x="14" y="30" width="72" height="42" rx="5" stroke-width="3.5"/>
+    <line x1="50" y1="30" x2="50" y2="72" stroke-width="3"/>
+    <line x1="44" y1="42.5" x2="56" y2="38.5" stroke-width="3.2"/>
+    <line x1="44" y1="63.5" x2="56" y2="59.5" stroke-width="3.2"/>
+  </g>
+</svg>
