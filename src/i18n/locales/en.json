@@ -30,7 +30,21 @@
     "pdfError": "Failed to render PDF",
     "prevPage": "Previous page",
     "nextPage": "Next page",
-    "needDesktop": "Generation requires the desktop app: the browser page does not include the bundled Tectonic engine."
+    "needDesktop": "Generation requires the desktop app: the browser page does not include the bundled Tectonic engine.",
+    "page": {
+      "title": "Page setup",
+      "paper": "Paper",
+      "custom": "Custom",
+      "widthMm": "Width (mm)",
+      "heightMm": "Height (mm)",
+      "binding": "Binding",
+      "bindingLeft": "Left",
+      "bindingRight": "Right",
+      "headerMm": "Header (top)",
+      "footerMm": "Footer (bottom)",
+      "innerMm": "Inner",
+      "outerMm": "Outer"
+    }
   },
   "settings": {
     "title": "Settings",

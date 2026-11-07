@@ -234,11 +234,17 @@ fn exact_rule_spacing_includes_both_body_edges() {
 }
 
 /// 前端编辑器发出的确切负载形状（src/lib/generatePdf.ts 的 DocumentPayload）：
-/// 省略 page/decorations 走 serde 默认，linear 三个 camelCase 字段齐全。
+/// page 带自定义纸张/右装订/边距，sections 为 camelCase linear 三字段齐全；
+/// imposition 省略走 serde 默认（单页阅读输出）。
 #[test]
 fn frontend_section_payload_parses_and_generates() {
     let doc: Document = serde_json::from_str(
         r##"{
+        "page": {
+            "paper": {"kind": "custom", "widthMm": 120, "heightMm": 200},
+            "binding": "right",
+            "margins": {"headerMm": 10, "footerMm": 12, "innerMm": 14, "outerMm": 16}
+        },
         "sections": [
             {"pages": 4, "numbered": true,
              "body": {"kind": "linear", "spacingMm": 8, "color": "#112233", "lineWidthPt": 0.8}},

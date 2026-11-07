@@ -1,8 +1,8 @@
-import { useEffect, useState } from "react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import clsx from "clsx";
 import { useTranslation } from "react-i18next";
+import { NumberField } from "./NumberField";
 import { useDocumentStore } from "../stores/document";
 import {
   clampLineWidthPt,
@@ -55,60 +55,6 @@ function TrashIcon() {
       <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
       <path d="M10 11v6M14 11v6" />
     </svg>
-  );
-}
-
-/**
- * 数字输入：打字过程中仅在值合法（在 min–max 内）时提交，
- * 失焦时 clamp 后提交并回写文本，避免打字中途被改值。
- */
-function NumberField({
-  label,
-  value,
-  min,
-  max,
-  step,
-  clamp,
-  onCommit,
-}: {
-  label: string;
-  value: number;
-  min: number;
-  max: number;
-  step: number;
-  clamp: (value: number) => number;
-  onCommit: (value: number) => void;
-}) {
-  const [text, setText] = useState(String(value));
-  useEffect(() => setText(String(value)), [value]);
-
-  const commit = () => {
-    const next = clamp(Number(text));
-    setText(String(next));
-    onCommit(next);
-  };
-
-  return (
-    <fieldset className="fieldset">
-      <legend className="fieldset-legend">{label}</legend>
-      <input
-        type="number"
-        className="input w-full"
-        min={min}
-        max={max}
-        step={step}
-        value={text}
-        onChange={(e) => {
-          const nextText = e.target.value;
-          setText(nextText);
-          const parsed = Number(nextText);
-          if (nextText !== "" && Number.isFinite(parsed) && parsed >= min && parsed <= max) {
-            onCommit(parsed);
-          }
-        }}
-        onBlur={commit}
-      />
-    </fieldset>
   );
 }
 

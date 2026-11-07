@@ -1,8 +1,9 @@
 import { invoke, isTauri } from "@tauri-apps/api/core";
-import type { SectionSpec } from "../types/document";
+import type { PageSettings, SectionSpec } from "../types/document";
 
-/** 发给 Rust 的整本文档。page/decorations 省略，由 serde default 补齐。 */
+/** 发给 Rust 的整本文档，形状对齐 serde Document（page/sections 均为 camelCase）。 */
 export interface DocumentPayload {
+  page: PageSettings;
   sections: SectionSpec[];
 }
 

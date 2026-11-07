@@ -17,6 +17,7 @@ import { isTauri } from "@tauri-apps/api/core";
 import clsx from "clsx";
 import { useTranslation } from "react-i18next";
 import { PdfViewer } from "../components/PdfViewer";
+import { PageSettingsPanel } from "../components/PageSettingsPanel";
 import SectionListItem from "../components/SectionListItem";
 import { generatePdf } from "../lib/generatePdf";
 import { useDocumentStore } from "../stores/document";
@@ -38,10 +39,11 @@ function PlusIcon() {
   );
 }
 
-/** 主界面：按 section 组合模板的可编辑列表（拖拽排序、增删、逐项配置模板参数）+ 生成预览。 */
+/** 主界面：左栏是 section 列表（拖拽排序、增删、逐项配置模板），右栏是页面设置与生成。 */
 export default function HomePage() {
   const { t } = useTranslation();
   const sections = useDocumentStore((s) => s.sections);
+  const page = useDocumentStore((s) => s.page);
   const addSection = useDocumentStore((s) => s.addSection);
   const moveSection = useDocumentStore((s) => s.moveSection);
 
@@ -69,7 +71,7 @@ export default function HomePage() {
     setGenerating(true);
     setError(null);
     try {
-      const out = await generatePdf({ sections: toSectionSpecs(sections) });
+      const out = await generatePdf({ page, sections: toSectionSpecs(sections) });
       setPdfBytes(out.pdf);
       // 预览卡片在 setState 后才挂载，等一帧再滚动
       setTimeout(
@@ -103,49 +105,53 @@ export default function HomePage() {
         )}
       </header>
 
-      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-        <SortableContext
-          items={sections.map((section) => section.id)}
-          strategy={verticalListSortingStrategy}
-        >
-          <div className="space-y-3">
-            {sections.map((section, index) => (
-              <SectionListItem key={section.id} section={section} index={index} />
-            ))}
-          </div>
-        </SortableContext>
-      </DndContext>
+      <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_18rem]">
+        <div className="min-w-0 space-y-3">
+          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+            <SortableContext
+              items={sections.map((section) => section.id)}
+              strategy={verticalListSortingStrategy}
+            >
+              {sections.map((section, index) => (
+                <SectionListItem key={section.id} section={section} index={index} />
+              ))}
+            </SortableContext>
+          </DndContext>
 
-      {sections.length === 0 && (
-        <div className="card border border-dashed border-base-300 bg-base-200/50">
-          <div className="card-body items-center text-center">
-            <p className="font-medium">{t("editor.empty.title")}</p>
-            <p className="text-sm opacity-60">{t("editor.empty.hint")}</p>
-          </div>
+          {sections.length === 0 && (
+            <div className="card border border-dashed border-base-300 bg-base-200/50">
+              <div className="card-body items-center text-center">
+                <p className="font-medium">{t("editor.empty.title")}</p>
+                <p className="text-sm opacity-60">{t("editor.empty.hint")}</p>
+              </div>
+            </div>
+          )}
+
+          <button type="button" className="btn btn-block" onClick={addSection}>
+            <PlusIcon />
+            {t("editor.addSection")}
+          </button>
         </div>
-      )}
+
+        <aside className="space-y-3">
+          <PageSettingsPanel />
+          <button
+            type="button"
+            className="btn btn-primary btn-block"
+            disabled={sections.length === 0 || generating}
+            onClick={handleGenerate}
+          >
+            {generating && <span className="loading loading-spinner loading-xs" />}
+            {generating ? t("editor.generating") : t("editor.generate")}
+          </button>
+        </aside>
+      </div>
 
       {error && (
         <div role="alert" className="alert alert-error">
           <span>{error}</span>
         </div>
       )}
-
-      <div className="grid grid-cols-2 gap-3">
-        <button type="button" className="btn" onClick={addSection}>
-          <PlusIcon />
-          {t("editor.addSection")}
-        </button>
-        <button
-          type="button"
-          className="btn btn-primary"
-          disabled={sections.length === 0 || generating}
-          onClick={handleGenerate}
-        >
-          {generating && <span className="loading loading-spinner loading-xs" />}
-          {generating ? t("editor.generating") : t("editor.generate")}
-        </button>
-      </div>
 
       {pdfBytes && (
         <section ref={previewRef} className="card bg-base-100 shadow-md">
