@@ -1,0 +1,127 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { DEFAULT_LINEAR, toSectionSpecs } from "../types/document";
+import { useDocumentStore } from "./document";
+
+// persist 中间件在 store 创建时就读 localStorage，vitest node 环境没有，先挂内存实现。
+vi.hoisted(() => {
+  const map = new Map<string, string>();
+  Object.defineProperty(globalThis, "localStorage", {
+    configurable: true,
+    value: {
+      getItem: (key: string) => map.get(key) ?? null,
+      setItem: (key: string, value: string) => void map.set(key, value),
+      removeItem: (key: string) => void map.delete(key),
+    },
+  });
+});
+
+const state = () => useDocumentStore.getState();
+
+describe("document store", () => {
+  beforeEach(() => useDocumentStore.setState({ sections: [] }));
+
+  it("addSection 追加默认节：linear 默认参数、1 页、计入页码、id 唯一", () => {
+    state().addSection();
+    state().addSection();
+    const { sections } = state();
+    expect(sections).toHaveLength(2);
+    expect(new Set(sections.map((s) => s.id)).size).toBe(2);
+    expect(sections[0]).toMatchObject({ pages: 1, numbered: true, body: DEFAULT_LINEAR });
+  });
+
+  it("removeSection 只删指定 id", () => {
+    state().addSection();
+    state().addSection();
+    const [a, b] = state().sections;
+    state().removeSection(a.id);
+    expect(state().sections.map((s) => s.id)).toEqual([b.id]);
+  });
+
+  it("moveSection 按 arrayMove 语义重排", () => {
+    state().addSection();
+    state().addSection();
+    state().addSection();
+    const [a, b, c] = state().sections;
+    state().moveSection(a.id, c.id);
+    expect(state().sections.map((s) => s.id)).toEqual([b.id, c.id, a.id]);
+  });
+
+  it("moveSection 传未知 id 或原地拖动时保持不变", () => {
+    state().addSection();
+    state().addSection();
+    const before = state().sections;
+    state().moveSection("nope", before[1].id);
+    state().moveSection(before[0].id, before[0].id);
+    expect(state().sections).toEqual(before);
+  });
+
+  it("updateSection 把页数 clamp 到 1–999 的整数", () => {
+    state().addSection();
+    const id = state().sections[0].id;
+    state().updateSection(id, { pages: 0 });
+    expect(state().sections[0].pages).toBe(1);
+    state().updateSection(id, { pages: 1000 });
+    expect(state().sections[0].pages).toBe(999);
+    state().updateSection(id, { pages: 48 });
+    expect(state().sections[0].pages).toBe(48);
+  });
+
+  it("updateSection clamp linear 参数到边界，非法颜色回落默认值", () => {
+    state().addSection();
+    const id = state().sections[0].id;
+    state().updateSection(id, {
+      body: { kind: "linear", spacingMm: 0, color: "red", lineWidthPt: 100 },
+    });
+    expect(state().sections[0].body).toEqual({
+      kind: "linear",
+      spacingMm: 0.1,
+      color: "#9E9E9E",
+      lineWidthPt: 10,
+    });
+    state().updateSection(id, {
+      body: { kind: "linear", spacingMm: 5, color: "#112233", lineWidthPt: 0.8 },
+    });
+    expect(state().sections[0].body).toEqual({
+      kind: "linear",
+      spacingMm: 5,
+      color: "#112233",
+      lineWidthPt: 0.8,
+    });
+  });
+
+  it("updateSection 在 blank 与 linear 间切换 body", () => {
+    state().addSection();
+    const id = state().sections[0].id;
+    state().updateSection(id, { body: { kind: "blank" } });
+    expect(state().sections[0].body).toEqual({ kind: "blank" });
+    state().updateSection(id, { body: DEFAULT_LINEAR });
+    expect(state().sections[0].body).toEqual(DEFAULT_LINEAR);
+  });
+
+  it("updateSection 对未知 id 是 no-op，不会崩溃", () => {
+    state().addSection();
+    const before = state().sections;
+    state().updateSection("nope", { pages: 10 });
+    expect(state().sections).toEqual(before);
+  });
+
+  it("numbered 布尔开关可切换", () => {
+    state().addSection();
+    const id = state().sections[0].id;
+    state().updateSection(id, { numbered: false });
+    expect(state().sections[0].numbered).toBe(false);
+  });
+});
+
+describe("toSectionSpecs", () => {
+  it("剥离前端 id，得到与 Rust Document.sections 对齐的负载", () => {
+    const drafts = [
+      { id: "x", pages: 2, numbered: true, body: DEFAULT_LINEAR },
+      { id: "y", pages: 1, numbered: false, body: { kind: "blank" as const } },
+    ];
+    expect(toSectionSpecs(drafts)).toEqual([
+      { pages: 2, numbered: true, body: DEFAULT_LINEAR },
+      { pages: 1, numbered: false, body: { kind: "blank" } },
+    ]);
+  });
+});
