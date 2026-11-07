@@ -1,6 +1,5 @@
 {
   "app": { "name": "base6-techo", "tagline": "LaTeX 手帐模板生成工具" },
-  "nav": { "home": "编辑器", "settings": "设置" },
   "editor": {
     "title": "排版编辑器",
     "description": "按 section 组合模板：拖动手柄排序，每个 section 可选择模板并配置参数。",

@@ -1,6 +1,5 @@
 {
   "app": { "name": "base6-techo", "tagline": "LaTeX planner template generator" },
-  "nav": { "home": "Editor", "settings": "Settings" },
   "editor": {
     "title": "Layout Editor",
     "description": "Compose templates by section: drag the handle to reorder, pick a template and tune its parameters per section.",

@@ -1,11 +1,6 @@
-import { Link, NavLink, Outlet } from "react-router";
+import { Link, Outlet } from "react-router";
 import { useTranslation } from "react-i18next";
-import clsx from "clsx";
 import { useSettingsSync } from "../hooks/useSettingsSync";
-
-const NAV_ITEMS = [
-  { to: "/", key: "nav.home", end: true },
-] as const;
 
 /** 设置入口：右上角齿轮按钮。 */
 function SettingsIcon() {
@@ -37,26 +32,11 @@ export default function RootLayout() {
             {t("app.name")}
           </Link>
         </div>
-        <nav className="navbar-center">
-          <ul className="menu menu-horizontal gap-2">
-            {NAV_ITEMS.map((item) => (
-              <li key={item.to}>
-                <NavLink
-                  to={item.to}
-                  end={"end" in item && item.end}
-                  className={({ isActive }) => clsx(isActive && "menu-active")}
-                >
-                  {t(item.key)}
-                </NavLink>
-              </li>
-            ))}
-          </ul>
-        </nav>
         <div className="navbar-end">
           <Link
             to="/settings"
             className="btn btn-ghost btn-circle"
-            aria-label={t("nav.settings")}
+            aria-label={t("settings.title")}
           >
             <SettingsIcon />
           </Link>
