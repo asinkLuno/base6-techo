@@ -14,7 +14,7 @@
           var parsed = JSON.parse(raw);
           if (parsed.version !== 1) return;
           var state = parsed.state;
-          var themes = ["light", "dark", "cupcake", "nord"];
+          var themes = ["light", "dark"];
           document.documentElement.setAttribute(
             "data-theme",
             state && themes.indexOf(state.theme) !== -1 ? state.theme : "light",

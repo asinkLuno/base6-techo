@@ -29,10 +29,7 @@
   "settings": {
     "title": "设置",
     "description": "偏好保存在本地，重启应用后仍然生效。",
-    "appearance": "外观与语言",
-    "language": "界面语言",
-    "theme": "主题",
-    "themes": { "light": "浅色", "dark": "深色", "cupcake": "纸杯蛋糕", "nord": "北欧" }
+    "language": "界面语言"
   },
   "notFound": { "title": "页面不存在", "back": "回到首页" }
 }

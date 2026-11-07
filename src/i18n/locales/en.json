@@ -29,10 +29,7 @@
   "settings": {
     "title": "Settings",
     "description": "Preferences are stored locally and survive app restarts.",
-    "appearance": "Appearance & language",
-    "language": "Language",
-    "theme": "Theme",
-    "themes": { "light": "Light", "dark": "Dark", "cupcake": "Cupcake", "nord": "Nord" }
+    "language": "Language"
   },
   "notFound": { "title": "Page not found", "back": "Back to home" }
 }

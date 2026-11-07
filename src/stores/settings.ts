@@ -2,8 +2,7 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
 /** 可选主题。须与 src/index.css 里 @plugin "daisyui" 的主题列表保持一致。 */
-export const THEMES = ["light", "dark", "cupcake", "nord"] as const;
-export type ThemeName = (typeof THEMES)[number];
+export type ThemeName = "light" | "dark";
 
 /** 界面语言。nativeLabel 用语言自称，不随界面翻译。 */
 export const LANGUAGES = [
