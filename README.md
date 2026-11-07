@@ -52,3 +52,7 @@ adb install -r src-tauri/gen/android/app/build/outputs/apk/universal/debug/*.apk
 - **离线编译失败**：确认 `public/tectonic-cache.zip` 存在且 App 是重新构建过的（缓存内嵌在前端资源里）；首次启动会解压，日志可见 `offline cache installed`。
 - **vcpkg 依赖搬家后报 `-lbz2` 找不到**：删 `src-tauri/target/*/build/tectonic_*` 强制重跑 build script。
 - **gen/android**：是生成后需要手工维护的 Android 工程本体，**要进 git**；如果 `tauri android init` 报 identifier 不匹配，删掉 `src-tauri/gen/android` 重新 init（自制的 jniLibs 由 `build-android.sh` 重新拷入）。
+
+## LaTeX 排版框架
+
+后端整本编排、布局与模板扩展说明见 [LaTeX 框架](docs/latex-framework.md)，实施与验证记录见 [工作日志](docs/latex-framework-worklog.md)。
