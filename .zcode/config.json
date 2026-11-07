@@ -1,0 +1,44 @@
+{
+  "hooks": {
+    "enabled": true,
+    "events": {
+      "SessionStart": [
+        {
+          "hooks": [
+            {
+              "type": "command",
+              "command": "[ ! -f \"${CLAUDE_PROJECT_DIR}/.agents/skills/impeccable/scripts/impeccable\" ] || \"${CLAUDE_PROJECT_DIR}/.agents/skills/impeccable/scripts/impeccable\" hook",
+              "timeout": 5,
+              "statusMessage": "Preparing design context"
+            }
+          ]
+        }
+      ],
+      "PostToolUse": [
+        {
+          "matcher": "Edit|Write",
+          "hooks": [
+            {
+              "type": "command",
+              "command": "[ ! -f \"${CLAUDE_PROJECT_DIR}/.agents/skills/impeccable/scripts/impeccable\" ] || \"${CLAUDE_PROJECT_DIR}/.agents/skills/impeccable/scripts/impeccable\" hook",
+              "timeout": 5,
+              "statusMessage": "Checking UI changes"
+            }
+          ]
+        }
+      ],
+      "Stop": [
+        {
+          "hooks": [
+            {
+              "type": "command",
+              "command": "[ ! -f \"${CLAUDE_PROJECT_DIR}/.agents/skills/impeccable/scripts/impeccable\" ] || \"${CLAUDE_PROJECT_DIR}/.agents/skills/impeccable/scripts/impeccable\" hook",
+              "timeout": 30,
+              "statusMessage": "Design deep pass"
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

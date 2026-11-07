@@ -32,4 +32,13 @@
 - i18n：react-i18next，词条在 `src/i18n/locales/{zh-CN,en}.json`，两份必须同步改；t() 的 key 有类型检查。
 - 样式：Tailwind CSS v4 + daisyUI 5（`src/index.css` 里 `@plugin "daisyui"`；主题列表须与 `src/stores/settings.ts` 的 `ThemeName` 及 `index.html` 首帧脚本白名单三处一致）。
 - 主题：仅 light/dark，切换入口在导航栏；设置页只有语言。
+- Lint/格式化：Biome（配置 `biome.json`；`yarn lint` 检查、`yarn lint:fix` 自动修、`yarn format` 只格式化；Tailwind 类名排序读 `src/index.css`）。
 - 包管理器：yarn（lockfile v1）。
+
+## impeccable 设计技能（已集成）
+
+- 已安装 pbakaus/impeccable：技能在 `.agents/skills/impeccable/`，子代理定义在 `.zcode/agents/`。新会话用 `/impeccable <命令>` 传参调用（`init`、`document`、`critique`、`audit`、`polish` 等）；首次使用先 `/impeccable init` 生成 PRODUCT.md。
+- 设计检测 hook 在 `.zcode/config.json` 已启用（SessionStart / PostToolUse(Edit|Write) / Stop）：每次编辑 UI 文件后检测器返回 `additionalContext` 结论，Stop 时全规则深检；有发现就处理或明确说明豁免理由，不要默默忽略。
+- **优先级：impeccable 的样式主张让位于上面的 daisyUI 规则。** 它若建议定制字体、手写组件、引入第二套视觉方案，一律按「前端组件规范」执行；确需绕开 daisyUI 走规则 3。
+- 检测误报用 `npx impeccable ignores add-value <规则> <值> --reason "..."` 豁免（写入 `.impeccable/`，随仓库提交）；全量检测要跑在真实页面上：`npx impeccable detect http://localhost:PORT`（仅扫源码是正则子集）。
+- 更新：`npx impeccable update`。遥测已在 `.impeccable/config.json` 关闭；`.gitignore` 已含 impeccable 瞬态文件块（`# impeccable-ignore-start/end`）。
