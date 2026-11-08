@@ -35,6 +35,16 @@
     "zoomOut": "Zoom out",
     "zoomFit": "Fit width",
     "needDesktop": "Generation requires the desktop app: the browser page does not include the bundled Tectonic engine.",
+    "log": {
+      "title": "Tectonic compile log",
+      "errors": "errors: {{num}}",
+      "warnings": "warnings: {{num}}",
+      "clean": "no warnings",
+      "lines": "{{num}} lines",
+      "waiting": "waiting for engine output…",
+      "copy": "Copy log",
+      "copied": "Copied"
+    },
     "page": {
       "title": "Page setup",
       "paper": "Paper",

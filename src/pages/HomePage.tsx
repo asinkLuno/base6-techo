@@ -13,11 +13,18 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { isTauri } from "@tauri-apps/api/core";
+import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import clsx from "clsx";
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { CompileLogPanel } from "../components/CompileLogPanel";
 import { PageSettingsPanel } from "../components/PageSettingsPanel";
 import SectionListItem from "../components/SectionListItem";
+import {
+  appendLiveLine,
+  type CompileLogLine,
+  splitCompileError,
+} from "../lib/compileLog";
 import { generatePdf } from "../lib/generatePdf";
 import { describeTarget, savePdfFile } from "../lib/savePdf";
 import { useDocumentStore } from "../stores/document";
@@ -54,11 +61,39 @@ export default function HomePage() {
 
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [log, setLog] = useState<string | null>(null);
+  /** 编译中的实时日志行；null = 非实时态 */
+  const [stream, setStream] = useState<CompileLogLine[] | null>(null);
   const [pdfBytes, setPdfBytes] = useState<ArrayBuffer | null>(null);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [savedToast, setSavedToast] = useState<string | null>(null);
   const previewRef = useRef<HTMLElement | null>(null);
+  // 事件守卫：实时流结束后迟到的 compile-log 事件不再入列
+  const liveActiveRef = useRef(false);
+
+  // 全局注册 compile-log 监听（仅 Tauri 环境）：后端编译期间逐行推送
+  useEffect(() => {
+    if (!isTauri()) return;
+    let unlisten: UnlistenFn | null = null;
+    let disposed = false;
+    void listen<{ kind: string; line: string }>("compile-log", (e) => {
+      if (!liveActiveRef.current) return;
+      setStream((prev) =>
+        appendLiveLine(prev ?? [], {
+          kind: e.payload.kind as CompileLogLine["kind"],
+          text: e.payload.line,
+        }),
+      );
+    }).then((fn) => {
+      if (disposed) fn();
+      else unlisten = fn;
+    });
+    return () => {
+      disposed = true;
+      unlisten?.();
+    };
+  }, []);
 
   // distance 约束让卡内输入框/下拉的单击不触发拖拽，拖动需移动 6px。
   const sensors = useSensors(
@@ -83,6 +118,9 @@ export default function HomePage() {
     const { page, imposition, sections: current } = useDocumentStore.getState();
     setGenerating(true);
     setError(null);
+    setLog(null);
+    setStream([]);
+    liveActiveRef.current = true;
     setSaveError(null);
     setSavedToast(null);
     try {
@@ -92,6 +130,7 @@ export default function HomePage() {
         sections: toSectionSpecs(current),
       });
       setPdfBytes(out.pdf);
+      setLog(out.log || null);
       // 预览卡片在 setState 后才挂载，等一帧再滚动
       setTimeout(
         () =>
@@ -103,8 +142,15 @@ export default function HomePage() {
       );
     } catch (e) {
       setPdfBytes(null);
-      setError(e instanceof Error ? e.message : String(e));
+      const { message, log: errLog } = splitCompileError(
+        e instanceof Error ? e.message : String(e),
+      );
+      setError(message);
+      setLog(errLog);
     } finally {
+      // 实时流结束：迟到事件不再入列，面板切换为最终全量日志
+      liveActiveRef.current = false;
+      setStream(null);
       setGenerating(false);
     }
   };
@@ -223,6 +269,16 @@ export default function HomePage() {
             <div role="alert" className="alert alert-error">
               <span>{error}</span>
             </div>
+          )}
+
+          {/* 实时/最终日志面板固定在此一处（按钮与错误提示下方），避免位置跳动 */}
+          {(generating || log) && (
+            <CompileLogPanel
+              log={log}
+              stream={stream}
+              live={generating}
+              defaultOpen={!!error}
+            />
           )}
 
           {/* 保存失败提示贴着保存按钮，与生成失败提示同款 */}

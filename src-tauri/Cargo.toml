@@ -31,6 +31,10 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 # 解码 write_pdf_file 的 path header（前端 encodeURIComponent）
 percent-encoding = "2"
+# 实时编译日志：编译期间把 fd1 重定向到管道逐行捕获引擎转写（linux/android）
+libc = "0.2"
+# StatusBackend::report 的 err 参数类型（tectonic_errors::Error 即 anyhow::Error）
+anyhow = "1"
 # tectonic: pinned exactly so the Android registry patches in scripts/patch-tectonic.sh
 # apply deterministically. native-tls-vendored = static OpenSSL built from source by
 # the NDK (no system OpenSSL needed when cross-compiling).

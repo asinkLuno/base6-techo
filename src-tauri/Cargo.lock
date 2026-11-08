@@ -353,6 +353,8 @@ dependencies = [
 name = "base6-techo"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
+ "libc",
  "percent-encoding",
  "serde",
  "serde_json",

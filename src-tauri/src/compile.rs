@@ -3,6 +3,9 @@
 
 use std::fs;
 use std::path::{Component, Path, PathBuf};
+use std::sync::Arc;
+
+use tectonic::status::{MessageKind, StatusBackend};
 
 const DOC_NAME: &str = "document.tex";
 const PDF_NAME: &str = "document.pdf";
@@ -12,6 +15,10 @@ pub struct CompileOutput {
     pub pdf: Vec<u8>,
     pub log: String,
 }
+
+/// 实时日志回调：`(kind, line)`。kind ∈ `"tex"|"note"|"warning"|"error"`，
+/// `"tex"` 是引擎终端转写（fd 捕获），其余是 tectonic 自身的状态消息。
+pub type LogSink = dyn Fn(&str, &str) + Send + Sync;
 
 /// Point tectonic (and its `directories`-based path resolution) at app-private
 /// dirs. Must be called once before any engine use — done in the Tauri setup
@@ -37,6 +44,7 @@ pub fn compile(
     source: &str,
     job_root: &Path,
     extra_files: &[(String, Vec<u8>)],
+    sink: &Arc<LogSink>,
 ) -> Result<CompileOutput, String> {
     // Fresh job dir per run: tectonic writes outputs and reads \input files here.
     if job_root.exists() {
@@ -55,8 +63,10 @@ pub fn compile(
 
     let source = source.to_string();
     let job_root = job_root.to_path_buf();
-    match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| run_engine(&source, &job_root)))
-    {
+    let sink = Arc::clone(sink);
+    match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        run_engine(&source, &job_root, &sink)
+    })) {
         Ok(result) => result,
         Err(payload) => {
             let msg = payload
@@ -86,7 +96,11 @@ fn clean_rel_path(name: &str) -> Result<PathBuf, String> {
     Ok(out)
 }
 
-fn run_engine(source: &str, job_root: &Path) -> Result<CompileOutput, String> {
+fn run_engine(
+    source: &str,
+    job_root: &Path,
+    sink: &Arc<LogSink>,
+) -> Result<CompileOutput, String> {
     let config = tectonic::config::PersistentConfig::open(false)
         .map_err(|e| format!("无法打开 tectonic 配置：{e}"))?;
     // only_cached = false: prefer the local (prewarmed) cache; missing files
@@ -110,15 +124,153 @@ fn run_engine(source: &str, job_root: &Path) -> Result<CompileOutput, String> {
         .filesystem_root(job_root)
         .keep_logs(true)
         .keep_intermediates(false)
-        .print_stdout(false);
+        // 引擎终端转写写 stdout（编译期间被 fd 捕获），tectonic 自身消息走 SinkStatus
+        .print_stdout(true);
 
-    let mut status = tectonic::status::NoopStatusBackend::default();
+    let mut status = SinkStatus(sink);
     let mut session = builder
         .create(&mut status)
         .map_err(|e| format!("无法创建编译会话：{e}"))?;
-    session.run(&mut status).map_err(|e| format!("编译失败：{e}"))?;
+    // 仅引擎运行期间把进程 stdout 重定向进管道，转写逐行推给 sink
+    let _capture = capture::StdoutCapture::start(sink)
+        .map_err(|e| format!("无法捕获引擎输出：{e}"))?;
+    session.run(&mut status).map_err(|e| {
+        // 失败路径 tectonic 仍会写出 document.log（driver 的 write_files(only_logs)），
+        // 把它随错误串带回前端，供日志面板展示 `! LaTeX Error:` 等详情。
+        // marker 与 src/lib/compileLog.ts 的 COMPILE_LOG_MARKER 保持一致。
+        let log = fs::read_to_string(job_root.join(LOG_NAME)).unwrap_or_default();
+        if log.is_empty() {
+            format!("编译失败：{e}")
+        } else {
+            format!("编译失败：{e}\n<<<TECTONIC_LOG>>>\n{log}")
+        }
+    })?;
+    drop(_capture); // 尽早恢复进程 stdout
 
     let pdf = fs::read(job_root.join(PDF_NAME)).map_err(|e| format!("未找到 PDF 输出：{e}"))?;
     let log = fs::read_to_string(job_root.join(LOG_NAME)).unwrap_or_default();
     Ok(CompileOutput { pdf, log })
+}
+
+/// 把 tectonic 自身的状态消息转发给实时日志回调。
+struct SinkStatus<'a>(&'a Arc<LogSink>);
+
+impl StatusBackend for SinkStatus<'_> {
+    fn report(
+        &mut self,
+        kind: MessageKind,
+        args: std::fmt::Arguments,
+        err: Option<&anyhow::Error>,
+    ) {
+        let mut line = format!("{args}");
+        if let Some(e) = err {
+            line.push_str(&format!("：{e}"));
+        }
+        let k = match kind {
+            MessageKind::Note => "note",
+            MessageKind::Warning => "warning",
+            MessageKind::Error => "error",
+        };
+        (self.0)(k, &line);
+    }
+
+    fn dump_error_logs(&mut self, output: &[u8]) {
+        for line in String::from_utf8_lossy(output).lines() {
+            (self.0)("error", line);
+        }
+    }
+}
+
+/// 实时日志捕获。unix 实现：编译期间把 fd1 重定向到管道，drain 线程逐行转发；
+/// Drop 恢复 stdout 并关闭写端触发 EOF。panic 经 catch_unwind 也走 Drop，不会泄漏重定向。
+#[cfg(unix)]
+mod capture {
+    use std::fs::File;
+    use std::io::{BufRead, BufReader, Write};
+    use std::os::unix::io::FromRawFd;
+    use std::sync::Arc;
+    use std::thread;
+
+    use super::LogSink;
+
+    pub(super) struct StdoutCapture {
+        saved_fd: libc::c_int,
+        write_fd: libc::c_int,
+    }
+
+    impl StdoutCapture {
+        pub(super) fn start(sink: &Arc<LogSink>) -> std::io::Result<Self> {
+            let mut fds = [-1 as libc::c_int; 2]; // [read, write]
+            if unsafe { libc::pipe(fds.as_mut_ptr()) } != 0 {
+                return Err(std::io::Error::last_os_error());
+            }
+            let saved_fd = unsafe { libc::dup(libc::STDOUT_FILENO) };
+            if saved_fd < 0 {
+                let err = std::io::Error::last_os_error();
+                unsafe {
+                    libc::close(fds[0]);
+                    libc::close(fds[1]);
+                }
+                return Err(err);
+            }
+            if unsafe { libc::dup2(fds[1], libc::STDOUT_FILENO) } < 0 {
+                let err = std::io::Error::last_os_error();
+                unsafe {
+                    libc::close(saved_fd);
+                    libc::close(fds[0]);
+                    libc::close(fds[1]);
+                }
+                return Err(err);
+            }
+
+            // 读端交给 drain 线程；写端 = fd1 + fds[1]，两者都关闭后读端 EOF 收尾。
+            let reader = unsafe { BufReader::new(File::from_raw_fd(fds[0])) };
+            let sink = Arc::clone(sink);
+            thread::spawn(move || {
+                let mut reader = reader;
+                let mut buf = String::new();
+                loop {
+                    buf.clear();
+                    match reader.read_line(&mut buf) {
+                        Ok(0) | Err(_) => break,
+                        Ok(_) => sink("tex", buf.trim_end_matches(&['\n', '\r'][..])),
+                    }
+                }
+            });
+
+            Ok(Self { saved_fd, write_fd: fds[1] })
+        }
+    }
+
+    impl Drop for StdoutCapture {
+        fn drop(&mut self) {
+            // fd1 仍指向管道时冲掉 Rust stdout 的行缓冲残留，再恢复原 stdout
+            let _ = std::io::stdout().flush();
+            unsafe {
+                libc::dup2(self.saved_fd, libc::STDOUT_FILENO);
+                libc::close(self.saved_fd);
+                libc::close(self.write_fd);
+            }
+        }
+    }
+}
+
+/// 非 unix 平台的空实现：项目目标平台为桌面 Linux 与 Android（均为 unix）。
+#[cfg(not(unix))]
+mod capture {
+    use std::sync::Arc;
+
+    use super::LogSink;
+
+    pub(super) struct StdoutCapture;
+
+    impl StdoutCapture {
+        pub(super) fn start(_sink: &Arc<LogSink>) -> std::io::Result<Self> {
+            Ok(Self)
+        }
+    }
+
+    impl Drop for StdoutCapture {
+        fn drop(&mut self) {}
+    }
 }

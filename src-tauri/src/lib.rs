@@ -3,9 +3,19 @@ pub mod compile;
 pub mod templates;
 
 use std::path::Path;
+use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use tauri::Manager;
+use serde::Serialize;
+use tauri::{Emitter, Manager};
+
+/// 实时编译日志事件：编译期间逐条推给前端（`compile-log`）。
+#[derive(Clone, Serialize)]
+struct CompileLogEvent {
+    /// tex | note | warning | error
+    kind: String,
+    line: String,
+}
 
 /// 生成横线本 PDF 的原始 IPC payload：
 /// `[u32 log_len LE][log utf8][u32 tex_len LE][tex utf8][pdf bytes]`
@@ -36,7 +46,20 @@ async fn generate_pdf(
 ) -> Result<tauri::ipc::Response, String> {
     tauri::async_runtime::spawn_blocking(move || {
         let tex = generate()?;
-        let out = compile_document(&app, &tex, vec![])?;
+        // 实时日志：编译期间的引擎转写与状态消息经事件推给前端
+        let sink: Arc<compile::LogSink> = {
+            let app = app.clone();
+            Arc::new(move |kind, line| {
+                let _ = app.emit(
+                    "compile-log",
+                    CompileLogEvent {
+                        kind: kind.to_string(),
+                        line: line.to_string(),
+                    },
+                );
+            })
+        };
+        let out = compile_document(&app, &tex, vec![], &sink)?;
         let log = out.log.into_bytes();
         let tex_bytes = tex.into_bytes();
         let mut payload = Vec::with_capacity(8 + log.len() + tex_bytes.len() + out.pdf.len());
@@ -81,6 +104,7 @@ fn compile_document(
     app: &tauri::AppHandle,
     source: &str,
     extra_files: Vec<(String, Vec<u8>)>,
+    sink: &Arc<compile::LogSink>,
 ) -> Result<compile::CompileOutput, String> {
     let data_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
     let stamp = SystemTime::now()
@@ -88,7 +112,7 @@ fn compile_document(
         .unwrap_or_default()
         .as_millis();
     let job_root = data_dir.join("jobs").join(stamp.to_string());
-    let result = compile::compile(source, &job_root, &extra_files);
+    let result = compile::compile(source, &job_root, &extra_files, sink);
     prune_jobs(&data_dir.join("jobs"), 5);
     result
 }
