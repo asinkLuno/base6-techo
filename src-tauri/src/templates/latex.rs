@@ -78,6 +78,16 @@ pub(crate) struct Canvas<'a> {
 }
 
 impl<'a> Canvas<'a> {
+    /// 把颜色注册为当前图形环境的 `ink`（HTML 写法不带 `#`）。
+    fn define_ink(&mut self, color: &str) {
+        writeln!(
+            self.source,
+            "\\definecolor{{ink}}{{HTML}}{{{}}}",
+            &color[1..]
+        )
+        .unwrap();
+    }
+
     fn new(declared_patterns: &'a mut HashSet<String>) -> Self {
         Self {
             source: String::new(),
@@ -147,12 +157,7 @@ impl<'a> Canvas<'a> {
             qpoint(-margin, offset_y - width / 2.0),
             qpoint(step_x + 2.0 * margin, width)
         );
-        writeln!(
-            self.source,
-            "\\definecolor{{ink}}{{HTML}}{{{}}}",
-            &color[1..]
-        )
-        .unwrap();
+        self.define_ink(color);
         let declaration = format!(
             "\\pgfdeclarepatternformonly{{{name}}}{{{origin}}}{{{upper}}}{{{step}}}{{%\n  {band}%\n  \\pgfusepath{{fill}}%\n}}\n"
         );
@@ -193,12 +198,7 @@ impl<'a> Canvas<'a> {
             qpoint(offset_x - half, -half),
             qpoint(2.0 * half, spacing + 2.0 * half)
         );
-        writeln!(
-            self.source,
-            "\\definecolor{{ink}}{{HTML}}{{{}}}",
-            &color[1..]
-        )
-        .unwrap();
+        self.define_ink(color);
         let declaration = format!(
             "\\pgfdeclarepatternformonly{{{name}}}{{{origin}}}{{{upper}}}{{{step}}}{{%\n  {horizontal}%\n  {vertical}%\n  \\pgfusepath{{fill}}%\n}}\n"
         );
@@ -263,12 +263,7 @@ impl<'a> Canvas<'a> {
         let origin = qpoint(-radius, -radius);
         let upper = qpoint(column_spacing + radius, row_spacing + radius);
         let dot = qpoint(offset_x, offset_y);
-        writeln!(
-            self.source,
-            "\\definecolor{{ink}}{{HTML}}{{{}}}",
-            &color[1..]
-        )
-        .unwrap();
+        self.define_ink(color);
         let declaration = format!(
             "\\pgfdeclarepatternformonly{{{name}}}{{{origin}}}{{{upper}}}{{{step}}}{{%\n  \\pgfpathcircle{{{dot}}}{{{}mm}}%\n  \\pgfusepath{{fill}}%\n}}\n",
             number(radius)
@@ -279,10 +274,10 @@ impl<'a> Canvas<'a> {
 
     /// 单个实心圆点，使用页面局部坐标（TikZ 会应用 x/y 向量）。
     pub(crate) fn dot(&mut self, x: f64, y: f64, radius: f64, color: &str) {
+        self.define_ink(color);
         writeln!(
             self.source,
-            "\\definecolor{{ink}}{{HTML}}{{{}}}\n\\fill[ink] ({},{}) circle ({});",
-            &color[1..],
+            "\\fill[ink] ({},{}) circle ({});",
             number(x),
             number(y),
             number(radius)
@@ -315,8 +310,9 @@ impl<'a> Canvas<'a> {
         anchor: &str,
         rotation: i32,
     ) {
-        writeln!(self.source, "\\definecolor{{ink}}{{HTML}}{{{}}}\n\\node[anchor={anchor},rotate={rotation},inner sep=0pt,text=ink,font=\\fontsize{{{}}}{{{}}}\\selectfont] at ({},{}) {{{content}}};",
-            &style.color[1..], number(style.size_pt), number(style.size_pt * 1.2), number(x), number(y)).unwrap();
+        self.define_ink(&style.color);
+        writeln!(self.source, "\\node[anchor={anchor},rotate={rotation},inner sep=0pt,text=ink,font=\\fontsize{{{}}}{{{}}}\\selectfont] at ({},{}) {{{content}}};",
+            number(style.size_pt), number(style.size_pt * 1.2), number(x), number(y)).unwrap();
     }
 }
 
@@ -377,7 +373,7 @@ fn render_page(
     .unwrap();
     if !page.section.body.is_empty() {
         canvas.begin_region(page.layout.body);
-        page.section.body.draw(canvas, &page.layout, &page.context);
+        page.section.body.draw(canvas, &page.layout);
         canvas.end_region();
     }
     // 节级装饰整体覆盖全书默认；None 表示继承。

@@ -30,7 +30,7 @@ fn mixed_sections_compile_to_real_pdf() {
     }"##).unwrap();
     let tex = generate_document_latex(&doc).unwrap();
     let job = root.join("build/framework-e2e");
-    let out = compile::compile(&tex, &job, &[]).expect("编译多节文档");
+    let out = compile::compile(&tex, &job, &[], &compile::noop_sink()).expect("编译多节文档");
     assert!(out.pdf.starts_with(b"%PDF"));
     assert!(out.pdf.len() > 2000);
     assert!(!out.log.contains("Missing character"), "{}", out.log);

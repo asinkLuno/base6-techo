@@ -28,7 +28,7 @@ fn lined_template_compiles_to_real_pdf() {
     };
     let tex = generate_lined_latex(&params).expect("参数合法");
     let job = std::env::temp_dir().join(format!("base6-e2e-lined-{}", std::process::id()));
-    let out = compile::compile(&tex, &job, &[]).expect("tectonic 编译横线本");
+    let out = compile::compile(&tex, &job, &[], &compile::noop_sink()).expect("tectonic 编译横线本");
     let _ = std::fs::remove_dir_all(&job);
 
     assert!(out.pdf.starts_with(b"%PDF"), "输出不是 PDF");

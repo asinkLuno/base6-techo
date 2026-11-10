@@ -55,12 +55,10 @@ fn read_cache_zip(app: &tauri::AppHandle) -> Option<Vec<u8>> {
     }
     // Fallbacks for dev builds: the vite dist/ and public/ dirs.
     if let Ok(manifest_dir) = std::env::var("CARGO_MANIFEST_DIR") {
-        let project_root = Path::new(&manifest_dir).parent().map(Path::to_path_buf);
+        let project_root = Path::new(&manifest_dir).parent()?;
         for rel in ["dist", "public"] {
-            if let Some(root) = &project_root {
-                if let Ok(bytes) = fs::read(root.join(rel).join(CACHE_ASSET)) {
-                    return Some(bytes);
-                }
+            if let Ok(bytes) = fs::read(project_root.join(rel).join(CACHE_ASSET)) {
+                return Some(bytes);
             }
         }
     }
@@ -68,21 +66,8 @@ fn read_cache_zip(app: &tauri::AppHandle) -> Option<Vec<u8>> {
 }
 
 fn unpack_zip(bytes: &[u8], dest: &Path) -> Result<(), String> {
-    let mut archive =
-        zip::ZipArchive::new(Cursor::new(bytes)).map_err(|e| format!("缓存包无法打开：{e}"))?;
-    for i in 0..archive.len() {
-        let mut entry = archive.by_index(i).map_err(|e| format!("缓存包损坏：{e}"))?;
-        let rel = entry.mangled_name();
-        let out_path = dest.join(&rel);
-        if entry.is_dir() {
-            fs::create_dir_all(&out_path).map_err(|e| e.to_string())?;
-        } else {
-            if let Some(parent) = out_path.parent() {
-                fs::create_dir_all(parent).map_err(|e| e.to_string())?;
-            }
-            let mut out = fs::File::create(&out_path).map_err(|e| e.to_string())?;
-            std::io::copy(&mut entry, &mut out).map_err(|e| e.to_string())?;
-        }
-    }
-    Ok(())
+    zip::ZipArchive::new(Cursor::new(bytes))
+        .map_err(|e| format!("缓存包无法打开：{e}"))?
+        .extract(dest)
+        .map_err(|e| format!("缓存包解压失败：{e}"))
 }

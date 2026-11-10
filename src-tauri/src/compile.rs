@@ -20,6 +20,11 @@ pub struct CompileOutput {
 /// `"tex"` 是引擎终端转写（fd 捕获），其余是 tectonic 自身的状态消息。
 pub type LogSink = dyn Fn(&str, &str) + Send + Sync;
 
+/// 不需要实时日志的调用方（e2e 测试、prewarm）共用的空 sink。
+pub fn noop_sink() -> Arc<LogSink> {
+    Arc::new(|_, _| {})
+}
+
 /// Point tectonic (and its `directories`-based path resolution) at app-private
 /// dirs. Must be called once before any engine use — done in the Tauri setup
 /// hook, single-threaded. `set_var` is unsafe as of edition 2024.

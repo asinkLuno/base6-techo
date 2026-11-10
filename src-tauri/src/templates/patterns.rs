@@ -1,6 +1,5 @@
 //! 页心模板扩展点。模板只消费已解析的页面上下文，不推算装订方向。
 use super::{
-    document::PageContext,
     latex::Canvas,
     layout::{PageLayout, Rect, check_range},
 };
@@ -78,11 +77,12 @@ impl Default for GridPattern {
     }
 }
 
-/// 以区域中心为对称点向两侧扩展，返回落在区域内的最大等距序列。
-fn centered(start: f64, length: f64, spacing: f64) -> Vec<f64> {
+/// 以区域中心为对称点、按 spacing 等距展开的最外侧两点坐标。
+/// 序列至少包含中心点本身，所以区间一定存在（可能退化成一个点）。
+fn centered_extent(start: f64, length: f64, spacing: f64) -> (f64, f64) {
     let center = start + length / 2.0;
-    let k = ((length / 2.0 / spacing) + 1e-9).floor() as i64;
-    (-k..=k).map(|i| center + i as f64 * spacing).collect()
+    let k = ((length / 2.0 / spacing) + 1e-9).floor();
+    (center - k * spacing, center + k * spacing)
 }
 
 impl BodyTemplate {
@@ -117,31 +117,17 @@ impl BodyTemplate {
         Ok(())
     }
 
-    pub(crate) fn draw(
-        &self,
-        canvas: &mut Canvas<'_>,
-        layout: &PageLayout,
-        _context: &PageContext,
-    ) {
+    pub(crate) fn draw(&self, canvas: &mut Canvas<'_>, layout: &PageLayout) {
         let body = layout.body;
         match self {
             Self::Linear(p) => {
                 // 与点阵一致：以页心中心为对称点，先落中间一条，再上下等距扩展。
-                let ys = centered(body.y, body.height, p.spacing_mm);
-                let Some(&first_y) = ys.first() else {
-                    return;
-                };
+                let (first_y, _) = centered_extent(body.y, body.height, p.spacing_mm);
                 canvas.line_grid(body, first_y, p.spacing_mm, p.line_width_pt, &p.color);
             }
             Self::Dots(p) => {
-                let xs = centered(body.x, body.width, p.column_spacing_mm);
-                let ys = centered(body.y, body.height, p.spacing_mm);
-                let (Some(&x_min), Some(&x_max)) = (xs.first(), xs.last()) else {
-                    return;
-                };
-                let (Some(&y_min), Some(&y_max)) = (ys.first(), ys.last()) else {
-                    return;
-                };
+                let (x_min, x_max) = centered_extent(body.x, body.width, p.column_spacing_mm);
+                let (y_min, y_max) = centered_extent(body.y, body.height, p.spacing_mm);
                 // 均匀点阵用 TikZ pattern 一次填充；逐点 \fill 在数百页时会撑爆 TeX 内存。
                 canvas.dot_grid(
                     x_min,
@@ -156,28 +142,19 @@ impl BodyTemplate {
                 if let Some(center_color) = p.center_color.as_deref()
                     && center_color != p.color.as_str()
                 {
-                    canvas.dot(
-                        xs[xs.len() / 2],
-                        ys[ys.len() / 2],
-                        p.radius_mm,
-                        center_color,
-                    );
+                    let (center_x, center_y) = body.center();
+                    canvas.dot(center_x, center_y, p.radius_mm, center_color);
                 }
             }
             Self::Grid(p) => {
                 // 与横线、点阵一致：以页心中心为起点向四周等距扩展，
                 // 四周最外侧的格线自然收口成边框。
-                let xs = centered(body.x, body.width, p.spacing_mm);
-                let ys = centered(body.y, body.height, p.spacing_mm);
-                if xs.len() < 2 || ys.len() < 2 {
+                let (x_min, x_max) = centered_extent(body.x, body.width, p.spacing_mm);
+                let (y_min, y_max) = centered_extent(body.y, body.height, p.spacing_mm);
+                // 至少要有两条格线才构成一个可填充的方格区域。
+                if x_min == x_max || y_min == y_max {
                     return;
                 }
-                let (Some(&x_min), Some(&x_max)) = (xs.first(), xs.last()) else {
-                    return;
-                };
-                let (Some(&y_min), Some(&y_max)) = (ys.first(), ys.last()) else {
-                    return;
-                };
                 canvas.cross_grid(
                     Rect {
                         x: x_min,

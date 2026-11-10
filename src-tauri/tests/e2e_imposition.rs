@@ -49,8 +49,13 @@ fn imposed_documents_compile_to_real_pdf() {
         doc.imposition = imposition;
         let tex = generate_document_latex(&doc).unwrap();
         assert!(tex.contains("paperwidth=296mm,paperheight=210mm"));
-        let out = compile::compile(&tex, &root.join(format!("build/{name}-e2e")), &[])
-            .expect("编译拼版 PDF");
+        let out = compile::compile(
+            &tex,
+            &root.join(format!("build/{name}-e2e")),
+            &[],
+            &compile::noop_sink(),
+        )
+        .expect("编译拼版 PDF");
         assert!(out.pdf.starts_with(b"%PDF"));
         assert!(!out.log.contains("Missing character"), "{}", out.log);
         std::fs::write(root.join(format!("build/{name}-sample.tex")), tex).unwrap();

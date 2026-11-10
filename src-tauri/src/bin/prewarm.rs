@@ -64,7 +64,7 @@ fn main() {
     // the cache; only bundles/ + formats/ accumulate.
     let job_root = out_dir.join("job");
     let mut all_ok = true;
-    let noop: std::sync::Arc<compile::LogSink> = std::sync::Arc::new(|_, _| {});
+    let noop = compile::noop_sink();
     for (name, doc) in warm_docs() {
         eprintln!("== warming {name} ==");
         match compile::compile(&doc, &job_root, &[], &noop) {
