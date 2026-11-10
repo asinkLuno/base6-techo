@@ -63,6 +63,6 @@ src-tauri/gen/android/app/src/main/jniLibs/
 **/.impeccable/live/*.png
 # impeccable-ignore-end
 
-# crapper / mutator 生成的度量与变异工作区
-/.metrics/
+# crapper / mutator 生成的度量与变异工作区（在 Cargo 项目目录内运行时也会生成）
+**/.metrics/
 /target/
