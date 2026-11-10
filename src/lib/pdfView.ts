@@ -4,9 +4,15 @@
  */
 
 /** 预览视图模式：连续滚动 / 单页翻页 / 双页对开。 */
-export type PdfViewMode = "continuous" | "single" | "double";
+export const PDF_VIEW_MODES = ["continuous", "single", "double"] as const;
+export type PdfViewMode = (typeof PDF_VIEW_MODES)[number];
 
 export const DEFAULT_PDF_VIEW_MODE: PdfViewMode = "continuous";
+
+/** 持久化数据是外部输入：未知模式回落到连续滚动，避免把非法值写进 store。 */
+export const isPdfViewMode = (value: unknown): value is PdfViewMode =>
+  typeof value === "string" &&
+  (PDF_VIEW_MODES as readonly string[]).includes(value);
 
 const clamp = (value: number, lo: number, hi: number) =>
   Math.min(hi, Math.max(lo, value));

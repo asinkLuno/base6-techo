@@ -5,26 +5,35 @@ import { memo } from "react";
 import { useTranslation } from "react-i18next";
 import { useDocumentStore } from "../stores/document";
 import {
+  type BodyTemplate,
   clampDotRadiusMm,
   clampDotsColumnSpacingMm,
   clampDotsSpacingMm,
+  clampGridLineWidthPt,
+  clampGridSpacingMm,
   clampLineWidthPt,
   clampPages,
   clampSpacingMm,
   DEFAULT_DOTS,
+  DEFAULT_GRID,
   DEFAULT_LINEAR,
   DOT_RADIUS_MM_MAX,
   DOT_RADIUS_MM_MIN,
   type DotsPattern,
+  diffSectionDecorations,
+  type GridPattern,
   LINE_WIDTH_PT_MAX,
   LINE_WIDTH_PT_MIN,
   type LinearPattern,
   PAGES_MAX,
   PAGES_MIN,
+  resolveSectionDecorations,
+  resolveSectionMargins,
   type SectionDraft,
   SPACING_MM_MAX,
   SPACING_MM_MIN,
 } from "../types/document";
+import { DecorationsPanel } from "./DecorationsPanel";
 import { NumberField } from "./NumberField";
 
 function GripIcon() {
@@ -184,6 +193,66 @@ function DotsFields({
   );
 }
 
+/** grid 模板配置项：格距 / 线色 / 线宽。 */
+function GridFields({
+  sectionId,
+  body,
+}: {
+  sectionId: string;
+  body: GridPattern;
+}) {
+  const { t } = useTranslation();
+  const updateSection = useDocumentStore((s) => s.updateSection);
+
+  const setGrid = (patch: Partial<GridPattern>) =>
+    updateSection(sectionId, { body: { ...body, ...patch } });
+
+  return (
+    <div className="grid gap-4 sm:grid-cols-3">
+      <NumberField
+        label={t("editor.config.gridSpacingMm")}
+        value={body.spacingMm}
+        min={SPACING_MM_MIN}
+        max={SPACING_MM_MAX}
+        step={0.5}
+        clamp={clampGridSpacingMm}
+        onCommit={(spacingMm) => setGrid({ spacingMm })}
+      />
+      <fieldset className="fieldset">
+        <legend className="fieldset-legend">{t("editor.config.color")}</legend>
+        <input
+          type="color"
+          className="input h-12 w-full cursor-pointer p-1"
+          value={body.color}
+          onChange={(e) => setGrid({ color: e.target.value })}
+        />
+      </fieldset>
+      <NumberField
+        label={t("editor.config.lineWidthPt")}
+        value={body.lineWidthPt}
+        min={LINE_WIDTH_PT_MIN}
+        max={LINE_WIDTH_PT_MAX}
+        step={0.1}
+        clamp={clampGridLineWidthPt}
+        onCommit={(lineWidthPt) => setGrid({ lineWidthPt })}
+      />
+    </div>
+  );
+}
+
+const defaultBodyFor = (kind: string): BodyTemplate => {
+  switch (kind) {
+    case "linear":
+      return { ...DEFAULT_LINEAR };
+    case "dots":
+      return { ...DEFAULT_DOTS };
+    case "grid":
+      return { ...DEFAULT_GRID };
+    default:
+      return { kind: "blank" };
+  }
+};
+
 interface SectionListItemProps {
   section: SectionDraft;
   index: number;
@@ -197,6 +266,9 @@ export default memo(function SectionListItem({
   const { t } = useTranslation();
   const updateSection = useDocumentStore((s) => s.updateSection);
   const removeSection = useDocumentStore((s) => s.removeSection);
+  const paper = useDocumentStore((s) => s.page.paper);
+  const globalMargins = useDocumentStore((s) => s.page.margins);
+  const globalDecorations = useDocumentStore((s) => s.decorations);
   const {
     attributes,
     listeners,
@@ -207,6 +279,16 @@ export default memo(function SectionListItem({
     isDragging,
   } = useSortable({ id: section.id });
   const body = section.body;
+  // 边距与装饰都没覆盖时整节跟随全书；只存与全书不同的字段，未覆盖的项实时取全书值。
+  const inheriting = section.margins === null && section.decorations === null;
+  const effectiveMargins = resolveSectionMargins(
+    section.margins,
+    globalMargins,
+  );
+  const effectiveDecorations = resolveSectionDecorations(
+    section.decorations,
+    globalDecorations,
+  );
 
   return (
     <details
@@ -237,6 +319,11 @@ export default memo(function SectionListItem({
           {t(`editor.template.${body.kind}`)}
         </span>
         <span className="text-sm opacity-70">× {section.pages}</span>
+        {inheriting && (
+          <span className="badge badge-ghost badge-sm">
+            {t("editor.decorations.summaryInherited")}
+          </span>
+        )}
         <button
           type="button"
           className="btn btn-ghost btn-circle btn-xs text-error ml-auto"
@@ -262,18 +349,14 @@ export default memo(function SectionListItem({
                 value={body.kind}
                 onChange={(e) =>
                   updateSection(section.id, {
-                    body:
-                      e.target.value === "linear"
-                        ? { ...DEFAULT_LINEAR }
-                        : e.target.value === "dots"
-                          ? { ...DEFAULT_DOTS }
-                          : { kind: "blank" },
+                    body: defaultBodyFor(e.target.value),
                   })
                 }
               >
                 <option value="blank">{t("editor.template.blank")}</option>
                 <option value="linear">{t("editor.template.linear")}</option>
                 <option value="dots">{t("editor.template.dots")}</option>
+                <option value="grid">{t("editor.template.grid")}</option>
               </select>
             </fieldset>
 
@@ -308,6 +391,50 @@ export default memo(function SectionListItem({
           {body.kind === "dots" && (
             <DotsFields sectionId={section.id} body={body} />
           )}
+          {body.kind === "grid" && (
+            <GridFields sectionId={section.id} body={body} />
+          )}
+
+          <div className="divider my-0" />
+
+          {/* 继承开关放在装饰折叠面板外面：打开即整节跟随全书，关掉才可编辑。 */}
+          <label className="label cursor-pointer justify-start gap-3">
+            <input
+              type="checkbox"
+              className="toggle"
+              checked={inheriting}
+              onChange={(e) =>
+                updateSection(
+                  section.id,
+                  e.target.checked
+                    ? { margins: null, decorations: null }
+                    : {
+                        margins: section.margins ?? {},
+                        decorations: section.decorations ?? {},
+                      },
+                )
+              }
+            />
+            <span className="font-medium">
+              {t("editor.section.inheritDecorations")}
+            </span>
+          </label>
+
+          <DecorationsPanel
+            paper={paper}
+            margins={effectiveMargins}
+            decorations={effectiveDecorations}
+            inherited={inheriting}
+            onMarginsChange={(margins) =>
+              updateSection(section.id, { margins })
+            }
+            onDecorationsChange={(decorations) =>
+              updateSection(section.id, {
+                decorations:
+                  diffSectionDecorations(decorations, globalDecorations) ?? {},
+              })
+            }
+          />
         </div>
       </div>
     </details>

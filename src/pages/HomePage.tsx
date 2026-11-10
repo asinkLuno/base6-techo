@@ -23,6 +23,7 @@ import SectionListItem from "../components/SectionListItem";
 import {
   appendLiveLine,
   type CompileLogLine,
+  parseCompileLogKind,
   splitCompileError,
 } from "../lib/compileLog";
 import { generatePdf } from "../lib/generatePdf";
@@ -102,7 +103,7 @@ export default function HomePage() {
     void listen<{ kind: string; line: string }>("compile-log", (e) => {
       if (!liveActiveRef.current) return;
       pendingLines.current.push({
-        kind: e.payload.kind as CompileLogLine["kind"],
+        kind: parseCompileLogKind(e.payload.kind),
         text: e.payload.line,
       });
       if (flushFrame.current === null) {
@@ -142,7 +143,12 @@ export default function HomePage() {
     // 编译期间并行预载预览 chunk（pdfjs 体积大），生成完成后 PdfViewer 无需等下载
     void import("../components/PdfViewer");
     // page/imposition 只在这里用到，回调内按需读取，避免设置变更时重渲整个主界面
-    const { page, imposition, sections: current } = useDocumentStore.getState();
+    const {
+      page,
+      decorations,
+      imposition,
+      sections: current,
+    } = useDocumentStore.getState();
     setGenerating(true);
     setError(null);
     setLog(null);
@@ -154,8 +160,9 @@ export default function HomePage() {
     try {
       const out = await generatePdf({
         page,
+        decorations,
         imposition,
-        sections: toSectionSpecs(current),
+        sections: toSectionSpecs(current, page, decorations),
       });
       setPdfBytes(out.pdf);
       setLog(out.log || null);
@@ -276,7 +283,9 @@ export default function HomePage() {
             <button
               type="button"
               className="btn btn-primary"
-              disabled={sections.length === 0 || generating || saving}
+              disabled={
+                sections.length === 0 || overflow || generating || saving
+              }
               onClick={handleGenerate}
             >
               {generating && (
@@ -310,6 +319,7 @@ export default function HomePage() {
               log={log}
               stream={stream}
               live={generating}
+              failed={!!error}
               defaultOpen={!!error}
             />
           )}

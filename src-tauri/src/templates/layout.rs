@@ -69,6 +69,22 @@ impl Default for Margins {
     }
 }
 
+impl Margins {
+    /// 按纸张尺寸校验四周边距；section 覆盖与全书默认共用。
+    pub(crate) fn validate_for(&self, paper: &PaperSize) -> Result<(), String> {
+        let (width, height) = paper.dims_mm();
+        for v in [self.header_mm, self.footer_mm, self.inner_mm, self.outer_mm] {
+            check_range("区域留白", v, 0.0, 1000.0)?;
+        }
+        if width - self.inner_mm - self.outer_mm < 1.0
+            || height - self.header_mm - self.footer_mm < 1.0
+        {
+            return Err("扣除四周留白后，页心宽高必须至少为 1mm".into());
+        }
+        Ok(())
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default, rename_all = "camelCase", deny_unknown_fields)]
 pub struct PageSettings {
@@ -93,14 +109,7 @@ impl PageSettings {
         for (name, value) in [("纸宽", width), ("纸高", height)] {
             check_range(name, value, 30.0, 1000.0)?;
         }
-        let m = &self.margins;
-        for v in [m.header_mm, m.footer_mm, m.inner_mm, m.outer_mm] {
-            check_range("区域留白", v, 0.0, 1000.0)?;
-        }
-        if width - m.inner_mm - m.outer_mm < 1.0 || height - m.header_mm - m.footer_mm < 1.0 {
-            return Err("扣除四周留白后，页心宽高必须至少为 1mm".into());
-        }
-        Ok(())
+        self.margins.validate_for(&self.paper)
     }
 }
 

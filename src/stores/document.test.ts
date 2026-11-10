@@ -1,9 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   DEFAULT_DOTS,
+  DEFAULT_GRID,
   DEFAULT_IMPOSITION,
   DEFAULT_LINEAR,
   DEFAULT_PAGE,
+  newDecorations,
   toSectionSpecs,
 } from "../types/document";
 import { useDocumentStore } from "./document";
@@ -36,6 +38,8 @@ describe("document store", () => {
       pages: 1,
       numbered: true,
       body: DEFAULT_LINEAR,
+      margins: null,
+      decorations: null,
     });
   });
 
@@ -145,7 +149,40 @@ describe("document store", () => {
     });
   });
 
-  it("updateSection 在 blank、linear 与 dots 间切换 body", () => {
+  it("updateSection clamp grid 参数到边界，非法颜色回落默认值", () => {
+    state().addSection();
+    const id = state().sections[0].id;
+    state().updateSection(id, {
+      body: {
+        kind: "grid",
+        spacingMm: 0,
+        color: "blue",
+        lineWidthPt: 100,
+      },
+    });
+    expect(state().sections[0].body).toEqual({
+      kind: "grid",
+      spacingMm: 0.1,
+      color: DEFAULT_GRID.color,
+      lineWidthPt: 10,
+    });
+    state().updateSection(id, {
+      body: {
+        kind: "grid",
+        spacingMm: 4,
+        color: "#112233",
+        lineWidthPt: 0.6,
+      },
+    });
+    expect(state().sections[0].body).toEqual({
+      kind: "grid",
+      spacingMm: 4,
+      color: "#112233",
+      lineWidthPt: 0.6,
+    });
+  });
+
+  it("updateSection 在 blank、linear、dots 与 grid 间切换 body", () => {
     state().addSection();
     const id = state().sections[0].id;
     state().updateSection(id, { body: { kind: "blank" } });
@@ -154,6 +191,8 @@ describe("document store", () => {
     expect(state().sections[0].body).toEqual(DEFAULT_LINEAR);
     state().updateSection(id, { body: DEFAULT_DOTS });
     expect(state().sections[0].body).toEqual(DEFAULT_DOTS);
+    state().updateSection(id, { body: DEFAULT_GRID });
+    expect(state().sections[0].body).toEqual(DEFAULT_GRID);
   });
 
   it("updateSection 对未知 id 是 no-op，不会崩溃", () => {
@@ -169,23 +208,217 @@ describe("document store", () => {
     state().updateSection(id, { numbered: false });
     expect(state().sections[0].numbered).toBe(false);
   });
+
+  it("updateSection 覆盖装饰时 clamp 字号与颜色，null 恢复继承", () => {
+    state().addSection();
+    const id = state().sections[0].id;
+    const custom = newDecorations();
+    custom.header.content = { kind: "text", text: "本节" };
+    custom.header.style = { sizePt: 100, color: "red" };
+    custom.footer.pageNumber = true;
+    state().updateSection(id, {
+      decorations: { header: custom.header, footer: custom.footer },
+    });
+    // 只保留与全书不同的页头/页脚；未改的水印不落覆盖，仍实时跟随全书。
+    expect(state().sections[0].decorations?.header).toEqual({
+      content: { kind: "text", text: "本节" },
+      pageNumber: false,
+      align: "center",
+      style: { sizePt: 72, color: "#000000" },
+    });
+    expect(state().sections[0].decorations?.footer?.pageNumber).toBe(true);
+    expect(state().sections[0].decorations?.innerWatermark).toBeUndefined();
+    state().updateSection(id, { decorations: null });
+    expect(state().sections[0].decorations).toBeNull();
+  });
+
+  it("全局装饰变化会实时同步到 section 中未覆盖的项", () => {
+    useDocumentStore.setState({
+      sections: [],
+      page: DEFAULT_PAGE,
+      decorations: newDecorations(),
+    });
+    state().addSection();
+    const id = state().sections[0].id;
+    state().updateSection(id, { decorations: {} });
+
+    const next = newDecorations();
+    next.header.content = { kind: "text", text: "新全书页头" };
+    next.footer.pageNumber = true;
+    state().updateDecorations(next);
+    // 自定义模式下没改过的页头仍不落覆盖。
+    expect(state().sections[0].decorations).toEqual({});
+
+    // 只覆盖页脚页码；页头继续跟随全书。
+    state().updateSection(id, {
+      decorations: {
+        footer: { ...state().decorations.footer, pageNumber: false },
+      },
+    });
+    expect(state().sections[0].decorations).toEqual({
+      footer: { ...next.footer, pageNumber: false },
+    });
+
+    const newer = {
+      ...state().decorations,
+      header: {
+        ...state().decorations.header,
+        content: { kind: "text" as const, text: "更新后的页头" },
+      },
+    };
+    state().updateDecorations(newer);
+    const [spec] = toSectionSpecs(
+      state().sections,
+      state().page,
+      state().decorations,
+    );
+    expect(spec.decorations?.header.content).toEqual({
+      kind: "text",
+      text: "更新后的页头",
+    });
+    expect(spec.decorations?.footer.pageNumber).toBe(false);
+  });
+
+  it("全局边距变化会实时同步到 section 中未覆盖的字段", () => {
+    useDocumentStore.setState({
+      sections: [],
+      page: DEFAULT_PAGE,
+      decorations: newDecorations(),
+    });
+    state().addSection();
+    const id = state().sections[0].id;
+    state().updateSection(id, { margins: { headerMm: 30 } });
+    state().updatePage({
+      margins: { ...DEFAULT_PAGE.margins, footerMm: 24 },
+    });
+    const [spec] = toSectionSpecs(
+      state().sections,
+      state().page,
+      state().decorations,
+    );
+    expect(spec.margins).toEqual({
+      headerMm: 30,
+      footerMm: 24,
+      innerMm: 18,
+      outerMm: 18,
+    });
+  });
+});
+
+describe("decorations", () => {
+  beforeEach(() =>
+    useDocumentStore.setState({
+      sections: [],
+      decorations: newDecorations(),
+    }),
+  );
+
+  it("初始全书装饰与 Rust 默认一致", () => {
+    expect(state().decorations).toEqual(newDecorations());
+  });
+
+  it("updateDecorations clamp 字号、颜色与水印", () => {
+    const next = newDecorations();
+    next.header.content = { kind: "text", text: "手帐" };
+    next.header.style = { sizePt: 0, color: "#GGGGGG" };
+    next.innerWatermark = {
+      text: "BASE6",
+      style: { sizePt: 200, color: "blue" },
+    };
+    state().updateDecorations(next);
+    expect(state().decorations.header).toEqual({
+      content: { kind: "text", text: "手帐" },
+      pageNumber: false,
+      align: "center",
+      style: { sizePt: 1, color: "#000000" },
+    });
+    expect(state().decorations.innerWatermark).toEqual({
+      text: "BASE6",
+      style: { sizePt: 72, color: "#000000" },
+    });
+    expect(state().decorations.outerWatermark).toBeNull();
+  });
 });
 
 describe("toSectionSpecs", () => {
   it("剥离前端 id，得到与 Rust Document.sections 对齐的负载", () => {
     const drafts = [
-      { id: "x", pages: 2, numbered: true, body: DEFAULT_LINEAR },
-      { id: "y", pages: 1, numbered: false, body: { kind: "blank" as const } },
+      {
+        id: "x",
+        pages: 2,
+        numbered: true,
+        body: DEFAULT_LINEAR,
+        margins: null,
+        decorations: null,
+      },
+      {
+        id: "y",
+        pages: 1,
+        numbered: false,
+        body: { kind: "blank" as const },
+        margins: null,
+        decorations: null,
+      },
     ];
-    expect(toSectionSpecs(drafts)).toEqual([
-      { pages: 2, numbered: true, body: DEFAULT_LINEAR },
-      { pages: 1, numbered: false, body: { kind: "blank" } },
+    expect(toSectionSpecs(drafts, DEFAULT_PAGE, newDecorations())).toEqual([
+      {
+        pages: 2,
+        numbered: true,
+        body: DEFAULT_LINEAR,
+        margins: null,
+        decorations: null,
+      },
+      {
+        pages: 1,
+        numbered: false,
+        body: { kind: "blank" },
+        margins: null,
+        decorations: null,
+      },
     ]);
+  });
+
+  it("只覆盖某几项时，其余项在生成前实时取全书当前值", () => {
+    const decorations = newDecorations();
+    decorations.header.content = { kind: "text", text: "全书页头" };
+    decorations.outerWatermark = {
+      text: "全书水印",
+      style: { sizePt: 8, color: "#123456" },
+    };
+    const drafts = [
+      {
+        id: "x",
+        pages: 1,
+        numbered: true,
+        body: { kind: "blank" as const },
+        margins: { headerMm: 30 },
+        decorations: {
+          footer: {
+            content: { kind: "empty" as const },
+            pageNumber: true,
+            align: "outer" as const,
+            style: { sizePt: 9, color: "#000000" },
+          },
+        },
+      },
+    ];
+    const [spec] = toSectionSpecs(drafts, DEFAULT_PAGE, decorations);
+    expect(spec.margins).toEqual({
+      ...DEFAULT_PAGE.margins,
+      headerMm: 30,
+    });
+    expect(spec.decorations?.header).toEqual(decorations.header);
+    expect(spec.decorations?.footer.pageNumber).toBe(true);
+    expect(spec.decorations?.outerWatermark).toEqual(
+      decorations.outerWatermark,
+    );
   });
 });
 
 describe("page settings", () => {
-  beforeEach(() => useDocumentStore.setState({ sections: [] }));
+  beforeEach(() =>
+    useDocumentStore.setState({ sections: [], page: DEFAULT_PAGE }),
+  );
 
   it("初始页面设置为 Rust 默认：A5、左装订、16/16/18/18", () => {
     expect(state().page).toEqual(DEFAULT_PAGE);
@@ -225,6 +458,20 @@ describe("page settings", () => {
       footerMm: 12,
       innerMm: 14,
       outerMm: 16,
+    });
+  });
+
+  it("换小纸时压缩边距，保证页心至少 1mm", () => {
+    state().updatePage({
+      paper: { kind: "a6" },
+      margins: { headerMm: 100, footerMm: 100, innerMm: 60, outerMm: 60 },
+    });
+    // A6 105×148：纵向保留 100 后页脚压到 47；横向保留 60 后外侧压到 44。
+    expect(state().page.margins).toEqual({
+      headerMm: 100,
+      footerMm: 47,
+      innerMm: 60,
+      outerMm: 44,
     });
   });
 

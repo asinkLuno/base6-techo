@@ -3,12 +3,24 @@ import {
   activeTocIndex,
   destPage,
   hasNextSpread,
+  isPdfViewMode,
   type OutlineNodeLike,
   pagedStep,
   resolveOutline,
   spreadPages,
   type TocSource,
 } from "./pdfView";
+
+describe("isPdfViewMode", () => {
+  it("只接受三档已知模式，其余外部值一律拒绝", () => {
+    expect(isPdfViewMode("continuous")).toBe(true);
+    expect(isPdfViewMode("single")).toBe(true);
+    expect(isPdfViewMode("double")).toBe(true);
+    expect(isPdfViewMode("booklet")).toBe(false);
+    expect(isPdfViewMode(1)).toBe(false);
+    expect(isPdfViewMode(undefined)).toBe(false);
+  });
+});
 
 describe("pagedStep", () => {
   it("单页模式逐页步进并在边界停住", () => {
@@ -146,6 +158,24 @@ describe("resolveOutline", () => {
       { id: 2, title: "Chapter 2", page: 6, depth: 1 },
       { id: 3, title: "Backmatter", page: null, depth: 0 },
       { id: 4, title: "", page: 1, depth: 0 },
+    ]);
+  });
+
+  it("单子节点也会递归展开", async () => {
+    const doc = fakeDoc(
+      [
+        {
+          title: "Parent",
+          dest: "p",
+          items: [{ title: "Only child", dest: "c" }],
+        },
+      ],
+      { p: [{ num: 0, gen: 0 }], c: [{ num: 1, gen: 0 }] },
+      { 0: 0, 1: 1 },
+    );
+    await expect(resolveOutline(doc)).resolves.toEqual([
+      { id: 0, title: "Parent", page: 1, depth: 0 },
+      { id: 1, title: "Only child", page: 2, depth: 1 },
     ]);
   });
 

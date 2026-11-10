@@ -409,6 +409,8 @@ export function PdfViewer({ pdfBytes }: { pdfBytes: ArrayBuffer | null }) {
     let alive = true;
     const tasks = new Map<number, pdfjsLib.RenderTask>();
     const rendered = new Set<number>();
+    // startPageRender 是异步的：用同步 Set 占位，防止同一页在 await 期间被观察器重复触发
+    const inFlight = new Set<number>();
 
     const unrender = (index: number) => {
       tasks.get(index)?.cancel();
@@ -424,9 +426,16 @@ export function PdfViewer({ pdfBytes }: { pdfBytes: ArrayBuffer | null }) {
     };
 
     const render = (index: number) => {
-      if (!alive || rendered.has(index) || tasks.has(index)) return;
+      if (
+        !alive ||
+        rendered.has(index) ||
+        tasks.has(index) ||
+        inFlight.has(index)
+      )
+        return;
       const canvas = canvasRefs.current[index];
       if (!canvas) return;
+      inFlight.add(index);
       (async () => {
         try {
           const task = await startPageRender(
@@ -443,6 +452,8 @@ export function PdfViewer({ pdfBytes }: { pdfBytes: ArrayBuffer | null }) {
           rendered.add(index);
         } catch {
           // 离屏取消不算错误：预览失败只源于文档加载（error state）
+        } finally {
+          inFlight.delete(index);
         }
       })();
     };
@@ -596,9 +607,7 @@ export function PdfViewer({ pdfBytes }: { pdfBytes: ArrayBuffer | null }) {
   if (error) {
     return (
       <div role="alert" className="alert alert-error">
-        <span>
-          {t("editor.pdfError")}：{error}
-        </span>
+        <span>{t("editor.pdfErrorDetail", { message: error })}</span>
       </div>
     );
   }

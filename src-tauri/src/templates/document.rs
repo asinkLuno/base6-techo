@@ -2,7 +2,7 @@
 use super::{
     components::Decorations,
     imposition::Imposition,
-    layout::{PageLayout, PageSettings},
+    layout::{Margins, PageLayout, PageSettings},
     patterns::BodyTemplate,
 };
 use serde::{Deserialize, Serialize};
@@ -24,6 +24,10 @@ pub struct Section {
     pub pages: usize,
     pub numbered: bool,
     pub body: BodyTemplate,
+    /// 本节覆盖的页头、页脚与水印；None 表示继承 Document.decorations。
+    pub decorations: Option<Decorations>,
+    /// 本节覆盖的四周边距；None 表示继承 Document.page.margins。
+    pub margins: Option<Margins>,
 }
 
 impl Default for Section {
@@ -32,6 +36,8 @@ impl Default for Section {
             pages: 1,
             numbered: true,
             body: BodyTemplate::Blank,
+            decorations: None,
+            margins: None,
         }
     }
 }
@@ -80,6 +86,12 @@ fn validate(document: &Document) -> Result<usize, String> {
             return Err(format!("全书不能超过 {MAX_PAGES} 页"));
         }
         section.body.validate()?;
+        if let Some(decorations) = &section.decorations {
+            decorations.validate()?;
+        }
+        if let Some(margins) = &section.margins {
+            margins.validate_for(&document.page.paper)?;
+        }
     }
     Ok(total)
 }
@@ -89,6 +101,15 @@ pub fn plan_document(document: &Document) -> Result<PlannedDocument<'_>, String>
     let mut pages = Vec::with_capacity(total);
     let mut next_number = 1;
     for (section_index, section) in document.sections.iter().enumerate() {
+        // 纸张与装订方向全书共用，只有四周边距可按节覆盖。
+        let settings = PageSettings {
+            paper: document.page.paper.clone(),
+            binding: document.page.binding,
+            margins: section
+                .margins
+                .clone()
+                .unwrap_or_else(|| document.page.margins.clone()),
+        };
         for local_index in 0..section.pages {
             let physical_page = pages.len() + 1;
             let display_number = if section.numbered {
@@ -105,7 +126,7 @@ pub fn plan_document(document: &Document) -> Result<PlannedDocument<'_>, String>
                     local_index,
                     display_number,
                 },
-                layout: PageLayout::resolve(&document.page, physical_page),
+                layout: PageLayout::resolve(&settings, physical_page),
                 section,
             });
         }

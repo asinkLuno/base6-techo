@@ -19,6 +19,20 @@ export interface CompileLogSummary {
 /** 实时日志行的级别：`tex` = 引擎终端转写，其余为 tectonic 状态消息。 */
 export type CompileLogKind = "tex" | "note" | "warning" | "error";
 
+const LOG_KINDS: ReadonlySet<string> = new Set([
+  "tex",
+  "note",
+  "warning",
+  "error",
+]);
+
+/** IPC 事件里的 kind 是外部数据：未知值按引擎转写行处理，保证日志仍可读。 */
+export function parseCompileLogKind(value: unknown): CompileLogKind {
+  return typeof value === "string" && LOG_KINDS.has(value)
+    ? (value as CompileLogKind)
+    : "tex";
+}
+
 export interface CompileLogLine {
   /** 单调递增行号：实时追加时生成，作 React key（环形丢弃后仍稳定）。 */
   id?: number;

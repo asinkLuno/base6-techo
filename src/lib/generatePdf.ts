@@ -1,9 +1,15 @@
 import { invoke, isTauri } from "@tauri-apps/api/core";
-import type { Imposition, PageSettings, SectionSpec } from "../types/document";
+import type {
+  Decorations,
+  Imposition,
+  PageSettings,
+  SectionSpec,
+} from "../types/document";
 
 /** 发给 Rust 的整本文档，形状对齐 serde Document（均为 camelCase）。 */
 export interface DocumentPayload {
   page: PageSettings;
+  decorations: Decorations;
   imposition: Imposition;
   sections: SectionSpec[];
 }

@@ -36,7 +36,7 @@ adb install -r src-tauri/gen/android/app/build/outputs/apk/universal/debug/*.apk
 | `scripts/patch-tectonic.sh`     | 给 cargo registry 里的 tectonic 源码打 Android 必打补丁（见下），幂等、自校验                  |
 | `scripts/make-offline-cache.sh` | 构建 `prewarm` 工具并预热离线缓存 → `public/tectonic-cache.zip`                                |
 | `scripts/trim-icu-data.sh`      | 裁剪 vcpkg 静态 ICU 数据包（33 MiB → 8.9 MiB），`--restore` 还原；见「ICU 数据裁剪」           |
-| `scripts/build-android.sh`      | 交叉编译 + 出 APK（自动裁剪 ICU、拷贝 NDK 的 `libc++_shared.so` 进 jniLibs）                  |
+| `scripts/build-android.sh`      | 交叉编译 + 出 APK（自动裁剪 ICU、拷贝 NDK 的 `libc++_shared.so` 进 jniLibs）                   |
 
 ## Tectonic 的 Android 适配要点（为什么有这些补丁/配置）
 

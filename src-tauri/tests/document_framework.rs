@@ -1,7 +1,7 @@
 use base6_techo_lib::templates::{
     document::{Document, Section, generate_document_latex, plan_document},
     layout::{Binding, Side},
-    patterns::{BodyTemplate, DotsPattern, LinearPattern},
+    patterns::{BodyTemplate, DotsPattern, GridPattern, LinearPattern},
 };
 
 fn document() -> Document {
@@ -288,6 +288,57 @@ fn dots_can_omit_the_center_dot_and_reject_invalid_parameters() {
 }
 
 #[test]
+fn grid_spreads_from_the_page_center_with_a_closed_border() {
+    let doc: Document = serde_json::from_str(
+        r##"{"sections":[{"body":{"kind":"grid","spacingMm":5,"color":"#7A9AC9","lineWidthPt":0.2}}]}"##,
+    )
+    .unwrap();
+    let tex = generate_document_latex(&doc).unwrap();
+    // A5 默认页心 (18,16)-(130,194)：中心 (74,105)，从中心向四周扩展，
+    // 横线 19…129、竖线 20…190，方格范围 (19,20)-(129,190)。
+    assert!(tex.contains("\\pgfdeclarepatternformonly{grid_5_0p2_4_0}"));
+    assert!(tex.contains("\\pgfsetfillpattern{grid_5_0p2_4_0}{ink}"));
+    // 填充范围外扩半条线宽（0.035146mm），边框不被裁剪框切掉一半。
+    assert!(tex.contains("\\pgfpathmoveto{\\pgfpointxy{18.964854}{19.964854}}"));
+    assert!(tex.contains("\\pgfpathlineto{\\pgfpointxy{129.035146}{190.035146}}"));
+    assert!(!tex.contains("\\draw["));
+}
+
+#[test]
+fn dense_grid_output_stays_compact_and_rejects_invalid_parameters() {
+    let doc: Document = serde_json::from_str(
+        r#"{"sections":[{"pages":100,"body":{"kind":"grid","spacingMm":0.1}}]}"#,
+    )
+    .unwrap();
+    let tex = generate_document_latex(&doc).unwrap();
+    assert!(tex.len() < 200_000, "tex={} bytes", tex.len());
+    assert_eq!(tex.matches("\\pgfdeclarepatternformonly").count(), 1);
+
+    for body in [
+        BodyTemplate::Grid(GridPattern {
+            spacing_mm: 0.01,
+            ..Default::default()
+        }),
+        BodyTemplate::Grid(GridPattern {
+            spacing_mm: f64::NAN,
+            ..Default::default()
+        }),
+        BodyTemplate::Grid(GridPattern {
+            line_width_pt: 0.0,
+            ..Default::default()
+        }),
+        BodyTemplate::Grid(GridPattern {
+            color: "blue".into(),
+            ..Default::default()
+        }),
+    ] {
+        let mut doc = document();
+        doc.sections[1].body = body;
+        assert!(plan_document(&doc).is_err());
+    }
+}
+
+#[test]
 fn linear_stripes_are_centered_with_symmetric_margins() {
     let doc: Document = serde_json::from_str(
         r#"{
@@ -313,6 +364,89 @@ fn dense_linear_output_stays_compact() {
     // 改造前逐线输出约 15MB；pattern 后每页固定十几行，且全文档只声明一次。
     assert!(tex.len() < 200_000, "tex={} bytes", tex.len());
     assert_eq!(tex.matches("\\pgfdeclarepatternformonly").count(), 1);
+}
+
+#[test]
+fn section_decorations_override_book_defaults_and_can_inherit() {
+    let doc: Document = serde_json::from_str(
+        r##"{
+        "decorations": {
+            "header": {"content": {"kind": "text", "text": "全书"}},
+            "footer": {"pageNumber": true, "align": "center"}
+        },
+        "sections": [
+            {
+                "pages": 1,
+                "numbered": true,
+                "decorations": {
+                    "header": {"content": {"kind": "text", "text": "本节"}},
+                    "footer": {"pageNumber": false, "align": "outer"},
+                    "innerWatermark": {"text": "装订", "style": {"sizePt": 7}}
+                }
+            },
+            {"pages": 1, "numbered": true}
+        ]
+    }"##,
+    )
+    .unwrap();
+    let tex = generate_document_latex(&doc).unwrap();
+    // 第一节用覆盖值：本节页头 + 水印，且它自己的页脚不显示页码。
+    assert_eq!(tex.matches("本节").count(), 1);
+    assert_eq!(tex.matches("装订").count(), 1);
+    // 第二节没有覆盖，回落到全书默认页头。
+    assert_eq!(tex.matches("全书").count(), 1);
+}
+
+#[test]
+fn section_margins_override_book_defaults_and_can_inherit() {
+    let doc: Document = serde_json::from_str(
+        r#"{
+        "page": {"margins": {"headerMm": 16, "footerMm": 16, "innerMm": 18, "outerMm": 18}},
+        "sections": [
+            {"pages": 1, "margins": {"headerMm": 30, "footerMm": 10, "innerMm": 25, "outerMm": 5}},
+            {"pages": 1}
+        ]
+    }"#,
+    )
+    .unwrap();
+    let plan = plan_document(&doc).unwrap();
+    let custom = &plan.pages()[0].layout;
+    assert_eq!(custom.body.x, 25.0);
+    assert_eq!(custom.body.y, 30.0);
+    assert_eq!(custom.body.width, 148.0 - 25.0 - 5.0);
+    assert_eq!(custom.body.height, 210.0 - 30.0 - 10.0);
+    // 第二节省略 margins，回落到全书默认留白。
+    let inherited = &plan.pages()[1].layout;
+    assert_eq!(inherited.body.x, 18.0);
+    assert_eq!(inherited.body.y, 16.0);
+    assert_eq!(inherited.body.width, 148.0 - 18.0 - 18.0);
+    assert_eq!(inherited.body.height, 210.0 - 16.0 - 16.0);
+}
+
+#[test]
+fn invalid_section_margins_are_rejected() {
+    for margins in [
+        r#"{"headerMm": -1}"#,
+        r#"{"headerMm": 500}"#,
+        r#"{"innerMm": 1000}"#,
+    ] {
+        let json = format!(r#"{{"sections": [{{"margins": {margins}}}]}}"#);
+        let doc: Document = serde_json::from_str(&json).unwrap();
+        assert!(plan_document(&doc).is_err(), "应拒绝 {margins}");
+    }
+}
+
+#[test]
+fn invalid_section_decorations_are_rejected() {
+    for decorations in [
+        r#"{"header": {"style": {"sizePt": 0}}}"#,
+        r#"{"header": {"style": {"color": "red"}}}"#,
+        r##"{"outerWatermark": {"text": "x", "style": {"color": "#XYZXYZ"}}}"##,
+    ] {
+        let json = format!(r#"{{"sections": [{{"decorations": {decorations}}}]}}"#);
+        let doc: Document = serde_json::from_str(&json).unwrap();
+        assert!(plan_document(&doc).is_err(), "应拒绝 {decorations}");
+    }
 }
 
 /// 前端编辑器发出的确切负载形状（src/lib/generatePdf.ts 的 DocumentPayload）：

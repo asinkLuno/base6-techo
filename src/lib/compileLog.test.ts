@@ -4,6 +4,7 @@ import {
   COMPILE_LOG_MARKER,
   type CompileLogLine,
   parseCompileLog,
+  parseCompileLogKind,
   splitCompileError,
 } from "./compileLog";
 
@@ -17,6 +18,17 @@ Overfull \\hbox (12.3pt too wide) in paragraph at lines 5--7
 Underfull \\hbox (badness 10000) detected at line 9
 普通内容行
 Output written on document.xdv (1 page, 1676 bytes).`;
+
+describe("parseCompileLogKind", () => {
+  it("已知级别原样返回，未知值回落到 tex", () => {
+    expect(parseCompileLogKind("tex")).toBe("tex");
+    expect(parseCompileLogKind("note")).toBe("note");
+    expect(parseCompileLogKind("warning")).toBe("warning");
+    expect(parseCompileLogKind("error")).toBe("error");
+    expect(parseCompileLogKind("bogus")).toBe("tex");
+    expect(parseCompileLogKind(undefined)).toBe("tex");
+  });
+});
 
 describe("parseCompileLog", () => {
   it("统计 `!` 错误行与 Warning/Overfull 警告行", () => {

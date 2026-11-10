@@ -162,6 +162,57 @@ impl<'a> Canvas<'a> {
         self.pattern_fill_rect(&name, rect.x, rect.y, right, bottom);
     }
 
+    /// 方格：一个 tile 内同时画横线与竖线，一次填充整个方格区域。
+    /// 与横线、点阵同理，逐线输出在极小间距或数百页时会撑爆 TeX。
+    pub(crate) fn cross_grid(&mut self, rect: Rect, spacing: f64, line_width_pt: f64, color: &str) {
+        // TeX pt（1/72.27in）换算成毫米。
+        let width = line_width_pt * 25.4 / 72.27;
+        let half = width / 2.0;
+        // pattern 在页面空间平铺：x 与页面同向；y 向上而阅读页局部 y 向下。
+        // 相位锁到方格左上角，保证边框与页心内的整数格对齐。
+        let offset_x = (self.sheet_x_mm + rect.x).rem_euclid(spacing);
+        let offset_y = (self.sheet_height_mm - rect.y).rem_euclid(spacing);
+        let name = format!(
+            "grid_{}_{}_{}_{}",
+            name_part(spacing),
+            name_part(line_width_pt),
+            name_part(offset_x),
+            name_part(offset_y),
+        );
+        let step = qpoint(spacing, spacing);
+        // 裁剪框四周各放宽半个线宽，避免落在 tile 边界上的线条被切掉一半。
+        let origin = qpoint(-half, -half);
+        let upper = qpoint(spacing + half, spacing + half);
+        let horizontal = format!(
+            "\\pgfpathrectangle{{{}}}{{{}}}",
+            qpoint(-half, offset_y - half),
+            qpoint(spacing + 2.0 * half, 2.0 * half)
+        );
+        let vertical = format!(
+            "\\pgfpathrectangle{{{}}}{{{}}}",
+            qpoint(offset_x - half, -half),
+            qpoint(2.0 * half, spacing + 2.0 * half)
+        );
+        writeln!(
+            self.source,
+            "\\definecolor{{ink}}{{HTML}}{{{}}}",
+            &color[1..]
+        )
+        .unwrap();
+        let declaration = format!(
+            "\\pgfdeclarepatternformonly{{{name}}}{{{origin}}}{{{upper}}}{{{step}}}{{%\n  {horizontal}%\n  {vertical}%\n  \\pgfusepath{{fill}}%\n}}\n"
+        );
+        self.declare_pattern(&name, &declaration);
+        // 填充范围同样外扩半个线宽；区域外的部分由页心裁剪收口。
+        self.pattern_fill_rect(
+            &name,
+            rect.x - half,
+            rect.y - half,
+            rect.x + rect.width + half,
+            rect.y + rect.height + half,
+        );
+    }
+
     fn pattern_fill_rect(&mut self, name: &str, left: f64, top: f64, right: f64, bottom: f64) {
         writeln!(self.source, "\\pgfsetfillpattern{{{name}}}{{ink}}").unwrap();
         writeln!(self.source, "\\pgfpathmoveto{{{}}}", xy_point(left, top)).unwrap();
@@ -329,7 +380,12 @@ fn render_page(
         page.section.body.draw(canvas, &page.layout, &page.context);
         canvas.end_region();
     }
-    plan.document.decorations.draw(canvas, page);
+    // 节级装饰整体覆盖全书默认；None 表示继承。
+    page.section
+        .decorations
+        .as_ref()
+        .unwrap_or(&plan.document.decorations)
+        .draw(canvas, page);
     canvas.end_region();
     canvas.end_region();
 }

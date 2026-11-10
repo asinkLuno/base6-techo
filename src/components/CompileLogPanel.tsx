@@ -9,7 +9,8 @@ interface CompileLogPanelProps {
   stream?: CompileLogLine[] | null;
   /** 编译进行中：强制展开、显示 spinner、自动滚动。 */
   live?: boolean;
-  /** 失败场景传 true，初始即展开。 */
+  /** 失败场景传 true，初始即展开；编译失败时也会强制展开。 */
+  failed?: boolean;
   defaultOpen?: boolean;
 }
 
@@ -48,6 +49,7 @@ export function CompileLogPanel({
   log,
   stream,
   live = false,
+  failed = false,
   defaultOpen = false,
 }: CompileLogPanelProps) {
   const { t } = useTranslation();
@@ -58,7 +60,9 @@ export function CompileLogPanel({
   // 最终态按行拆开，与实时态共用渲染；日志不变则不重复切分
   const finalLines = useMemo<CompileLogLine[]>(
     () =>
-      (log ?? "").split("\n").map((text) => ({ kind: "tex" as const, text })),
+      (log ?? "")
+        .split(/\r?\n/)
+        .map((text) => ({ kind: "tex" as const, text })),
     [log],
   );
 
@@ -69,7 +73,7 @@ export function CompileLogPanel({
     if (live) setOpen(true);
   }, [live]);
 
-  // 从实时态切回最终态：有错误保持展开供排查，无错误收起只留摘要徽章
+  // 从实时态切回最终态：编译失败或有错误行时保持展开供排查，否则收起只留摘要徽章
   const wasLive = useRef(false);
   useEffect(() => {
     if (isLive) {
@@ -78,9 +82,14 @@ export function CompileLogPanel({
     }
     if (wasLive.current) {
       wasLive.current = false;
-      setOpen(summary.errors > 0);
+      setOpen(failed || summary.errors > 0);
     }
-  }, [isLive, summary]);
+  }, [isLive, failed, summary]);
+
+  // 失败提示晚于日志面板出现时也强制展开
+  useEffect(() => {
+    if (failed) setOpen(true);
+  }, [failed]);
 
   // 实时流每追加一行滚到底部（依赖行数变化触发；行数组本身不参与渲染判断）
   // biome-ignore lint/correctness/useExhaustiveDependencies: 以 stream 长度作为追加信号

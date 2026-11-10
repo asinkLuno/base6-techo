@@ -2,7 +2,7 @@
 use super::{
     document::PageContext,
     latex::Canvas,
-    layout::{PageLayout, check_range},
+    layout::{PageLayout, Rect, check_range},
 };
 use serde::{Deserialize, Serialize};
 
@@ -14,6 +14,7 @@ pub enum BodyTemplate {
     #[serde(alias = "lined")]
     Linear(LinearPattern),
     Dots(DotsPattern),
+    Grid(GridPattern),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -58,6 +59,25 @@ impl Default for DotsPattern {
     }
 }
 
+/// 方格：页心内等距方格，四周封闭边框（锁边）。
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default, rename_all = "camelCase", deny_unknown_fields)]
+pub struct GridPattern {
+    pub spacing_mm: f64,
+    pub color: String,
+    pub line_width_pt: f64,
+}
+
+impl Default for GridPattern {
+    fn default() -> Self {
+        Self {
+            spacing_mm: 5.0,
+            color: "#7A9AC9".into(),
+            line_width_pt: 0.2,
+        }
+    }
+}
+
 /// 以区域中心为对称点向两侧扩展，返回落在区域内的最大等距序列。
 fn centered(start: f64, length: f64, spacing: f64) -> Vec<f64> {
     let center = start + length / 2.0;
@@ -86,6 +106,11 @@ impl BodyTemplate {
                 if let Some(color) = &p.center_color {
                     super::latex::validate_color(color)?;
                 }
+            }
+            Self::Grid(p) => {
+                check_range("方格间距（mm）", p.spacing_mm, 0.1, 1000.0)?;
+                check_range("方格线宽（pt）", p.line_width_pt, 0.01, 10.0)?;
+                super::latex::validate_color(&p.color)?;
             }
             Self::Blank => {}
         }
@@ -138,6 +163,32 @@ impl BodyTemplate {
                         center_color,
                     );
                 }
+            }
+            Self::Grid(p) => {
+                // 与横线、点阵一致：以页心中心为起点向四周等距扩展，
+                // 四周最外侧的格线自然收口成边框。
+                let xs = centered(body.x, body.width, p.spacing_mm);
+                let ys = centered(body.y, body.height, p.spacing_mm);
+                if xs.len() < 2 || ys.len() < 2 {
+                    return;
+                }
+                let (Some(&x_min), Some(&x_max)) = (xs.first(), xs.last()) else {
+                    return;
+                };
+                let (Some(&y_min), Some(&y_max)) = (ys.first(), ys.last()) else {
+                    return;
+                };
+                canvas.cross_grid(
+                    Rect {
+                        x: x_min,
+                        y: y_min,
+                        width: x_max - x_min,
+                        height: y_max - y_min,
+                    },
+                    p.spacing_mm,
+                    p.line_width_pt,
+                    &p.color,
+                );
             }
             Self::Blank => {}
         }

@@ -1,5 +1,5 @@
 import { useTranslation } from "react-i18next";
-import { LANGUAGES, useSettingsStore } from "../stores/settings";
+import { isLanguage, LANGUAGES, useSettingsStore } from "../stores/settings";
 
 export default function SettingsPage() {
   const { t } = useTranslation();
@@ -21,7 +21,10 @@ export default function SettingsPage() {
             <select
               className="select w-full max-w-xs"
               value={language}
-              onChange={(e) => setLanguage(e.target.value as typeof language)}
+              onChange={(e) => {
+                const next = e.target.value;
+                if (isLanguage(next)) setLanguage(next);
+              }}
             >
               {LANGUAGES.map((l) => (
                 <option key={l.code} value={l.code}>

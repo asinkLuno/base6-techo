@@ -4,15 +4,15 @@ import {
   A5_DIMS,
   clampNumber,
   DEFAULT_SHEETS_PER_SIGNATURE,
+  isPaperPresetKind,
   PAPER_MM_MAX,
   PAPER_MM_MIN,
-  type PaperSize,
+  PAPER_PRESET_KINDS,
   SHEETS_PER_SIGNATURE_MAX,
   SHEETS_PER_SIGNATURE_MIN,
 } from "../types/document";
+import { DecorationsPanel } from "./DecorationsPanel";
 import { NumberField } from "./NumberField";
-
-const PAPER_PRESETS = ["a4", "a5", "b5", "a6", "b6", "letter"] as const;
 
 function InfoIcon() {
   return (
@@ -47,8 +47,10 @@ const clampSheets = (value: number) =>
 export function PageSettingsPanel() {
   const { t } = useTranslation();
   const page = useDocumentStore((s) => s.page);
+  const decorations = useDocumentStore((s) => s.decorations);
   const imposition = useDocumentStore((s) => s.imposition);
   const updatePage = useDocumentStore((s) => s.updatePage);
+  const updateDecorations = useDocumentStore((s) => s.updateDecorations);
   const updateImposition = useDocumentStore((s) => s.updateImposition);
   const paper = page.paper;
   const impositionInfo = t(
@@ -78,11 +80,13 @@ export function PageSettingsPanel() {
                       widthMm: A5_DIMS.widthMm,
                       heightMm: A5_DIMS.heightMm,
                     }
-                  : ({ kind } as PaperSize),
+                  : isPaperPresetKind(kind)
+                    ? { kind }
+                    : page.paper,
             });
           }}
         >
-          {PAPER_PRESETS.map((kind) => (
+          {PAPER_PRESET_KINDS.map((kind) => (
             <option key={kind} value={kind}>
               {kind.toUpperCase()}
             </option>
@@ -182,6 +186,14 @@ export function PageSettingsPanel() {
           }
         />
       )}
+
+      <DecorationsPanel
+        paper={paper}
+        margins={page.margins}
+        decorations={decorations}
+        onMarginsChange={(margins) => updatePage({ margins })}
+        onDecorationsChange={updateDecorations}
+      />
     </section>
   );
 }
