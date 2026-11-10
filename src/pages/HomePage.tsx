@@ -225,9 +225,10 @@ export default function HomePage() {
 
   return (
     <>
-      <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_18rem]">
-        <div className="min-w-0 space-y-3">
-          <div className="flex items-center justify-between gap-2">
+      {/* 宽屏 6:4 双栏：左列表留足模板参数的位置，右栏设置不至于被拉成细条 */}
+      <div className="grid items-start gap-4 sm:gap-6 lg:grid-cols-5">
+        <div className="min-w-0 space-y-3 lg:col-span-3">
+          <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
             <h2 className="card-title">{t("editor.sectionsTitle")}</h2>
             {sections.length > 0 && (
               <span
@@ -277,7 +278,7 @@ export default function HomePage() {
           </button>
         </div>
 
-        <aside className="space-y-3">
+        <aside className="space-y-3 lg:col-span-2">
           <PageSettingsPanel />
           <div className="grid grid-cols-2 gap-3">
             <button
@@ -335,7 +336,7 @@ export default function HomePage() {
 
       {pdfBytes && (
         <section ref={previewRef} className="card bg-base-100 shadow-md">
-          <div className="card-body gap-4">
+          <div className="card-body gap-4 p-4 sm:p-6">
             <h2 className="card-title">{t("editor.preview")}</h2>
             <Suspense
               fallback={

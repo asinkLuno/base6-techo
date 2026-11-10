@@ -46,8 +46,9 @@ export default function RootLayout() {
         </div>
       </header>
 
-      {/* 宽屏放开到 5xl：编辑器是双栏布局，3xl 会挤成窄条 */}
-      <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-8">
+      {/* 通栏铺满窗口，不再居中限宽：编辑器左列可随窗口伸展，右栏保持固定宽度。
+          横向留白只由内边距提供，手机上收窄到 12px 让内容更满。 */}
+      <main className="w-full flex-1 px-3 py-4 sm:px-6 sm:py-6 lg:px-8 lg:py-8">
         <Outlet />
       </main>
     </div>

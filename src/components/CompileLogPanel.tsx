@@ -57,16 +57,20 @@ export function CompileLogPanel({
   const [copied, setCopied] = useState(false);
   const preRef = useRef<HTMLPreElement | null>(null);
   const summary = useMemo(() => parseCompileLog(log ?? ""), [log]);
+  const isLive = live && stream !== null;
+  // 收起时不拆行也不挂载正文：成功的编译日志动辄上千行，没必要常驻 DOM。
+  // 摘要徽章仍需计数，故 parseCompileLog 保留（只扫一遍字符串）。
+  const showContent = open || isLive;
   // 最终态按行拆开，与实时态共用渲染；日志不变则不重复切分
   const finalLines = useMemo<CompileLogLine[]>(
     () =>
-      (log ?? "")
-        .split(/\r?\n/)
-        .map((text) => ({ kind: "tex" as const, text })),
-    [log],
+      showContent
+        ? (log ?? "")
+            .split(/\r?\n/)
+            .map((text) => ({ kind: "tex" as const, text }))
+        : [],
+    [log, showContent],
   );
-
-  const isLive = live && stream !== null;
 
   // 进入实时态强制展开
   useEffect(() => {
@@ -171,18 +175,19 @@ export function CompileLogPanel({
             {copied ? t("editor.log.copied") : t("editor.log.copy")}
           </button>
         </div>
-        {lines.length === 0 ? (
-          <p className="font-mono text-xs opacity-60">
-            {t("editor.log.waiting")}
-          </p>
-        ) : (
-          <pre
-            ref={preRef}
-            className="bg-neutral text-neutral-content max-h-[60vh] overflow-auto rounded-lg p-4 font-mono text-xs leading-relaxed break-words whitespace-pre-wrap"
-          >
-            <LogLines lines={lines} />
-          </pre>
-        )}
+        {showContent &&
+          (lines.length === 0 ? (
+            <p className="font-mono text-xs opacity-60">
+              {t("editor.log.waiting")}
+            </p>
+          ) : (
+            <pre
+              ref={preRef}
+              className="bg-neutral text-neutral-content max-h-[60vh] overflow-auto rounded-lg p-4 font-mono text-xs leading-relaxed break-words whitespace-pre-wrap"
+            >
+              <LogLines lines={lines} />
+            </pre>
+          ))}
       </div>
     </details>
   );

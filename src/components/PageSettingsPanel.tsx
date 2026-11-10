@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { useTranslation } from "react-i18next";
 import { useDocumentStore } from "../stores/document";
 import {
@@ -43,8 +44,9 @@ const clampSheets = (value: number) =>
     DEFAULT_SHEETS_PER_SIGNATURE,
   );
 
-/** 右侧栏的页面设置区（无卡片外框）：纸张（含自定义宽高）、装订边、装订方式。 */
-export function PageSettingsPanel() {
+/** 右侧栏的页面设置区（无卡片外框）：纸张（含自定义宽高）、装订边、装订方式。
+ *  memo：无 props，编译日志每帧推流导致父组件重渲时跳过本面板；store 订阅仍照常触发自身更新。 */
+export const PageSettingsPanel = memo(function PageSettingsPanel() {
   const { t } = useTranslation();
   const page = useDocumentStore((s) => s.page);
   const decorations = useDocumentStore((s) => s.decorations);
@@ -196,4 +198,4 @@ export function PageSettingsPanel() {
       />
     </section>
   );
-}
+});

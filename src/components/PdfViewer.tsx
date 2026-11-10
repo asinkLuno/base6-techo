@@ -711,11 +711,12 @@ export function PdfViewer({ pdfBytes }: { pdfBytes: ArrayBuffer | null }) {
         </div>
       </div>
 
-      <div className="flex items-stretch gap-3">
+      {/* 窄屏目录改到画面上方，避免侧栏把预览页挤窄；sm 起恢复左侧竖排 */}
+      <div className="flex flex-col items-stretch gap-3 sm:flex-row">
         {showToc && (
           <nav
             aria-label={t("editor.toc")}
-            className="bg-base-200 rounded-box h-[70vh] min-h-96 w-52 shrink-0 overflow-auto"
+            className="bg-base-200 rounded-box h-40 w-full shrink-0 overflow-auto sm:h-[70vh] sm:min-h-96 sm:w-52"
           >
             <TocList
               entries={toc}

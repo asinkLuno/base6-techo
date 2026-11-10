@@ -1,7 +1,7 @@
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import clsx from "clsx";
-import { memo } from "react";
+import { memo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useDocumentStore } from "../stores/document";
 import {
@@ -266,6 +266,9 @@ export default memo(function SectionListItem({
   const { t } = useTranslation();
   const updateSection = useDocumentStore((s) => s.updateSection);
   const removeSection = useDocumentStore((s) => s.removeSection);
+  // 折叠时编辑器子树不挂载：长文档里大多数 section 从未展开，避免上百个控件常驻 DOM。
+  // 首次展开后保持挂载，让折叠/展开动画与输入框本地状态不被中断；数据本身都在 store 里。
+  const [expandedOnce, setExpandedOnce] = useState(false);
   const paper = useDocumentStore((s) => s.page.paper);
   const globalMargins = useDocumentStore((s) => s.page.margins);
   const globalDecorations = useDocumentStore((s) => s.decorations);
@@ -298,6 +301,9 @@ export default memo(function SectionListItem({
         isDragging && "z-10 opacity-80 shadow-lg",
       )}
       style={{ transform: CSS.Translate.toString(transform), transition }}
+      onToggle={(e) => {
+        if (e.currentTarget.open) setExpandedOnce(true);
+      }}
     >
       <summary className="collapse-title flex items-center gap-2">
         <button
@@ -312,21 +318,24 @@ export default memo(function SectionListItem({
         >
           <GripIcon />
         </button>
-        <span className="font-semibold">
-          {t("editor.section.label", { index: index + 1 })}
-        </span>
-        <span className="badge badge-outline">
-          {t(`editor.template.${body.kind}`)}
-        </span>
-        <span className="text-sm opacity-70">× {section.pages}</span>
-        {inheriting && (
-          <span className="badge badge-ghost badge-sm">
-            {t("editor.decorations.summaryInherited")}
+        {/* 标签与徽标单独成组换行：窄屏时它们换行撑高标题行，删除按钮仍留在右侧 */}
+        <span className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-1">
+          <span className="font-semibold">
+            {t("editor.section.label", { index: index + 1 })}
           </span>
-        )}
+          <span className="badge badge-outline">
+            {t(`editor.template.${body.kind}`)}
+          </span>
+          <span className="text-sm opacity-70">× {section.pages}</span>
+          {inheriting && (
+            <span className="badge badge-ghost badge-sm">
+              {t("editor.decorations.summaryInherited")}
+            </span>
+          )}
+        </span>
         <button
           type="button"
-          className="btn btn-ghost btn-circle btn-xs text-error ml-auto"
+          className="btn btn-ghost btn-circle btn-xs text-error"
           aria-label={t("editor.section.delete")}
           onClick={(e) => {
             e.preventDefault();
@@ -338,104 +347,107 @@ export default memo(function SectionListItem({
       </summary>
 
       <div className="collapse-content">
-        <div className="grid gap-4">
-          <div className="grid gap-4 sm:grid-cols-2">
+        {expandedOnce && (
+          <div className="grid gap-4">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <fieldset className="fieldset">
+                <legend className="fieldset-legend">
+                  {t("editor.section.template")}
+                </legend>
+                <select
+                  className="select w-full"
+                  value={body.kind}
+                  onChange={(e) =>
+                    updateSection(section.id, {
+                      body: defaultBodyFor(e.target.value),
+                    })
+                  }
+                >
+                  <option value="blank">{t("editor.template.blank")}</option>
+                  <option value="linear">{t("editor.template.linear")}</option>
+                  <option value="dots">{t("editor.template.dots")}</option>
+                  <option value="grid">{t("editor.template.grid")}</option>
+                </select>
+              </fieldset>
+
+              <NumberField
+                label={t("editor.section.pages")}
+                value={section.pages}
+                min={PAGES_MIN}
+                max={PAGES_MAX}
+                step={1}
+                clamp={clampPages}
+                onCommit={(pages) => updateSection(section.id, { pages })}
+              />
+            </div>
+
             <fieldset className="fieldset">
               <legend className="fieldset-legend">
-                {t("editor.section.template")}
+                {t("editor.section.numbered")}
               </legend>
-              <select
-                className="select w-full"
-                value={body.kind}
+              <input
+                type="checkbox"
+                className="toggle"
+                checked={section.numbered}
                 onChange={(e) =>
-                  updateSection(section.id, {
-                    body: defaultBodyFor(e.target.value),
-                  })
+                  updateSection(section.id, { numbered: e.target.checked })
                 }
-              >
-                <option value="blank">{t("editor.template.blank")}</option>
-                <option value="linear">{t("editor.template.linear")}</option>
-                <option value="dots">{t("editor.template.dots")}</option>
-                <option value="grid">{t("editor.template.grid")}</option>
-              </select>
+              />
             </fieldset>
 
-            <NumberField
-              label={t("editor.section.pages")}
-              value={section.pages}
-              min={PAGES_MIN}
-              max={PAGES_MAX}
-              step={1}
-              clamp={clampPages}
-              onCommit={(pages) => updateSection(section.id, { pages })}
+            {body.kind === "linear" && (
+              <LinearFields sectionId={section.id} body={body} />
+            )}
+            {body.kind === "dots" && (
+              <DotsFields sectionId={section.id} body={body} />
+            )}
+            {body.kind === "grid" && (
+              <GridFields sectionId={section.id} body={body} />
+            )}
+
+            <div className="divider my-0" />
+
+            {/* 继承开关放在装饰折叠面板外面：打开即整节跟随全书，关掉才可编辑。 */}
+            <label className="label cursor-pointer justify-start gap-3">
+              <input
+                type="checkbox"
+                className="toggle"
+                checked={inheriting}
+                onChange={(e) =>
+                  updateSection(
+                    section.id,
+                    e.target.checked
+                      ? { margins: null, decorations: null }
+                      : {
+                          margins: section.margins ?? {},
+                          decorations: section.decorations ?? {},
+                        },
+                  )
+                }
+              />
+              <span className="font-medium">
+                {t("editor.section.inheritDecorations")}
+              </span>
+            </label>
+
+            <DecorationsPanel
+              paper={paper}
+              margins={effectiveMargins}
+              decorations={effectiveDecorations}
+              inherited={inheriting}
+              onMarginsChange={(margins) =>
+                updateSection(section.id, { margins })
+              }
+              onDecorationsChange={(decorations) =>
+                updateSection(section.id, {
+                  decorations:
+                    diffSectionDecorations(decorations, globalDecorations) ??
+                    {},
+                })
+              }
             />
           </div>
-
-          <fieldset className="fieldset">
-            <legend className="fieldset-legend">
-              {t("editor.section.numbered")}
-            </legend>
-            <input
-              type="checkbox"
-              className="toggle"
-              checked={section.numbered}
-              onChange={(e) =>
-                updateSection(section.id, { numbered: e.target.checked })
-              }
-            />
-          </fieldset>
-
-          {body.kind === "linear" && (
-            <LinearFields sectionId={section.id} body={body} />
-          )}
-          {body.kind === "dots" && (
-            <DotsFields sectionId={section.id} body={body} />
-          )}
-          {body.kind === "grid" && (
-            <GridFields sectionId={section.id} body={body} />
-          )}
-
-          <div className="divider my-0" />
-
-          {/* 继承开关放在装饰折叠面板外面：打开即整节跟随全书，关掉才可编辑。 */}
-          <label className="label cursor-pointer justify-start gap-3">
-            <input
-              type="checkbox"
-              className="toggle"
-              checked={inheriting}
-              onChange={(e) =>
-                updateSection(
-                  section.id,
-                  e.target.checked
-                    ? { margins: null, decorations: null }
-                    : {
-                        margins: section.margins ?? {},
-                        decorations: section.decorations ?? {},
-                      },
-                )
-              }
-            />
-            <span className="font-medium">
-              {t("editor.section.inheritDecorations")}
-            </span>
-          </label>
-
-          <DecorationsPanel
-            paper={paper}
-            margins={effectiveMargins}
-            decorations={effectiveDecorations}
-            inherited={inheriting}
-            onMarginsChange={(margins) =>
-              updateSection(section.id, { margins })
-            }
-            onDecorationsChange={(decorations) =>
-              updateSection(section.id, {
-                decorations:
-                  diffSectionDecorations(decorations, globalDecorations) ?? {},
-              })
-            }
-          />
-        </div>
+        )}
       </div>
     </details>
   );
