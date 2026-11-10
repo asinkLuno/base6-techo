@@ -107,3 +107,30 @@ fn collect(dir: &std::path::Path, files: &mut usize, bytes: &mut u64) {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn collect_counts_nested_files_and_bytes() {
+        let root = std::env::temp_dir().join(format!("base6-prewarm-{}", std::process::id()));
+        fs::create_dir_all(root.join("a/b")).unwrap();
+        fs::write(root.join("a/one.txt"), b"123").unwrap();
+        fs::write(root.join("a/b/two.txt"), b"12345").unwrap();
+
+        let (mut files, mut bytes) = (0, 0);
+        collect(&root, &mut files, &mut bytes);
+
+        assert_eq!((files, bytes), (2, 8));
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn collect_ignores_missing_directory() {
+        let (mut files, mut bytes) = (0, 0);
+        let missing = std::env::temp_dir().join("base6-prewarm-missing");
+        collect(&missing, &mut files, &mut bytes);
+        assert_eq!((files, bytes), (0, 0));
+    }
+}

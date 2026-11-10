@@ -51,7 +51,24 @@ pub fn compile(
     extra_files: &[(String, Vec<u8>)],
     sink: &Arc<LogSink>,
 ) -> Result<CompileOutput, String> {
-    // Fresh job dir per run: tectonic writes outputs and reads \input files here.
+    prepare_job_root(job_root, extra_files)?;
+
+    let source = source.to_string();
+    let job_root = job_root.to_path_buf();
+    let sink = Arc::clone(sink);
+    match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        run_engine(&source, &job_root, &sink)
+    })) {
+        Ok(result) => result,
+        Err(payload) => Err(format!("引擎内部 panic：{}", panic_message(&*payload))),
+    }
+}
+
+/// Fresh job dir per run: tectonic writes outputs and reads \input files here.
+fn prepare_job_root(
+    job_root: &Path,
+    extra_files: &[(String, Vec<u8>)],
+) -> Result<(), String> {
     if job_root.exists() {
         fs::remove_dir_all(job_root)
             .map_err(|e| format!("无法清理任务目录 {}：{e}", job_root.display()))?;
@@ -65,23 +82,16 @@ pub fn compile(
         }
         fs::write(&path, data).map_err(|e| format!("无法写入文件 {name}：{e}"))?;
     }
+    Ok(())
+}
 
-    let source = source.to_string();
-    let job_root = job_root.to_path_buf();
-    let sink = Arc::clone(sink);
-    match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-        run_engine(&source, &job_root, &sink)
-    })) {
-        Ok(result) => result,
-        Err(payload) => {
-            let msg = payload
-                .downcast_ref::<String>()
-                .cloned()
-                .or_else(|| payload.downcast_ref::<&str>().map(|s| s.to_string()))
-                .unwrap_or_else(|| "未知 panic".to_string());
-            Err(format!("引擎内部 panic：{msg}"))
-        }
-    }
+/// `catch_unwind` 的 payload 只有两种常见类型：`&str` 与 `String`。
+fn panic_message(payload: &(dyn std::any::Any + Send)) -> String {
+    payload
+        .downcast_ref::<String>()
+        .cloned()
+        .or_else(|| payload.downcast_ref::<&str>().map(|s| s.to_string()))
+        .unwrap_or_else(|| "未知 panic".to_string())
 }
 
 /// Reject absolute paths and `..` components in user-provided file names.
@@ -277,5 +287,58 @@ mod capture {
 
     impl Drop for StdoutCapture {
         fn drop(&mut self) {}
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn temp_job(name: &str) -> PathBuf {
+        std::env::temp_dir().join(format!("base6-compile-{name}-{}", std::process::id()))
+    }
+
+    #[test]
+    fn clean_rel_path_accepts_nested_relative_names() {
+        assert_eq!(clean_rel_path("a/b.tex").unwrap(), PathBuf::from("a/b.tex"));
+        assert_eq!(clean_rel_path("./a").unwrap(), PathBuf::from("a"));
+    }
+
+    #[test]
+    fn clean_rel_path_rejects_absolute_and_parent_components() {
+        assert!(clean_rel_path("/etc/passwd").is_err());
+        assert!(clean_rel_path("a/../b").is_err());
+        assert!(clean_rel_path("..").is_err());
+    }
+
+    #[test]
+    fn prepare_job_root_recreates_dir_and_writes_extra_files() {
+        let dir = temp_job("prepare");
+        fs::create_dir_all(&dir).unwrap();
+        fs::write(dir.join("stale.tex"), "old").unwrap();
+
+        prepare_job_root(&dir, &[("sub/input.tex".into(), b"new".to_vec())]).unwrap();
+
+        assert!(!dir.join("stale.tex").exists());
+        assert_eq!(fs::read(dir.join("sub/input.tex")).unwrap(), b"new");
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn prepare_job_root_rejects_escaping_extra_file_names() {
+        let dir = temp_job("escape");
+        let err = prepare_job_root(&dir, &[("../escape.tex".into(), Vec::new())]).unwrap_err();
+        assert!(err.contains("非法路径"));
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn panic_message_reads_str_and_string_payloads() {
+        let owned: Box<dyn std::any::Any + Send> = Box::new(String::from("boom"));
+        let borrowed: Box<dyn std::any::Any + Send> = Box::new("bang");
+        let other: Box<dyn std::any::Any + Send> = Box::new(42_u32);
+        assert_eq!(panic_message(&*owned), "boom");
+        assert_eq!(panic_message(&*borrowed), "bang");
+        assert_eq!(panic_message(&*other), "未知 panic");
     }
 }

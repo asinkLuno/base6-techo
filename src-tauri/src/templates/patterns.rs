@@ -1,6 +1,6 @@
 //! 页心模板扩展点。模板只消费已解析的页面上下文，不推算装订方向。
 use super::{
-    latex::Canvas,
+    latex::{Canvas, validate_color},
     layout::{PageLayout, Rect, check_range},
 };
 use serde::{Deserialize, Serialize};
@@ -77,6 +77,35 @@ impl Default for GridPattern {
     }
 }
 
+impl LinearPattern {
+    fn validate(&self) -> Result<(), String> {
+        check_range("横线间距（mm）", self.spacing_mm, 0.1, 1000.0)?;
+        check_range("横线线宽（pt）", self.line_width_pt, 0.01, 10.0)?;
+        validate_color(&self.color)
+    }
+}
+
+impl DotsPattern {
+    fn validate(&self) -> Result<(), String> {
+        check_range("点阵行距（mm）", self.spacing_mm, 0.1, 1000.0)?;
+        check_range("点阵列距（mm）", self.column_spacing_mm, 0.1, 1000.0)?;
+        check_range("点半径（mm）", self.radius_mm, 0.01, 10.0)?;
+        validate_color(&self.color)?;
+        if let Some(color) = &self.center_color {
+            validate_color(color)?;
+        }
+        Ok(())
+    }
+}
+
+impl GridPattern {
+    fn validate(&self) -> Result<(), String> {
+        check_range("方格间距（mm）", self.spacing_mm, 0.1, 1000.0)?;
+        check_range("方格线宽（pt）", self.line_width_pt, 0.01, 10.0)?;
+        validate_color(&self.color)
+    }
+}
+
 /// 以区域中心为对称点、按 spacing 等距展开的最外侧两点坐标。
 /// 序列至少包含中心点本身，所以区间一定存在（可能退化成一个点）。
 fn centered_extent(start: f64, length: f64, spacing: f64) -> (f64, f64) {
@@ -93,28 +122,11 @@ impl BodyTemplate {
 
     pub(crate) fn validate(&self) -> Result<(), String> {
         match self {
-            Self::Linear(p) => {
-                check_range("横线间距（mm）", p.spacing_mm, 0.1, 1000.0)?;
-                check_range("横线线宽（pt）", p.line_width_pt, 0.01, 10.0)?;
-                super::latex::validate_color(&p.color)?;
-            }
-            Self::Dots(p) => {
-                check_range("点阵行距（mm）", p.spacing_mm, 0.1, 1000.0)?;
-                check_range("点阵列距（mm）", p.column_spacing_mm, 0.1, 1000.0)?;
-                check_range("点半径（mm）", p.radius_mm, 0.01, 10.0)?;
-                super::latex::validate_color(&p.color)?;
-                if let Some(color) = &p.center_color {
-                    super::latex::validate_color(color)?;
-                }
-            }
-            Self::Grid(p) => {
-                check_range("方格间距（mm）", p.spacing_mm, 0.1, 1000.0)?;
-                check_range("方格线宽（pt）", p.line_width_pt, 0.01, 10.0)?;
-                super::latex::validate_color(&p.color)?;
-            }
-            Self::Blank => {}
+            Self::Linear(p) => p.validate(),
+            Self::Dots(p) => p.validate(),
+            Self::Grid(p) => p.validate(),
+            Self::Blank => Ok(()),
         }
-        Ok(())
     }
 
     pub(crate) fn draw(&self, canvas: &mut Canvas<'_>, layout: &PageLayout) {

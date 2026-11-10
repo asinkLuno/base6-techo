@@ -2,7 +2,7 @@
 use super::{
     components::Decorations,
     imposition::Imposition,
-    layout::{Margins, PageLayout, PageSettings},
+    layout::{Margins, PageLayout, PageSettings, PaperSize},
     patterns::BodyTemplate,
 };
 use serde::{Deserialize, Serialize};
@@ -42,6 +42,27 @@ impl Default for Section {
     }
 }
 
+impl Section {
+    /// 校验本节并把页数累加进全书总数；`total` 用于跨节的页数上限。
+    fn validate(&self, paper: &PaperSize, total: &mut usize) -> Result<(), String> {
+        if !(1..=MAX_PAGES).contains(&self.pages) {
+            return Err(format!("每节页数必须在 1–{MAX_PAGES} 之间"));
+        }
+        *total += self.pages;
+        if *total > MAX_PAGES {
+            return Err(format!("全书不能超过 {MAX_PAGES} 页"));
+        }
+        self.body.validate()?;
+        if let Some(decorations) = &self.decorations {
+            decorations.validate()?;
+        }
+        if let Some(margins) = &self.margins {
+            margins.validate_for(paper)?;
+        }
+        Ok(())
+    }
+}
+
 /// 三种页序明确命名，组件不能把显示页码误当作装订依据。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PageContext {
@@ -78,20 +99,7 @@ fn validate(document: &Document) -> Result<usize, String> {
     }
     let mut total = 0;
     for section in &document.sections {
-        if !(1..=MAX_PAGES).contains(&section.pages) {
-            return Err(format!("每节页数必须在 1–{MAX_PAGES} 之间"));
-        }
-        total += section.pages;
-        if total > MAX_PAGES {
-            return Err(format!("全书不能超过 {MAX_PAGES} 页"));
-        }
-        section.body.validate()?;
-        if let Some(decorations) = &section.decorations {
-            decorations.validate()?;
-        }
-        if let Some(margins) = &section.margins {
-            margins.validate_for(&document.page.paper)?;
-        }
+        section.validate(&document.page.paper, &mut total)?;
     }
     Ok(total)
 }

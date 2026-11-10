@@ -20,21 +20,33 @@ const STAMP_FILE: &str = ".prewarm-ok";
 /// (base dir containing `bundles/` and `formats/`).
 pub fn bootstrap(app: &tauri::AppHandle) -> Result<PathBuf, String> {
     let cache_base = tectonic_cache_dir(app)?;
+    finish_bootstrap(cache_base, read_cache_zip(app).as_deref())
+}
+
+fn finish_bootstrap(cache_base: PathBuf, cache_zip: Option<&[u8]>) -> Result<PathBuf, String> {
     if cache_base.join(STAMP_FILE).exists() {
         return Ok(cache_base);
     }
-    match read_cache_zip(app) {
+    install_cache(cache_base, cache_zip)
+}
+
+fn install_cache(cache_base: PathBuf, cache_zip: Option<&[u8]>) -> Result<PathBuf, String> {
+    match cache_zip {
         Some(bytes) => {
-            unpack_zip(&bytes, &cache_base)?;
+            unpack_zip(bytes, &cache_base)?;
             fs::write(cache_base.join(STAMP_FILE), env!("CARGO_PKG_VERSION"))
                 .map_err(|e| e.to_string())?;
-            println!("[base6-techo] offline cache installed at {}", cache_base.display());
+            println!(
+                "[base6-techo] offline cache installed at {}",
+                cache_base.display()
+            );
         }
         None => {
             // No bundled cache (e.g. desktop dev before running the prewarm
             // script): start empty; the engine will fetch from the network.
-            fs::create_dir_all(cache_base.join("bundles")).map_err(|e| e.to_string())?;
-            fs::create_dir_all(cache_base.join("formats")).map_err(|e| e.to_string())?;
+            for dir in ["bundles", "formats"] {
+                fs::create_dir_all(cache_base.join(dir)).map_err(|e| e.to_string())?;
+            }
             println!("[base6-techo] no bundled cache; starting empty");
         }
     }
@@ -54,15 +66,14 @@ fn read_cache_zip(app: &tauri::AppHandle) -> Option<Vec<u8>> {
         return Some(item.bytes);
     }
     // Fallbacks for dev builds: the vite dist/ and public/ dirs.
-    if let Ok(manifest_dir) = std::env::var("CARGO_MANIFEST_DIR") {
-        let project_root = Path::new(&manifest_dir).parent()?;
-        for rel in ["dist", "public"] {
-            if let Ok(bytes) = fs::read(project_root.join(rel).join(CACHE_ASSET)) {
-                return Some(bytes);
-            }
-        }
-    }
-    None
+    let manifest_dir = std::env::var("CARGO_MANIFEST_DIR").ok()?;
+    read_dev_cache(Path::new(&manifest_dir).parent()?)
+}
+
+fn read_dev_cache(project_root: &Path) -> Option<Vec<u8>> {
+    ["dist", "public"]
+        .into_iter()
+        .find_map(|rel| fs::read(project_root.join(rel).join(CACHE_ASSET)).ok())
 }
 
 fn unpack_zip(bytes: &[u8], dest: &Path) -> Result<(), String> {
@@ -70,4 +81,105 @@ fn unpack_zip(bytes: &[u8], dest: &Path) -> Result<(), String> {
         .map_err(|e| format!("缓存包无法打开：{e}"))?
         .extract(dest)
         .map_err(|e| format!("缓存包解压失败：{e}"))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::Write;
+    use zip::write::SimpleFileOptions;
+
+    fn temp_dir(name: &str) -> PathBuf {
+        std::env::temp_dir().join(format!("base6-cache-{name}-{}", std::process::id()))
+    }
+
+    fn zip_with(entries: &[(&str, &[u8])]) -> Vec<u8> {
+        let mut writer = zip::ZipWriter::new(Cursor::new(Vec::new()));
+        let options = SimpleFileOptions::default();
+        for (name, data) in entries {
+            writer.start_file(*name, options).unwrap();
+            writer.write_all(data).unwrap();
+        }
+        writer.finish().unwrap().into_inner()
+    }
+
+    #[test]
+    fn unpack_zip_restores_nested_files() {
+        let dest = temp_dir("nested");
+        let bytes = zip_with(&[("bundles/a/b.txt", b"hello"), ("formats/c.bin", b"bin")]);
+
+        unpack_zip(&bytes, &dest).unwrap();
+
+        assert_eq!(fs::read(dest.join("bundles/a/b.txt")).unwrap(), b"hello");
+        assert_eq!(fs::read(dest.join("formats/c.bin")).unwrap(), b"bin");
+        let _ = fs::remove_dir_all(&dest);
+    }
+
+    #[test]
+    fn unpack_zip_rejects_broken_archive() {
+        let dest = temp_dir("broken");
+        assert!(unpack_zip(b"not a zip", &dest).is_err());
+        let _ = fs::remove_dir_all(&dest);
+    }
+
+    #[test]
+    fn read_dev_cache_prefers_dist_then_public() {
+        let root = temp_dir("dev-cache");
+        fs::create_dir_all(root.join("public")).unwrap();
+        fs::write(root.join("public").join(CACHE_ASSET), b"public").unwrap();
+        assert_eq!(read_dev_cache(&root).unwrap(), b"public");
+
+        fs::create_dir_all(root.join("dist")).unwrap();
+        fs::write(root.join("dist").join(CACHE_ASSET), b"dist").unwrap();
+        assert_eq!(read_dev_cache(&root).unwrap(), b"dist");
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn read_dev_cache_returns_none_without_asset() {
+        let root = temp_dir("dev-cache-missing");
+        fs::create_dir_all(&root).unwrap();
+        assert!(read_dev_cache(&root).is_none());
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn finish_bootstrap_keeps_existing_cache_untouched() {
+        let base = temp_dir("stamped");
+        fs::create_dir_all(&base).unwrap();
+        fs::write(base.join(STAMP_FILE), "old").unwrap();
+
+        // 已有标记时不应再看缓存包内容（这里传的是坏 zip）。
+        finish_bootstrap(base.clone(), Some(b"not a zip")).unwrap();
+
+        assert_eq!(fs::read_to_string(base.join(STAMP_FILE)).unwrap(), "old");
+        let _ = fs::remove_dir_all(&base);
+    }
+
+    #[test]
+    fn install_cache_unpacks_bundled_zip_and_stamps_it() {
+        let base = temp_dir("install-zip");
+        let bytes = zip_with(&[("bundles/x.txt", b"x")]);
+
+        install_cache(base.clone(), Some(&bytes)).unwrap();
+
+        assert_eq!(fs::read(base.join("bundles/x.txt")).unwrap(), b"x");
+        assert_eq!(
+            fs::read_to_string(base.join(STAMP_FILE)).unwrap(),
+            env!("CARGO_PKG_VERSION")
+        );
+        let _ = fs::remove_dir_all(&base);
+    }
+
+    #[test]
+    fn install_cache_without_bundle_creates_empty_dirs() {
+        let base = temp_dir("install-empty");
+
+        install_cache(base.clone(), None).unwrap();
+
+        assert!(base.join("bundles").is_dir());
+        assert!(base.join("formats").is_dir());
+        assert!(!base.join(STAMP_FILE).exists());
+        let _ = fs::remove_dir_all(&base);
+    }
 }

@@ -137,35 +137,39 @@ impl Band {
         number: Option<usize>,
     ) {
         let number = if self.page_number { number } else { None };
+        let has_content = self.content.is_visible();
         // 没有可见文字也没有页码时，整块区域留空，不输出空 scope。
-        if !self.content.is_visible() && number.is_none() {
+        if !has_content && number.is_none() {
             return;
         }
         let (x, anchor) = self.position(region, binding_side);
         let (_, center_y) = region.center();
-        canvas.begin_region(region);
-        let has_content = self.content.is_visible();
         let gap = self.style.size_pt * 25.4 / 72.27;
-        let y = if has_content && number.is_some() {
+        // 同时有文字和页码时两行一组，整体在区域中垂直居中。
+        let content_y = if has_content && number.is_some() {
             center_y - gap / 2.0
         } else {
             center_y
         };
+        let number_y = if has_content {
+            center_y + gap / 2.0
+        } else {
+            center_y
+        };
+        canvas.begin_region(region);
+        self.draw_content(canvas, x, content_y, anchor);
+        if let Some(number) = number {
+            canvas.text(x, number_y, &number.to_string(), &self.style, anchor, 0);
+        }
+        canvas.end_region();
+    }
+
+    fn draw_content(&self, canvas: &mut Canvas<'_>, x: f64, y: f64, anchor: &str) {
         match &self.content {
             BandContent::Empty => {}
             BandContent::Text { text } => canvas.text(x, y, text, &self.style, anchor, 0),
             BandContent::Date => canvas.date(x, y, &self.style, anchor),
         }
-        if let Some(number) = number {
-            // 同时有文字时页码放在下一行，整个文字块在区域中垂直居中。
-            let y = if has_content {
-                center_y + gap / 2.0
-            } else {
-                center_y
-            };
-            canvas.text(x, y, &number.to_string(), &self.style, anchor, 0);
-        }
-        canvas.end_region();
     }
 
     fn position(&self, region: Rect, side: Side) -> (f64, &'static str) {
