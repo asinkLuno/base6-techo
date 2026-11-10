@@ -17,10 +17,14 @@
       "delete": "删除",
       "dragHandle": "拖动排序"
     },
-    "template": { "blank": "空白页", "linear": "横线页" },
+    "template": { "blank": "空白页", "linear": "横线页", "dots": "点阵页" },
     "config": {
       "spacingMm": "行距（mm）",
+      "columnSpacingMm": "列距（mm）",
+      "dotRadiusMm": "点半径（mm）",
+      "dotColor": "点色",
       "color": "线色",
+      "centerColor": "中心点色",
       "lineWidthPt": "线宽（pt）"
     },
     "generate": "生成 PDF",

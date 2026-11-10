@@ -13,6 +13,7 @@ pub enum BodyTemplate {
     Blank,
     #[serde(alias = "lined")]
     Linear(LinearPattern),
+    Dots(DotsPattern),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -33,25 +34,112 @@ impl Default for LinearPattern {
     }
 }
 
+/// 点阵：页心内以中心为对称点、按行距/列距等距铺开的圆点。
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default, rename_all = "camelCase", deny_unknown_fields)]
+pub struct DotsPattern {
+    pub spacing_mm: f64,
+    pub column_spacing_mm: f64,
+    pub radius_mm: f64,
+    pub color: String,
+    /// 中心点单独颜色；None 表示与 color 一致。
+    pub center_color: Option<String>,
+}
+
+impl Default for DotsPattern {
+    fn default() -> Self {
+        Self {
+            spacing_mm: 5.0,
+            column_spacing_mm: 5.0,
+            radius_mm: 0.25,
+            color: "#7A7A7A".into(),
+            center_color: Some("#000000".into()),
+        }
+    }
+}
+
+/// 以区域中心为对称点向两侧扩展，返回落在区域内的最大等距序列。
+fn centered(start: f64, length: f64, spacing: f64) -> Vec<f64> {
+    let center = start + length / 2.0;
+    let k = ((length / 2.0 / spacing) + 1e-9).floor() as i64;
+    (-k..=k).map(|i| center + i as f64 * spacing).collect()
+}
+
 impl BodyTemplate {
+    /// 空白页心不产生任何绘制，调用方可跳过区域裁剪。
+    pub(crate) fn is_empty(&self) -> bool {
+        matches!(self, Self::Blank)
+    }
+
     pub(crate) fn validate(&self) -> Result<(), String> {
-        if let Self::Linear(p) = self {
-            check_range("横线间距（mm）", p.spacing_mm, 0.1, 1000.0)?;
-            check_range("横线线宽（pt）", p.line_width_pt, 0.01, 10.0)?;
-            super::latex::validate_color(&p.color)?;
+        match self {
+            Self::Linear(p) => {
+                check_range("横线间距（mm）", p.spacing_mm, 0.1, 1000.0)?;
+                check_range("横线线宽（pt）", p.line_width_pt, 0.01, 10.0)?;
+                super::latex::validate_color(&p.color)?;
+            }
+            Self::Dots(p) => {
+                check_range("点阵行距（mm）", p.spacing_mm, 0.1, 1000.0)?;
+                check_range("点阵列距（mm）", p.column_spacing_mm, 0.1, 1000.0)?;
+                check_range("点半径（mm）", p.radius_mm, 0.01, 10.0)?;
+                super::latex::validate_color(&p.color)?;
+                if let Some(color) = &p.center_color {
+                    super::latex::validate_color(color)?;
+                }
+            }
+            Self::Blank => {}
         }
         Ok(())
     }
 
-    pub(crate) fn draw(&self, canvas: &mut Canvas, layout: &PageLayout, _context: &PageContext) {
+    pub(crate) fn draw(
+        &self,
+        canvas: &mut Canvas<'_>,
+        layout: &PageLayout,
+        _context: &PageContext,
+    ) {
         let body = layout.body;
-        if let Self::Linear(p) = self {
-            // 从页心底部向上画；余量留在顶部，线条中心始终在页心内。
-            let count = (body.height / p.spacing_mm + 1e-9).floor() as usize;
-            for i in 0..=count {
-                let y = body.y + body.height - i as f64 * p.spacing_mm;
-                canvas.line(body.x, y, body.x + body.width, y, &p.color, p.line_width_pt);
+        match self {
+            Self::Linear(p) => {
+                // 与点阵一致：以页心中心为对称点，先落中间一条，再上下等距扩展。
+                let ys = centered(body.y, body.height, p.spacing_mm);
+                let Some(&first_y) = ys.first() else {
+                    return;
+                };
+                canvas.line_grid(body, first_y, p.spacing_mm, p.line_width_pt, &p.color);
             }
+            Self::Dots(p) => {
+                let xs = centered(body.x, body.width, p.column_spacing_mm);
+                let ys = centered(body.y, body.height, p.spacing_mm);
+                let (Some(&x_min), Some(&x_max)) = (xs.first(), xs.last()) else {
+                    return;
+                };
+                let (Some(&y_min), Some(&y_max)) = (ys.first(), ys.last()) else {
+                    return;
+                };
+                // 均匀点阵用 TikZ pattern 一次填充；逐点 \fill 在数百页时会撑爆 TeX 内存。
+                canvas.dot_grid(
+                    x_min,
+                    y_min,
+                    x_max,
+                    y_max,
+                    p.column_spacing_mm,
+                    p.spacing_mm,
+                    p.radius_mm,
+                    &p.color,
+                );
+                if let Some(center_color) = p.center_color.as_deref()
+                    && center_color != p.color.as_str()
+                {
+                    canvas.dot(
+                        xs[xs.len() / 2],
+                        ys[ys.len() / 2],
+                        p.radius_mm,
+                        center_color,
+                    );
+                }
+            }
+            Self::Blank => {}
         }
     }
 }

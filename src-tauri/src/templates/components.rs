@@ -98,7 +98,7 @@ impl Decorations {
         Ok(())
     }
 
-    pub(crate) fn draw(&self, canvas: &mut Canvas, page: &PlannedPage<'_>) {
+    pub(crate) fn draw(&self, canvas: &mut Canvas<'_>, page: &PlannedPage<'_>) {
         let layout = &page.layout;
         self.header.draw(
             canvas,
@@ -116,7 +116,9 @@ impl Decorations {
             (&self.inner_watermark, layout.inner),
             (&self.outer_watermark, layout.outer),
         ] {
-            if let Some(watermark) = watermark {
+            if let Some(watermark) = watermark
+                && !watermark.text.is_empty()
+            {
                 let (x, y) = region.center();
                 canvas.begin_region(region);
                 canvas.text(x, y, &watermark.text, &watermark.style, "center", 90);
@@ -127,11 +129,21 @@ impl Decorations {
 }
 
 impl Band {
-    fn draw(&self, canvas: &mut Canvas, region: Rect, binding_side: Side, number: Option<usize>) {
+    fn draw(
+        &self,
+        canvas: &mut Canvas<'_>,
+        region: Rect,
+        binding_side: Side,
+        number: Option<usize>,
+    ) {
+        let number = if self.page_number { number } else { None };
+        // 没有可见文字也没有页码时，整块区域留空，不输出空 scope。
+        if !self.content.is_visible() && number.is_none() {
+            return;
+        }
         let (x, anchor) = self.position(region, binding_side);
         let (_, center_y) = region.center();
         canvas.begin_region(region);
-        let number = if self.page_number { number } else { None };
         let has_content = self.content.is_visible();
         let gap = self.style.size_pt * 25.4 / 72.27;
         let y = if has_content && number.is_some() {

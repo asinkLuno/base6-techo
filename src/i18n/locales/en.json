@@ -17,10 +17,18 @@
       "delete": "Delete",
       "dragHandle": "Drag to reorder"
     },
-    "template": { "blank": "Blank page", "linear": "Lined page" },
+    "template": {
+      "blank": "Blank page",
+      "linear": "Lined page",
+      "dots": "Dot grid"
+    },
     "config": {
       "spacingMm": "Line spacing (mm)",
+      "columnSpacingMm": "Column spacing (mm)",
+      "dotRadiusMm": "Dot radius (mm)",
+      "dotColor": "Dot color",
       "color": "Line color",
+      "centerColor": "Center dot color",
       "lineWidthPt": "Line width (pt)"
     },
     "generate": "Generate PDF",

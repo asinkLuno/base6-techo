@@ -1,7 +1,7 @@
 use base6_techo_lib::templates::{
     document::{Document, Section, generate_document_latex, plan_document},
     layout::{Binding, Side},
-    patterns::{BodyTemplate, LinearPattern},
+    patterns::{BodyTemplate, DotsPattern, LinearPattern},
 };
 
 fn document() -> Document {
@@ -196,7 +196,7 @@ fn all_regions_share_the_same_mirrored_body_and_centers() {
 }
 
 #[test]
-fn linear_rules_stay_in_body_and_leave_header_footer_clear() {
+fn linear_pattern_stays_in_body_and_skips_header_footer() {
     let doc: Document = serde_json::from_str(
         r#"{
         "page":{"paper":{"kind":"a4"}},
@@ -205,18 +205,90 @@ fn linear_rules_stay_in_body_and_leave_header_footer_clear() {
     )
     .unwrap();
     let tex = generate_document_latex(&doc).unwrap();
-    let rules: Vec<_> = tex
-        .lines()
-        .filter(|line| line.starts_with("\\draw["))
-        .collect();
-    assert_eq!(rules.len(), 38);
-    assert!(rules[0].contains("(18,281) -- (192,281)"));
-    assert!(rules[37].contains("(18,22) -- (192,22)"));
+    // A4 默认边距：页心 (18,16)-(192,281)，中心 y=148.5；居中序列首线 148.5-18*7=22.5，
+    // y 相位 (297-22.5)%7=1.5，上下各留 6.5mm 对称余量。
+    assert!(tex.contains("\\pgfdeclarepatternformonly{lines_7_0p4_1p5}"));
+    assert!(tex.contains("\\pgfsetfillpattern{lines_7_0p4_1p5}{ink}"));
+    assert!(tex.contains("\\pgfpathmoveto{\\pgfpointxy{18}{16}}"));
+    assert!(tex.contains("\\pgfpathlineto{\\pgfpointxy{192}{281}}"));
+    assert!(!tex.contains("\\draw["));
     assert!(!tex.contains("fancyhdr"));
 }
 
 #[test]
-fn exact_rule_spacing_includes_both_body_edges() {
+fn dots_fill_the_body_with_a_pattern_and_optional_center_dot() {
+    let doc: Document = serde_json::from_str(
+        r##"{
+        "sections": [{
+            "body": {
+                "kind": "dots",
+                "spacingMm": 5,
+                "columnSpacingMm": 7,
+                "radiusMm": 0.3,
+                "color": "#7A7A7A",
+                "centerColor": "#8B0000"
+            }
+        }]
+    }"##,
+    )
+    .unwrap();
+    let tex = generate_document_latex(&doc).unwrap();
+    assert!(tex.contains("\\pgfdeclarepatternformonly{dots_7_5_0p3_"));
+    assert!(tex.contains("\\pgfsetfillpattern{"));
+    // 列距 7、行距 5 的非方形点阵；中心点 (74,105) 用单独颜色再画一次。
+    assert!(tex.contains("\\fill[ink] (74,105) circle (0.3);"));
+    // 均匀点阵只产生一个 pattern 填充，不逐点输出。
+    assert_eq!(tex.matches("circle (").count(), 1);
+}
+
+#[test]
+fn repeated_dots_pages_reuse_one_pattern_declaration() {
+    let doc: Document =
+        serde_json::from_str(r#"{"sections":[{"pages":3,"body":{"kind":"dots"}}]}"#).unwrap();
+    let tex = generate_document_latex(&doc).unwrap();
+    // 同相位的多页共用同一个 pattern；重复声明会被 PGF 判为错误。
+    assert_eq!(tex.matches("\\pgfdeclarepatternformonly").count(), 1);
+}
+
+#[test]
+fn dots_can_omit_the_center_dot_and_reject_invalid_parameters() {
+    let doc: Document =
+        serde_json::from_str(r##"{"sections":[{"body":{"kind":"dots","centerColor":null}}]}"##)
+            .unwrap();
+    let tex = generate_document_latex(&doc).unwrap();
+    assert!(tex.contains("\\pgfdeclarepatternformonly{"));
+    assert!(!tex.contains("\\fill[ink]"));
+
+    for body in [
+        BodyTemplate::Dots(DotsPattern {
+            spacing_mm: 0.01,
+            ..Default::default()
+        }),
+        BodyTemplate::Dots(DotsPattern {
+            column_spacing_mm: f64::NAN,
+            ..Default::default()
+        }),
+        BodyTemplate::Dots(DotsPattern {
+            radius_mm: 0.0,
+            ..Default::default()
+        }),
+        BodyTemplate::Dots(DotsPattern {
+            color: "red".into(),
+            ..Default::default()
+        }),
+        BodyTemplate::Dots(DotsPattern {
+            center_color: Some("#GGGGGG".into()),
+            ..Default::default()
+        }),
+    ] {
+        let mut doc = document();
+        doc.sections[1].body = body;
+        assert!(plan_document(&doc).is_err());
+    }
+}
+
+#[test]
+fn linear_stripes_are_centered_with_symmetric_margins() {
     let doc: Document = serde_json::from_str(
         r#"{
         "sections":[{"body":{"kind":"linear","spacingMm":2}}]
@@ -224,13 +296,23 @@ fn exact_rule_spacing_includes_both_body_edges() {
     )
     .unwrap();
     let tex = generate_document_latex(&doc).unwrap();
-    let rules: Vec<_> = tex
-        .lines()
-        .filter(|line| line.starts_with("\\draw["))
-        .collect();
-    assert_eq!(rules.len(), 90);
-    assert!(rules.first().unwrap().contains("(18,194) -- (130,194)"));
-    assert!(rules.last().unwrap().contains("(18,16) -- (130,16)"));
+    // A5 默认页心 (18,16)-(130,194) 高 178，中心 y=105；间距 2 时首线 105-44*2=17，
+    // 末线 193，上下各留 1mm，不再压在页心边界上。
+    assert!(tex.contains("\\pgfdeclarepatternformonly{lines_2_0p4_1}"));
+    assert!(tex.contains("\\pgfpathmoveto{\\pgfpointxy{18}{16}}"));
+    assert!(tex.contains("\\pgfpathlineto{\\pgfpointxy{130}{194}}"));
+}
+
+#[test]
+fn dense_linear_output_stays_compact() {
+    let doc: Document = serde_json::from_str(
+        r#"{"sections":[{"pages":100,"body":{"kind":"linear","spacingMm":0.1}}]}"#,
+    )
+    .unwrap();
+    let tex = generate_document_latex(&doc).unwrap();
+    // 改造前逐线输出约 15MB；pattern 后每页固定十几行，且全文档只声明一次。
+    assert!(tex.len() < 200_000, "tex={} bytes", tex.len());
+    assert_eq!(tex.matches("\\pgfdeclarepatternformonly").count(), 1);
 }
 
 /// 前端编辑器发出的确切负载形状（src/lib/generatePdf.ts 的 DocumentPayload）：
@@ -256,7 +338,9 @@ fn frontend_section_payload_parses_and_generates() {
     .unwrap();
     assert_eq!(
         doc.imposition,
-        base6_techo_lib::templates::imposition::Imposition::Thread { sheets_per_signature: 2 }
+        base6_techo_lib::templates::imposition::Imposition::Thread {
+            sheets_per_signature: 2
+        }
     );
     assert_eq!(plan_document(&doc).unwrap().pages().len(), 5);
     let tex = generate_document_latex(&doc).unwrap();

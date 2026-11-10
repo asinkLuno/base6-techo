@@ -18,7 +18,21 @@ export interface LinearPattern {
   lineWidthPt: number;
 }
 
-export type BodyTemplate = BlankPattern | LinearPattern;
+export interface DotsPattern {
+  kind: "dots";
+  /** 行距（竖向点距），Rust 校验 0.1–1000mm，默认 5.0 */
+  spacingMm: number;
+  /** 列距（横向点距），Rust 校验 0.1–1000mm，默认 5.0 */
+  columnSpacingMm: number;
+  /** 点半径，Rust 校验 0.01–10mm，默认 0.25 */
+  radiusMm: number;
+  /** 点色，#RRGGBB，默认 #7A7A7A */
+  color: string;
+  /** 中心点单独颜色，#RRGGBB，默认 #000000 */
+  centerColor: string;
+}
+
+export type BodyTemplate = BlankPattern | LinearPattern | DotsPattern;
 
 export interface SectionSpec {
   /** 1–999，且全书合计 ≤ 999（Rust MAX_PAGES，跨节校验在生成时做） */
@@ -36,6 +50,8 @@ export const SPACING_MM_MIN = 0.1;
 export const SPACING_MM_MAX = 1000;
 export const LINE_WIDTH_PT_MIN = 0.01;
 export const LINE_WIDTH_PT_MAX = 10;
+export const DOT_RADIUS_MM_MIN = 0.01;
+export const DOT_RADIUS_MM_MAX = 10;
 
 /** 与 Rust LinearPattern::default 一致。 */
 export const DEFAULT_LINEAR: LinearPattern = {
@@ -43,6 +59,16 @@ export const DEFAULT_LINEAR: LinearPattern = {
   spacingMm: 7,
   color: "#9E9E9E",
   lineWidthPt: 0.4,
+};
+
+/** 与 Rust DotsPattern::default 一致。 */
+export const DEFAULT_DOTS: DotsPattern = {
+  kind: "dots",
+  spacingMm: 5,
+  columnSpacingMm: 5,
+  radiusMm: 0.25,
+  color: "#7A7A7A",
+  centerColor: "#000000",
 };
 
 export function clampNumber(
@@ -70,20 +96,54 @@ export const clampLineWidthPt = (value: number): number =>
     DEFAULT_LINEAR.lineWidthPt,
   );
 
+export const clampDotsSpacingMm = (value: number): number =>
+  clampNumber(value, SPACING_MM_MIN, SPACING_MM_MAX, DEFAULT_DOTS.spacingMm);
+
+export const clampDotsColumnSpacingMm = (value: number): number =>
+  clampNumber(
+    value,
+    SPACING_MM_MIN,
+    SPACING_MM_MAX,
+    DEFAULT_DOTS.columnSpacingMm,
+  );
+
+export const clampDotRadiusMm = (value: number): number =>
+  clampNumber(
+    value,
+    DOT_RADIUS_MM_MIN,
+    DOT_RADIUS_MM_MAX,
+    DEFAULT_DOTS.radiusMm,
+  );
+
 const HEX_COLOR = /^#[0-9a-fA-F]{6}$/;
 
-export const clampColor = (value: string): string =>
-  HEX_COLOR.test(value) ? value : DEFAULT_LINEAR.color;
+export const clampColor = (
+  value: string,
+  fallback: string = DEFAULT_LINEAR.color,
+): string => (HEX_COLOR.test(value) ? value : fallback);
 
-export const clampBody = (body: BodyTemplate): BodyTemplate =>
-  body.kind === "linear"
-    ? {
+export const clampBody = (body: BodyTemplate): BodyTemplate => {
+  switch (body.kind) {
+    case "linear":
+      return {
         kind: "linear",
         spacingMm: clampSpacingMm(body.spacingMm),
         color: clampColor(body.color),
         lineWidthPt: clampLineWidthPt(body.lineWidthPt),
-      }
-    : { kind: "blank" };
+      };
+    case "dots":
+      return {
+        kind: "dots",
+        spacingMm: clampDotsSpacingMm(body.spacingMm),
+        columnSpacingMm: clampDotsColumnSpacingMm(body.columnSpacingMm),
+        radiusMm: clampDotRadiusMm(body.radiusMm),
+        color: clampColor(body.color, DEFAULT_DOTS.color),
+        centerColor: clampColor(body.centerColor, DEFAULT_DOTS.centerColor),
+      };
+    default:
+      return { kind: "blank" };
+  }
+};
 
 /** 剥离前端专用 id，得到可直接 invoke 的 sections 负载。 */
 export const toSectionSpecs = (sections: SectionDraft[]): SectionSpec[] =>

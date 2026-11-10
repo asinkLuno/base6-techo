@@ -4,15 +4,15 @@ Rust 入口为 `templates::document::generate_document_latex(&Document)`；`plan
 
 ## 模块与职责
 
-| 模块            | 职责                                                              |
-| --------------- | ----------------------------------------------------------------- |
-| `document.rs`   | 校验整个文档，遍历 section，生成实际页序、显示页码及节内索引      |
-| `layout.rs`     | 纸张、装订方向、四周留白；统一计算页心、页头、页脚、两侧区域      |
-| `components.rs` | 页头、页脚、装订侧水印、外侧水印                                  |
-| `patterns.rs`   | 页心模板注册与分发，当前为 `blank`、`linear`（兼容别名 `lined`）  |
-| `imposition.rs` | 不拼版／骑马订／锁线分帖，补白与纸张正反面配页                    |
-| `latex.rs`      | 按输出计划平移阅读页到印刷面，TikZ 输出、普通文字转义、数字格式化 |
-| `lined.rs`      | 原 `LinedDocParams` 和 `generate_lined_latex` 的兼容适配器        |
+| 模块            | 职责                                                                     |
+| --------------- | ------------------------------------------------------------------------ |
+| `document.rs`   | 校验整个文档，遍历 section，生成实际页序、显示页码及节内索引             |
+| `layout.rs`     | 纸张、装订方向、四周留白；统一计算页心、页头、页脚、两侧区域             |
+| `components.rs` | 页头、页脚、装订侧水印、外侧水印                                         |
+| `patterns.rs`   | 页心模板注册与分发，当前为 `blank`、`linear`（兼容别名 `lined`）、`dots` |
+| `imposition.rs` | 不拼版／骑马订／锁线分帖，补白与纸张正反面配页                           |
+| `latex.rs`      | 按输出计划平移阅读页到印刷面，TikZ 输出、普通文字转义、数字格式化        |
+| `lined.rs`      | 原 `LinedDocParams` 和 `generate_lined_latex` 的兼容适配器               |
 
 ## 页序与区域约定
 
@@ -59,6 +59,17 @@ const payload = await invoke<ArrayBuffer>("generate_document_pdf", {
           lineWidthPt: 0.4,
         },
       },
+      {
+        pages: 10,
+        body: {
+          kind: "dots",
+          spacingMm: 5,
+          columnSpacingMm: 5,
+          radiusMm: 0.25,
+          color: "#7A7A7A",
+          centerColor: "#000000", // 可省略或为 null，表示不画中心点
+        },
+      },
     ],
   },
 });
@@ -68,7 +79,7 @@ const payload = await invoke<ArrayBuffer>("generate_document_pdf", {
 
 默认纸张 A5、左装订、页头页脚各 16mm、两侧各 18mm。默认装饰为空。section 默认 1 页、参与编号、空白页心。页头页脚 `content.kind` 支持 `empty`、`text`、`date`（年/月填写线）；`pageNumber` 可与文字组合，分两行居中排布。对齐支持 `center`、`inner`、`outer`。
 
-颜色使用 `#RRGGBB`；字号 1–72pt；横线间距 0.1–1000mm、线宽 0.01–10pt。纸张宽高 30–1000mm，扣除留白后的页心宽高至少 1mm。全书与单节输入阅读页数均限制为 1–999，不含拼版尾部补白。无效数值、非有限数值和未知 JSON 字段会被拒绝。用户文字作为普通文字转义，不接受 LaTeX 代码；换行和制表符转为空格。
+颜色使用 `#RRGGBB`；字号 1–72pt；横线间距 0.1–1000mm、线宽 0.01–10pt；点阵行距与列距 0.1–1000mm、点半径 0.01–10mm，点色与中心点色均为 `#RRGGBB`。点阵相对页心居中排布，`centerColor` 与 `color` 相同时中心点并入点阵图案。横线与点阵都用 PGF 平铺 pattern 一次填充，同名 pattern 全文档只声明一次：逐线/逐点输出在极小行距或数百页时会耗尽 TeX 内存。横线与点阵一致，以页心中心为对称点等距铺开，上下余量对称。纸张宽高 30–1000mm，扣除留白后的页心宽高至少 1mm。全书与单节输入阅读页数均限制为 1–999，不含拼版尾部补白。无效数值、非有限数值和未知 JSON 字段会被拒绝。用户文字作为普通文字转义，不接受 LaTeX 代码；换行和制表符转为空格。
 
 ## 骑马订与锁线分帖
 

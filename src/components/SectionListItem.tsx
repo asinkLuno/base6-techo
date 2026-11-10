@@ -5,10 +5,17 @@ import { memo } from "react";
 import { useTranslation } from "react-i18next";
 import { useDocumentStore } from "../stores/document";
 import {
+  clampDotRadiusMm,
+  clampDotsColumnSpacingMm,
+  clampDotsSpacingMm,
   clampLineWidthPt,
   clampPages,
   clampSpacingMm,
+  DEFAULT_DOTS,
   DEFAULT_LINEAR,
+  DOT_RADIUS_MM_MAX,
+  DOT_RADIUS_MM_MIN,
+  type DotsPattern,
   LINE_WIDTH_PT_MAX,
   LINE_WIDTH_PT_MIN,
   type LinearPattern,
@@ -108,6 +115,75 @@ function LinearFields({
   );
 }
 
+/** dots 模板配置项：行距 / 列距 / 点半径 / 点色 / 中心点色。 */
+function DotsFields({
+  sectionId,
+  body,
+}: {
+  sectionId: string;
+  body: DotsPattern;
+}) {
+  const { t } = useTranslation();
+  const updateSection = useDocumentStore((s) => s.updateSection);
+
+  const setDots = (patch: Partial<DotsPattern>) =>
+    updateSection(sectionId, { body: { ...body, ...patch } });
+
+  return (
+    <div className="grid gap-4 sm:grid-cols-2">
+      <NumberField
+        label={t("editor.config.spacingMm")}
+        value={body.spacingMm}
+        min={SPACING_MM_MIN}
+        max={SPACING_MM_MAX}
+        step={0.5}
+        clamp={clampDotsSpacingMm}
+        onCommit={(spacingMm) => setDots({ spacingMm })}
+      />
+      <NumberField
+        label={t("editor.config.columnSpacingMm")}
+        value={body.columnSpacingMm}
+        min={SPACING_MM_MIN}
+        max={SPACING_MM_MAX}
+        step={0.5}
+        clamp={clampDotsColumnSpacingMm}
+        onCommit={(columnSpacingMm) => setDots({ columnSpacingMm })}
+      />
+      <NumberField
+        label={t("editor.config.dotRadiusMm")}
+        value={body.radiusMm}
+        min={DOT_RADIUS_MM_MIN}
+        max={DOT_RADIUS_MM_MAX}
+        step={0.05}
+        clamp={clampDotRadiusMm}
+        onCommit={(radiusMm) => setDots({ radiusMm })}
+      />
+      <fieldset className="fieldset">
+        <legend className="fieldset-legend">
+          {t("editor.config.dotColor")}
+        </legend>
+        <input
+          type="color"
+          className="input h-12 w-full cursor-pointer p-1"
+          value={body.color}
+          onChange={(e) => setDots({ color: e.target.value })}
+        />
+      </fieldset>
+      <fieldset className="fieldset">
+        <legend className="fieldset-legend">
+          {t("editor.config.centerColor")}
+        </legend>
+        <input
+          type="color"
+          className="input h-12 w-full cursor-pointer p-1"
+          value={body.centerColor}
+          onChange={(e) => setDots({ centerColor: e.target.value })}
+        />
+      </fieldset>
+    </div>
+  );
+}
+
 interface SectionListItemProps {
   section: SectionDraft;
   index: number;
@@ -189,12 +265,15 @@ export default memo(function SectionListItem({
                     body:
                       e.target.value === "linear"
                         ? { ...DEFAULT_LINEAR }
-                        : { kind: "blank" },
+                        : e.target.value === "dots"
+                          ? { ...DEFAULT_DOTS }
+                          : { kind: "blank" },
                   })
                 }
               >
                 <option value="blank">{t("editor.template.blank")}</option>
                 <option value="linear">{t("editor.template.linear")}</option>
+                <option value="dots">{t("editor.template.dots")}</option>
               </select>
             </fieldset>
 
@@ -225,6 +304,9 @@ export default memo(function SectionListItem({
 
           {body.kind === "linear" && (
             <LinearFields sectionId={section.id} body={body} />
+          )}
+          {body.kind === "dots" && (
+            <DotsFields sectionId={section.id} body={body} />
           )}
         </div>
       </div>

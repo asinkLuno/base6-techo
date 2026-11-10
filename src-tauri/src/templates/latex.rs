@@ -5,7 +5,7 @@ use super::{
     imposition::plan_output,
     layout::Rect,
 };
-use std::fmt::Write;
+use std::{collections::HashSet, fmt::Write};
 
 pub(crate) fn validate_color(color: &str) -> Result<(), String> {
     if color.len() != 7
@@ -18,8 +18,25 @@ pub(crate) fn validate_color(color: &str) -> Result<(), String> {
 }
 
 fn number(v: f64) -> String {
+    // -0.0 与 0.0 相等，这里统一成 0，避免输出 "-0"。
+    let v = if v == 0.0 { 0.0 } else { v };
     let s = format!("{v:.6}");
     s.trim_end_matches('0').trim_end_matches('.').to_string()
+}
+
+/// pattern 名只允许字母/数字/下划线；负数与小数点转成 m/p。
+fn name_part(v: f64) -> String {
+    number(v).replace('-', "m").replace('.', "p")
+}
+
+/// 图案声明用的原始坐标：不受 TikZ 的 x/y 向量影响（pattern 坐标在页面空间）。
+fn qpoint(x: f64, y: f64) -> String {
+    format!("\\pgfqpoint{{{}mm}}{{{}mm}}", number(x), number(y))
+}
+
+/// 路径坐标：应用 TikZ 的 x=1mm / y=-1mm 向量，与页面局部坐标一致。
+fn xy_point(x: f64, y: f64) -> String {
+    format!("\\pgfpointxy{{{}}}{{{}}}", number(x), number(y))
 }
 
 /// 普通文字不是 LaTeX 代码。逐字符转换，避免二次转义。
@@ -50,15 +67,37 @@ fn escape_text(text: &str) -> String {
     out
 }
 
-pub(crate) struct Canvas {
+pub(crate) struct Canvas<'a> {
     source: String,
+    /// 当前阅读页所在印刷面的纸高与水平偏移（mm）。点阵 pattern 的坐标固定在
+    /// 页面空间（Matrix 恒为 identity），需要据此把页面局部坐标换算成页面坐标。
+    sheet_height_mm: f64,
+    sheet_x_mm: f64,
+    /// 文档级已声明的 pattern；同名再声明会被 PGF 判为重复定义错误。
+    declared_patterns: &'a mut HashSet<String>,
 }
 
-impl Canvas {
-    fn new() -> Self {
+impl<'a> Canvas<'a> {
+    fn new(declared_patterns: &'a mut HashSet<String>) -> Self {
         Self {
             source: String::new(),
+            sheet_height_mm: 0.0,
+            sheet_x_mm: 0.0,
+            declared_patterns,
         }
+    }
+
+    /// pattern 声明在整本文档内只输出一次，后续页面直接复用。
+    fn declare_pattern(&mut self, name: &str, declaration: &str) {
+        if self.declared_patterns.insert(name.to_owned()) {
+            self.source.push_str(declaration);
+        }
+    }
+
+    /// 每个 placement 绘制前由编排层更新，供 pattern 定位使用。
+    pub(crate) fn set_sheet_frame(&mut self, height_mm: f64, x_mm: f64) {
+        self.sheet_height_mm = height_mm;
+        self.sheet_x_mm = x_mm;
     }
 
     pub(crate) fn begin_region(&mut self, rect: Rect) {
@@ -77,16 +116,125 @@ impl Canvas {
         self.source.push_str("\\end{scope}\n");
     }
 
-    pub(crate) fn line(&mut self, x1: f64, y1: f64, x2: f64, y2: f64, color: &str, width: f64) {
+    /// 横线：用水平条纹 pattern 一次填充页心。
+    /// 逐条 `\draw` 在 0.1mm 行距的长文档里会产生百万级命令，这里与点阵一样走 pattern。
+    /// `first_y` 是模板居中序列中最靠上的一条线，相位由它推算，余量上下对称。
+    pub(crate) fn line_grid(
+        &mut self,
+        rect: Rect,
+        first_y: f64,
+        spacing: f64,
+        width_pt: f64,
+        color: &str,
+    ) {
+        // TeX pt（1/72.27in）换算成毫米。
+        let width = width_pt * 25.4 / 72.27;
+        let offset_y = (self.sheet_height_mm - first_y).rem_euclid(spacing);
+        let name = format!(
+            "lines_{}_{}_{}",
+            name_part(spacing),
+            name_part(width_pt),
+            name_part(offset_y),
+        );
+        // 横线沿 x 方向不变，tile 取 100mm 并在两侧各多 1mm，避免平铺接缝。
+        let step_x = 100.0;
+        let margin = 1.0;
+        let step = qpoint(step_x, spacing);
+        let origin = qpoint(-margin, -width / 2.0);
+        let upper = qpoint(step_x + margin, spacing + width / 2.0);
+        let band = format!(
+            "\\pgfpathrectangle{{{}}}{{{}}}",
+            qpoint(-margin, offset_y - width / 2.0),
+            qpoint(step_x + 2.0 * margin, width)
+        );
         writeln!(
             self.source,
-            "\\definecolor{{ink}}{{HTML}}{{{}}}\n\\draw[ink,line width={}pt] ({},{}) -- ({},{});",
+            "\\definecolor{{ink}}{{HTML}}{{{}}}",
+            &color[1..]
+        )
+        .unwrap();
+        let declaration = format!(
+            "\\pgfdeclarepatternformonly{{{name}}}{{{origin}}}{{{upper}}}{{{step}}}{{%\n  {band}%\n  \\pgfusepath{{fill}}%\n}}\n"
+        );
+        self.declare_pattern(&name, &declaration);
+        let right = rect.x + rect.width;
+        let bottom = rect.y + rect.height;
+        self.pattern_fill_rect(&name, rect.x, rect.y, right, bottom);
+    }
+
+    fn pattern_fill_rect(&mut self, name: &str, left: f64, top: f64, right: f64, bottom: f64) {
+        writeln!(self.source, "\\pgfsetfillpattern{{{name}}}{{ink}}").unwrap();
+        writeln!(self.source, "\\pgfpathmoveto{{{}}}", xy_point(left, top)).unwrap();
+        writeln!(self.source, "\\pgfpathlineto{{{}}}", xy_point(right, top)).unwrap();
+        writeln!(
+            self.source,
+            "\\pgfpathlineto{{{}}}",
+            xy_point(right, bottom)
+        )
+        .unwrap();
+        writeln!(self.source, "\\pgfpathlineto{{{}}}", xy_point(left, bottom)).unwrap();
+        self.source.push_str("\\pgfpathclose\n\\pgfusepath{fill}\n");
+    }
+
+    /// 均匀圆点阵：声明一个 pattern 并一次填充整个点阵范围。
+    /// 逐点 `\fill` 在页数多时会耗尽 TeX 主内存，这里必须走 pattern。
+    #[allow(clippy::too_many_arguments)]
+    pub(crate) fn dot_grid(
+        &mut self,
+        x_min: f64,
+        y_min: f64,
+        x_max: f64,
+        y_max: f64,
+        column_spacing: f64,
+        row_spacing: f64,
+        radius: f64,
+        color: &str,
+    ) {
+        // pattern 在页面空间平铺：x 与页面同向；y 向上而阅读页局部 y 向下。
+        // 横向带上印刷面偏移，纵向按纸高翻转，保证点阵仍以页心为中心。
+        let offset_x = (self.sheet_x_mm + x_min).rem_euclid(column_spacing);
+        let offset_y = (self.sheet_height_mm - y_min).rem_euclid(row_spacing);
+        let name = format!(
+            "dots_{}_{}_{}_{}_{}",
+            name_part(column_spacing),
+            name_part(row_spacing),
+            name_part(radius),
+            name_part(offset_x),
+            name_part(offset_y),
+        );
+        let left = x_min - column_spacing / 2.0;
+        let top = y_min - row_spacing / 2.0;
+        let right = x_max + column_spacing / 2.0;
+        let bottom = y_max + row_spacing / 2.0;
+        let step = qpoint(column_spacing, row_spacing);
+        // 裁剪框比 tile 四周各大一个半径：圆点落在 tile 边界时，下半不会
+        // 因为超出裁剪框而被切掉（PDF 平铺图案按裁剪框裁内容）。
+        let origin = qpoint(-radius, -radius);
+        let upper = qpoint(column_spacing + radius, row_spacing + radius);
+        let dot = qpoint(offset_x, offset_y);
+        writeln!(
+            self.source,
+            "\\definecolor{{ink}}{{HTML}}{{{}}}",
+            &color[1..]
+        )
+        .unwrap();
+        let declaration = format!(
+            "\\pgfdeclarepatternformonly{{{name}}}{{{origin}}}{{{upper}}}{{{step}}}{{%\n  \\pgfpathcircle{{{dot}}}{{{}mm}}%\n  \\pgfusepath{{fill}}%\n}}\n",
+            number(radius)
+        );
+        self.declare_pattern(&name, &declaration);
+        self.pattern_fill_rect(&name, left, top, right, bottom);
+    }
+
+    /// 单个实心圆点，使用页面局部坐标（TikZ 会应用 x/y 向量）。
+    pub(crate) fn dot(&mut self, x: f64, y: f64, radius: f64, color: &str) {
+        writeln!(
+            self.source,
+            "\\definecolor{{ink}}{{HTML}}{{{}}}\n\\fill[ink] ({},{}) circle ({});",
             &color[1..],
-            number(width),
-            number(x1),
-            number(y1),
-            number(x2),
-            number(y2)
+            number(x),
+            number(y),
+            number(radius)
         )
         .unwrap();
     }
@@ -138,11 +286,13 @@ pub(crate) fn render(plan: &PlannedDocument<'_>) -> String {
         number(output.width_mm),
         number(output.height_mm)
     );
+    let mut declared_patterns = HashSet::new();
     for output_page in output.pages() {
-        let mut canvas = Canvas::new();
+        let mut canvas = Canvas::new(&mut declared_patterns);
         for placement in &output_page.placements {
             if let Some(physical_page) = placement.physical_page {
                 let page = &plan.pages()[physical_page - 1];
+                canvas.set_sheet_frame(output.height_mm, placement.x_mm);
                 render_page(&mut canvas, plan, page, placement.x_mm);
             }
         }
@@ -155,21 +305,30 @@ pub(crate) fn render(plan: &PlannedDocument<'_>) -> String {
 }
 
 /// 页内坐标不变；仅把整张阅读页平移到印刷面的对应半边。
-fn render_page(canvas: &mut Canvas, plan: &PlannedDocument<'_>, page: &PlannedPage<'_>, x_mm: f64) {
+fn render_page(
+    canvas: &mut Canvas<'_>,
+    plan: &PlannedDocument<'_>,
+    page: &PlannedPage<'_>,
+    x_mm: f64,
+) {
     writeln!(canvas.source, "\\begin{{scope}}[xshift={}mm]", number(x_mm)).unwrap();
     canvas.begin_region(page.layout.paper);
     writeln!(
         canvas.source,
-        "% physical={} section={} local={} display={:?}",
+        "% physical={} section={} local={} display={}",
         page.context.physical_page,
         page.context.section_index,
         page.context.local_index,
-        page.context.display_number
+        page.context
+            .display_number
+            .map_or_else(|| "-".to_string(), |n| n.to_string())
     )
     .unwrap();
-    canvas.begin_region(page.layout.body);
-    page.section.body.draw(canvas, &page.layout, &page.context);
-    canvas.end_region();
+    if !page.section.body.is_empty() {
+        canvas.begin_region(page.layout.body);
+        page.section.body.draw(canvas, &page.layout, &page.context);
+        canvas.end_region();
+    }
     plan.document.decorations.draw(canvas, page);
     canvas.end_region();
     canvas.end_region();

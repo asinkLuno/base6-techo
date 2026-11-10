@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  DEFAULT_DOTS,
   DEFAULT_IMPOSITION,
   DEFAULT_LINEAR,
   DEFAULT_PAGE,
@@ -103,13 +104,56 @@ describe("document store", () => {
     });
   });
 
-  it("updateSection 在 blank 与 linear 间切换 body", () => {
+  it("updateSection clamp dots 参数到边界，非法颜色回落默认值", () => {
+    state().addSection();
+    const id = state().sections[0].id;
+    state().updateSection(id, {
+      body: {
+        kind: "dots",
+        spacingMm: 0,
+        columnSpacingMm: 5000,
+        radiusMm: 100,
+        color: "red",
+        centerColor: "#xyz",
+      },
+    });
+    expect(state().sections[0].body).toEqual({
+      kind: "dots",
+      spacingMm: 0.1,
+      columnSpacingMm: 1000,
+      radiusMm: 10,
+      color: DEFAULT_DOTS.color,
+      centerColor: DEFAULT_DOTS.centerColor,
+    });
+    state().updateSection(id, {
+      body: {
+        kind: "dots",
+        spacingMm: 4,
+        columnSpacingMm: 6,
+        radiusMm: 0.4,
+        color: "#112233",
+        centerColor: "#445566",
+      },
+    });
+    expect(state().sections[0].body).toEqual({
+      kind: "dots",
+      spacingMm: 4,
+      columnSpacingMm: 6,
+      radiusMm: 0.4,
+      color: "#112233",
+      centerColor: "#445566",
+    });
+  });
+
+  it("updateSection 在 blank、linear 与 dots 间切换 body", () => {
     state().addSection();
     const id = state().sections[0].id;
     state().updateSection(id, { body: { kind: "blank" } });
     expect(state().sections[0].body).toEqual({ kind: "blank" });
     state().updateSection(id, { body: DEFAULT_LINEAR });
     expect(state().sections[0].body).toEqual(DEFAULT_LINEAR);
+    state().updateSection(id, { body: DEFAULT_DOTS });
+    expect(state().sections[0].body).toEqual(DEFAULT_DOTS);
   });
 
   it("updateSection 对未知 id 是 no-op，不会崩溃", () => {
