@@ -22,7 +22,8 @@
       "blank": "空白页",
       "linear": "横线页",
       "dots": "点阵页",
-      "grid": "网格页"
+      "grid": "网格页",
+      "hogen": "方眼罫（Midori）"
     },
     "config": {
       "spacingMm": "行距（mm）",

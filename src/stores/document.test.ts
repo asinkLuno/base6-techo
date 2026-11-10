@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   DEFAULT_DOTS,
   DEFAULT_GRID,
+  DEFAULT_HOGEN,
   DEFAULT_IMPOSITION,
   DEFAULT_LINEAR,
   DEFAULT_PAGE,
@@ -182,7 +183,22 @@ describe("document store", () => {
     });
   });
 
-  it("updateSection 在 blank、linear、dots 与 grid 间切换 body", () => {
+  it("updateSection clamp hogen 颜色，非法颜色回落默认值", () => {
+    state().addSection();
+    const id = state().sections[0].id;
+    state().updateSection(id, { body: { kind: "hogen", color: "blue" } });
+    expect(state().sections[0].body).toEqual({
+      kind: "hogen",
+      color: DEFAULT_HOGEN.color,
+    });
+    state().updateSection(id, { body: { kind: "hogen", color: "#112233" } });
+    expect(state().sections[0].body).toEqual({
+      kind: "hogen",
+      color: "#112233",
+    });
+  });
+
+  it("updateSection 在 blank、linear、dots、grid 与 hogen 间切换 body", () => {
     state().addSection();
     const id = state().sections[0].id;
     state().updateSection(id, { body: { kind: "blank" } });
@@ -193,6 +209,8 @@ describe("document store", () => {
     expect(state().sections[0].body).toEqual(DEFAULT_DOTS);
     state().updateSection(id, { body: DEFAULT_GRID });
     expect(state().sections[0].body).toEqual(DEFAULT_GRID);
+    state().updateSection(id, { body: DEFAULT_HOGEN });
+    expect(state().sections[0].body).toEqual(DEFAULT_HOGEN);
   });
 
   it("updateSection 对未知 id 是 no-op，不会崩溃", () => {

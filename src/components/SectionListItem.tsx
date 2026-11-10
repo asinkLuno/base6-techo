@@ -16,12 +16,14 @@ import {
   clampSpacingMm,
   DEFAULT_DOTS,
   DEFAULT_GRID,
+  DEFAULT_HOGEN,
   DEFAULT_LINEAR,
   DOT_RADIUS_MM_MAX,
   DOT_RADIUS_MM_MIN,
   type DotsPattern,
   diffSectionDecorations,
   type GridPattern,
+  type HogenPattern,
   LINE_WIDTH_PT_MAX,
   LINE_WIDTH_PT_MIN,
   type LinearPattern,
@@ -77,6 +79,36 @@ function TrashIcon() {
   );
 }
 
+/** 颜色选择器：各模板共用同一套 label + 原生取色器外观。 */
+function ColorField({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  onChange: (color: string) => void;
+}) {
+  return (
+    <fieldset className="fieldset">
+      <legend className="fieldset-legend">{label}</legend>
+      <input
+        type="color"
+        className="input h-12 w-full cursor-pointer p-1"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+      />
+    </fieldset>
+  );
+}
+
+/** 各模板配置组的公共写入入口：把 patch 合并回本节 body。 */
+function useBodyPatch<T extends BodyTemplate>(sectionId: string, body: T) {
+  const updateSection = useDocumentStore((s) => s.updateSection);
+  return (patch: Partial<T>) =>
+    updateSection(sectionId, { body: { ...body, ...patch } });
+}
+
 /** linear 模板配置项：行距 / 线色 / 线宽。 */
 function LinearFields({
   sectionId,
@@ -86,10 +118,7 @@ function LinearFields({
   body: LinearPattern;
 }) {
   const { t } = useTranslation();
-  const updateSection = useDocumentStore((s) => s.updateSection);
-
-  const setLinear = (patch: Partial<LinearPattern>) =>
-    updateSection(sectionId, { body: { ...body, ...patch } });
+  const setLinear = useBodyPatch(sectionId, body);
 
   return (
     <div className="grid gap-4 sm:grid-cols-3">
@@ -102,15 +131,11 @@ function LinearFields({
         clamp={clampSpacingMm}
         onCommit={(spacingMm) => setLinear({ spacingMm })}
       />
-      <fieldset className="fieldset">
-        <legend className="fieldset-legend">{t("editor.config.color")}</legend>
-        <input
-          type="color"
-          className="input h-12 w-full cursor-pointer p-1"
-          value={body.color}
-          onChange={(e) => setLinear({ color: e.target.value })}
-        />
-      </fieldset>
+      <ColorField
+        label={t("editor.config.color")}
+        value={body.color}
+        onChange={(color) => setLinear({ color })}
+      />
       <NumberField
         label={t("editor.config.lineWidthPt")}
         value={body.lineWidthPt}
@@ -133,10 +158,7 @@ function DotsFields({
   body: DotsPattern;
 }) {
   const { t } = useTranslation();
-  const updateSection = useDocumentStore((s) => s.updateSection);
-
-  const setDots = (patch: Partial<DotsPattern>) =>
-    updateSection(sectionId, { body: { ...body, ...patch } });
+  const setDots = useBodyPatch(sectionId, body);
 
   return (
     <div className="grid gap-4 sm:grid-cols-2">
@@ -167,28 +189,16 @@ function DotsFields({
         clamp={clampDotRadiusMm}
         onCommit={(radiusMm) => setDots({ radiusMm })}
       />
-      <fieldset className="fieldset">
-        <legend className="fieldset-legend">
-          {t("editor.config.dotColor")}
-        </legend>
-        <input
-          type="color"
-          className="input h-12 w-full cursor-pointer p-1"
-          value={body.color}
-          onChange={(e) => setDots({ color: e.target.value })}
-        />
-      </fieldset>
-      <fieldset className="fieldset">
-        <legend className="fieldset-legend">
-          {t("editor.config.centerColor")}
-        </legend>
-        <input
-          type="color"
-          className="input h-12 w-full cursor-pointer p-1"
-          value={body.centerColor}
-          onChange={(e) => setDots({ centerColor: e.target.value })}
-        />
-      </fieldset>
+      <ColorField
+        label={t("editor.config.dotColor")}
+        value={body.color}
+        onChange={(color) => setDots({ color })}
+      />
+      <ColorField
+        label={t("editor.config.centerColor")}
+        value={body.centerColor}
+        onChange={(centerColor) => setDots({ centerColor })}
+      />
     </div>
   );
 }
@@ -202,10 +212,7 @@ function GridFields({
   body: GridPattern;
 }) {
   const { t } = useTranslation();
-  const updateSection = useDocumentStore((s) => s.updateSection);
-
-  const setGrid = (patch: Partial<GridPattern>) =>
-    updateSection(sectionId, { body: { ...body, ...patch } });
+  const setGrid = useBodyPatch(sectionId, body);
 
   return (
     <div className="grid gap-4 sm:grid-cols-3">
@@ -218,15 +225,11 @@ function GridFields({
         clamp={clampGridSpacingMm}
         onCommit={(spacingMm) => setGrid({ spacingMm })}
       />
-      <fieldset className="fieldset">
-        <legend className="fieldset-legend">{t("editor.config.color")}</legend>
-        <input
-          type="color"
-          className="input h-12 w-full cursor-pointer p-1"
-          value={body.color}
-          onChange={(e) => setGrid({ color: e.target.value })}
-        />
-      </fieldset>
+      <ColorField
+        label={t("editor.config.color")}
+        value={body.color}
+        onChange={(color) => setGrid({ color })}
+      />
       <NumberField
         label={t("editor.config.lineWidthPt")}
         value={body.lineWidthPt}
@@ -240,6 +243,28 @@ function GridFields({
   );
 }
 
+/** hogen（方眼罫）配置项：尺寸、断口与外伸线固定，只开放颜色。 */
+function HogenFields({
+  sectionId,
+  body,
+}: {
+  sectionId: string;
+  body: HogenPattern;
+}) {
+  const { t } = useTranslation();
+  const setHogen = useBodyPatch(sectionId, body);
+
+  return (
+    <div className="grid gap-4 sm:grid-cols-2">
+      <ColorField
+        label={t("editor.config.color")}
+        value={body.color}
+        onChange={(color) => setHogen({ color })}
+      />
+    </div>
+  );
+}
+
 const defaultBodyFor = (kind: string): BodyTemplate => {
   switch (kind) {
     case "linear":
@@ -248,6 +273,8 @@ const defaultBodyFor = (kind: string): BodyTemplate => {
       return { ...DEFAULT_DOTS };
     case "grid":
       return { ...DEFAULT_GRID };
+    case "hogen":
+      return { ...DEFAULT_HOGEN };
     default:
       return { kind: "blank" };
   }
@@ -367,6 +394,7 @@ export default memo(function SectionListItem({
                   <option value="linear">{t("editor.template.linear")}</option>
                   <option value="dots">{t("editor.template.dots")}</option>
                   <option value="grid">{t("editor.template.grid")}</option>
+                  <option value="hogen">{t("editor.template.hogen")}</option>
                 </select>
               </fieldset>
 
@@ -403,6 +431,9 @@ export default memo(function SectionListItem({
             )}
             {body.kind === "grid" && (
               <GridFields sectionId={section.id} body={body} />
+            )}
+            {body.kind === "hogen" && (
+              <HogenFields sectionId={section.id} body={body} />
             )}
 
             <div className="divider my-0" />

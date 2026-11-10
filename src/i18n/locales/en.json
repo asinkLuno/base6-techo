@@ -22,7 +22,8 @@
       "blank": "Blank page",
       "linear": "Lined page",
       "dots": "Dot grid",
-      "grid": "Grid page"
+      "grid": "Grid page",
+      "hogen": "Hōgan grid (Midori)"
     },
     "config": {
       "spacingMm": "Line spacing (mm)",

@@ -42,11 +42,19 @@ export interface GridPattern {
   lineWidthPt: number;
 }
 
+/** 方眼罫（复刻 Midori）：5mm 格、断口与外伸线固定，只开放颜色。 */
+export interface HogenPattern {
+  kind: "hogen";
+  /** 格线与标记点共用的颜色，#RRGGBB，默认 #A9D1AE */
+  color: string;
+}
+
 export type BodyTemplate =
   | BlankPattern
   | LinearPattern
   | DotsPattern
-  | GridPattern;
+  | GridPattern
+  | HogenPattern;
 
 /** 页头/页脚内容，与 Rust BandContent（tag = "kind"）一致。 */
 export type BandContent =
@@ -162,6 +170,12 @@ export const DEFAULT_GRID: GridPattern = {
   spacingMm: 5,
   color: "#7A9AC9",
   lineWidthPt: 0.2,
+};
+
+/** 与 Rust HogenPattern::default 一致。 */
+export const DEFAULT_HOGEN: HogenPattern = {
+  kind: "hogen",
+  color: "#A9D1AE",
 };
 
 /** 与 Rust Band::default / TextStyle::default 一致的空页头。 */
@@ -305,6 +319,11 @@ export const clampBody = (body: BodyTemplate): BodyTemplate => {
         spacingMm: clampGridSpacingMm(body.spacingMm),
         color: clampColor(body.color, DEFAULT_GRID.color),
         lineWidthPt: clampGridLineWidthPt(body.lineWidthPt),
+      };
+    case "hogen":
+      return {
+        kind: "hogen",
+        color: clampColor(body.color, DEFAULT_HOGEN.color),
       };
     default:
       return { kind: "blank" };
