@@ -34,6 +34,24 @@ mkdir -p "$JNILIBS"
 rm -f "$JNILIBS/libc++_shared.so"
 cp -fL "$NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/aarch64-linux-android/libc++_shared.so" "$JNILIBS/"
 
+# ICU's full data package is ~33 MiB; only brkitr/converters/locale core are
+# used by XeTeX. Trim the vcpkg arm64-android archive before linking (idempotent).
+TRIM_OUT=$(scripts/trim-icu-data.sh arm64-android)
+printf '%s\n' "$TRIM_OUT"
+
+# cargo does not track vcpkg's static archives, so swapping libicudata.a does
+# not invalidate the previous link. Force a relink when the archive changed
+# (first build after a vcpkg (re)install); otherwise the .so would silently
+# keep the old full ICU data.
+if grep -q '^ICU_DATA_TRIMMED=1$' <<<"$TRIM_OUT"; then
+  echo "== ICU data changed: forcing relink of the app library =="
+  if [ "$MODE" = release ]; then
+    (cd src-tauri && cargo clean -p base6-techo --release --target aarch64-linux-android)
+  else
+    (cd src-tauri && cargo clean -p base6-techo --target aarch64-linux-android)
+  fi
+fi
+
 if [ "$MODE" = release ]; then
   yarn tauri android build --target aarch64 --apk
   echo "== APK: src-tauri/gen/android/app/build/outputs/apk/universal/release/ =="
