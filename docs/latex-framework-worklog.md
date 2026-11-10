@@ -43,3 +43,13 @@
 10. 复查后当前 39 个有效拼版变异点全部检出，无幸存者；同源码纯 Rust 测试与严格 Clippy 均通过。保留 build/imposition-metrics 下的指标，清理本次生成的 mutation-workers 和 Python 字节码，不删除用户前端在途改动。
 11. 更新接口说明，记录 mode、每帖纸张数、实际 PDF 纸面尺寸、正反面顺序与双面打印设置。本次本地提交只包含后端、相关测试/检查脚本与文档；仓库未配置 remote，无法推送。
 12. 复查 diff 时发现用户也在更新 document_framework.rs 中的前端负载测试；将本次六项拼版测试移到独立 tests/imposition.rs，只提交独立测试文件，保留该文件中的用户改动。临时测试 harness 同步加载两个集成测试文件。
+
+## 方眼罫（Midori）模板
+
+1. 阅读 archive 分支的 `hogen_grid.rs`、`docs/layouts.md` 与 showcase 数据，确认样式为 5mm 方格：横线连续，竖线在每条横线上方留 1mm 断口；隔一条格线向页缘外伸 1.2mm；每 10 格在页缘画标记点；线宽 0.7pt，几何固定、只开放线色。
+2. 旧实现按左上角索引计算偶数列/行与每 10 格标记，标记点不居中且会漏掉一侧；本次改为与 `linear`/`dots`/`grid` 一致的中心对称模型：`centered_extent` 增加 `inset` 参数，先预留 1mm 断口 + 1.2mm 外伸，再以页心中心向两侧取整格。
+3. 先写后端行为测试（A5 默认页心的格线范围、pattern 相位、四个标记点、外伸短线数量与非法颜色），确认因缺少 `Hogen` 失败；前端 store 测试同样先失败。
+4. 实现 `HogenPattern`（仅 `color`）、固定几何常量、`HogenLattice` 与 `hogen_extends`；格线区域用 PGF pattern 一次填充，外伸线与标记点逐页输出。`Canvas` 新增 `hogen_grid` 与 `line`，短线仍走局部坐标。
+5. 前端接入 `hogen` 类型、默认值、clamp、模板下拉、颜色控件与中英词条；顺手抽出 `ColorField` 和 `useBodyPatch`，消掉三组模板配置组件的重复样板。Rust 侧把横线/方格相同的校验合并为 `validate_line_grid`。
+6. 验证：`cargo test` 全部通过（含把方眼罫加入真实 Tectonic 编译的六页 e2e），`cargo clippy --all-targets -- -D warnings` 通过；`yarn test` 116 项通过，`tsc --noEmit` 与 `biome check .` 通过。栅格化 e2e 文档第 6 页目检，格线、断口、外伸与标记点符合复刻目标。
+7. 指标：`crapper --no-coverage` 改动函数 CC 均为 1–较小值；`dryer --threshold 0.8` 仅剩 `LinearPattern`/`GridPattern` 两个结构相同的 7 行 `Default` 实现（不同 serde 类型与默认数值，合并会牺牲类型或改写 JSON 形状），未强行抽象；其余重复已消除。
