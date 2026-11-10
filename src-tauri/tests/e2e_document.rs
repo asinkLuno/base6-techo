@@ -1,4 +1,4 @@
-//! 真实编译一个含空白节、横线节、两侧水印与特殊字符的五页文档。
+//! 真实编译一个含空白节、横线节、方眼罫节、两侧水印与特殊字符的六页文档。
 use base6_techo_lib::{
     compile,
     templates::document::{Document, generate_document_latex},
@@ -25,7 +25,8 @@ fn mixed_sections_compile_to_real_pdf() {
         },
         "sections": [
             {"pages": 3, "numbered": false},
-            {"pages": 2, "body": {"kind": "linear", "spacingMm": 7.5}}
+            {"pages": 2, "body": {"kind": "linear", "spacingMm": 7.5}},
+            {"pages": 1, "body": {"kind": "hogen", "color": "#A9D1AE"}}
         ]
     }"##).unwrap();
     let tex = generate_document_latex(&doc).unwrap();

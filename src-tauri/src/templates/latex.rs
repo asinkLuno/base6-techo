@@ -213,6 +213,84 @@ impl<'a> Canvas<'a> {
         );
     }
 
+    /// 方眼罫：横线连续，竖线在每条横线下方断开 `gap`；外伸线与标记点由模板单独绘制。
+    /// 与方格一样用 pattern 一次填充格线区域，相位锁到区域左上角。
+    pub(crate) fn hogen_grid(
+        &mut self,
+        rect: Rect,
+        spacing: f64,
+        gap: f64,
+        line_width_pt: f64,
+        color: &str,
+    ) {
+        // TeX pt（1/72.27in）换算成毫米。
+        let width = line_width_pt * 25.4 / 72.27;
+        let half = width / 2.0;
+        // pattern 在页面空间平铺：x 与页面同向；y 向上而阅读页局部 y 向下。
+        let offset_x = (self.sheet_x_mm + rect.x).rem_euclid(spacing);
+        let offset_y = (self.sheet_height_mm - rect.y).rem_euclid(spacing);
+        let name = format!(
+            "hogen_{}_{}_{}_{}_{}",
+            name_part(spacing),
+            name_part(gap),
+            name_part(line_width_pt),
+            name_part(offset_x),
+            name_part(offset_y),
+        );
+        let step = qpoint(spacing, spacing);
+        // 裁剪框四周各放宽半个线宽，避免 tile 边界上的线条被切掉一半。
+        let origin = qpoint(-half, -half);
+        let upper = qpoint(spacing + half, spacing + half);
+        // 横线在整个 tile 宽度上连续。
+        let mut paths = vec![format!(
+            "\\pgfpathrectangle{{{}}}{{{}}}",
+            qpoint(-half, offset_y - half),
+            qpoint(spacing + 2.0 * half, width)
+        )];
+        // 竖线从横线向上延伸 spacing-gap；越过 tile 上界时拆成两段。
+        let segment = spacing - gap;
+        let main_height = segment.min(spacing - offset_y);
+        let wrapped_height = (offset_y - gap).max(0.0);
+        for (start, height) in [(offset_y, main_height), (0.0, wrapped_height)] {
+            if height > 0.0 {
+                paths.push(format!(
+                    "\\pgfpathrectangle{{{}}}{{{}}}",
+                    qpoint(offset_x - half, start),
+                    qpoint(width, height)
+                ));
+            }
+        }
+        self.define_ink(color);
+        let declaration = format!(
+            "\\pgfdeclarepatternformonly{{{name}}}{{{origin}}}{{{upper}}}{{{step}}}{{%\n  {}%\n  \\pgfusepath{{fill}}%\n}}\n",
+            paths.join("%\n  ")
+        );
+        self.declare_pattern(&name, &declaration);
+        self.pattern_fill_rect(
+            &name,
+            rect.x - half,
+            rect.y - half,
+            rect.x + rect.width + half,
+            rect.y + rect.height + half,
+        );
+    }
+
+    /// 单条短线，页面局部坐标；只用于方眼罫外伸的几根格线。
+    pub(crate) fn line(&mut self, x1: f64, y1: f64, x2: f64, y2: f64, width_pt: f64, color: &str) {
+        let width = width_pt * 25.4 / 72.27;
+        self.define_ink(color);
+        writeln!(
+            self.source,
+            "\\draw[ink,line width={}mm] ({},{}) -- ({},{});",
+            number(width),
+            number(x1),
+            number(y1),
+            number(x2),
+            number(y2)
+        )
+        .unwrap();
+    }
+
     fn pattern_fill_rect(&mut self, name: &str, left: f64, top: f64, right: f64, bottom: f64) {
         writeln!(self.source, "\\pgfsetfillpattern{{{name}}}{{ink}}").unwrap();
         writeln!(self.source, "\\pgfpathmoveto{{{}}}", xy_point(left, top)).unwrap();

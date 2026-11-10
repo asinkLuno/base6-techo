@@ -1,7 +1,7 @@
 use base6_techo_lib::templates::{
     document::{Document, Section, generate_document_latex, plan_document},
     layout::{Binding, Side},
-    patterns::{BodyTemplate, DotsPattern, GridPattern, LinearPattern},
+    patterns::{BodyTemplate, DotsPattern, GridPattern, HogenPattern, LinearPattern},
 };
 
 fn document() -> Document {
@@ -336,6 +336,59 @@ fn dense_grid_output_stays_compact_and_rejects_invalid_parameters() {
         doc.sections[1].body = body;
         assert!(plan_document(&doc).is_err());
     }
+}
+
+#[test]
+fn hogen_grid_reproduces_midori_geometry_from_the_page_center() {
+    let doc: Document =
+        serde_json::from_str(r##"{"sections":[{"body":{"kind":"hogen","color":"#A9D1AE"}}]}"##)
+            .unwrap();
+    let tex = generate_document_latex(&doc).unwrap();
+    // A5 默认页心 (18,16)-(130,194)，中心 (74,105)。四周各预留 1mm 断口 +
+    // 1.2mm 外伸后，每边放 10 格（x 24..124）、17 格（y 20..190）。
+    assert!(tex.contains("\\pgfdeclarepatternformonly{hogen_5_1_0p7_4_0}"));
+    assert!(tex.contains("\\pgfsetfillpattern{hogen_5_1_0p7_4_0}{ink}"));
+    // 填充范围再外扩半条线宽（0.7pt = 0.123011mm），保证外框线不被裁掉一半。
+    assert!(tex.contains("\\pgfpathmoveto{\\pgfpointxy{23.876989}{19.876989}}"));
+    assert!(tex.contains("\\pgfpathlineto{\\pgfpointxy{124.123011}{190.123011}}"));
+    // 每 10 格一条标记线：纵向 ±10 格落在最外圈，横向 ±10 格仍在内部。
+    assert!(tex.contains("\\fill[ink] (24,18.5) circle (0.4);"));
+    assert!(tex.contains("\\fill[ink] (74,191.5) circle (0.4);"));
+    assert!(tex.contains("\\fill[ink] (22.5,105) circle (0.4);"));
+    assert!(tex.contains("\\fill[ink] (125.5,55) circle (0.4);"));
+    // 偶数格线向外伸 1.2mm，与格线间隔 1mm；标记线与最外圈不伸出。
+    assert!(tex.contains("\\draw[ink,line width=0.246022mm] (64,19) -- (64,17.8);"));
+    assert!(tex.contains("\\draw[ink,line width=0.246022mm] (23,95) -- (21.8,95);"));
+    // 纵线 21 条（-10..10）可伸出 8 条 × 2；横线 35 条（-17..17）
+    // 可伸出 14 条 × 2（±17 是边框，标记线 0 与 ±10 改画点），共 44 条短线。
+    assert_eq!(tex.matches("\\draw[ink,line width=").count(), 44);
+    assert!(!tex.contains("fancyhdr"));
+}
+
+#[test]
+fn hogen_grid_rejects_invalid_color() {
+    let mut doc = document();
+    doc.sections[1].body = BodyTemplate::Hogen(HogenPattern {
+        color: "#GGGGGG".into(),
+    });
+    assert!(plan_document(&doc).is_err());
+}
+
+#[test]
+fn hogen_grid_degrades_to_nothing_when_the_body_cannot_fit_one_cell() {
+    let mut doc = document();
+    doc.page.paper = base6_techo_lib::templates::layout::PaperSize::Custom {
+        width_mm: 37.0,
+        height_mm: 33.0,
+    };
+    doc.sections = vec![Section {
+        pages: 1,
+        body: BodyTemplate::Hogen(HogenPattern::default()),
+        ..Default::default()
+    }];
+    // 1mm 页心扣掉两侧 2.2mm 预留后放不下 5mm 格：只保留空白页，不输出 pattern。
+    let tex = generate_document_latex(&doc).unwrap();
+    assert!(!tex.contains("\\pgfdeclarepatternformonly{hogen"));
 }
 
 #[test]
