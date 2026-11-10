@@ -12,7 +12,8 @@
           const raw = localStorage.getItem("base6-techo:settings");
           if (!raw) return;
           const parsed = JSON.parse(raw);
-          if (parsed.version !== 1) return;
+          // v2 起新增 pdfViewMode 字段，主题/语言结构不变，两版都直接识别
+          if (parsed.version !== 1 && parsed.version !== 2) return;
           const state = parsed.state;
           const themes = ["light", "dark"];
           document.documentElement.setAttribute(

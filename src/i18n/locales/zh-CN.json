@@ -34,6 +34,12 @@
     "zoomIn": "放大",
     "zoomOut": "缩小",
     "zoomFit": "适应宽度",
+    "toc": "目录",
+    "viewContinuous": "连续",
+    "viewSingle": "单页",
+    "viewDouble": "双页",
+    "prevPage": "上一页",
+    "nextPage": "下一页",
     "needDesktop": "生成需要在桌面应用中运行：浏览器页面不含内置的 Tectonic 引擎。",
     "log": {
       "title": "Tectonic 编译日志",

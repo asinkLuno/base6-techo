@@ -15,7 +15,7 @@ import {
 import { isTauri } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import clsx from "clsx";
-import { lazy, Suspense, useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { CompileLogPanel } from "../components/CompileLogPanel";
 import { PageSettingsPanel } from "../components/PageSettingsPanel";
@@ -52,6 +52,12 @@ const PdfViewer = lazy(() =>
   import("../components/PdfViewer").then((m) => ({ default: m.PdfViewer })),
 );
 
+// dnd-kit 的 useSensor 按 options 引用做 memo：字面量放组件内会每次渲染重建传感器实例。
+const POINTER_SENSOR_OPTIONS = { activationConstraint: { distance: 6 } };
+const KEYBOARD_SENSOR_OPTIONS = {
+  coordinateGetter: sortableKeyboardCoordinates,
+};
+
 /** 主界面：左栏版式组合（section 列表：拖拽排序、增删、逐项配置模板），右栏页面设置与生成。 */
 export default function HomePage() {
   const { t } = useTranslation();
@@ -71,36 +77,55 @@ export default function HomePage() {
   const previewRef = useRef<HTMLElement | null>(null);
   // 事件守卫：实时流结束后迟到的 compile-log 事件不再入列
   const liveActiveRef = useRef(false);
+  // 编译期日志事件攒到下一帧批量提交：后端可能每秒推数百行，逐行 setState 会让整页跟着重渲
+  const pendingLines = useRef<CompileLogLine[]>([]);
+  const flushFrame = useRef<number | null>(null);
 
   // 全局注册 compile-log 监听（仅 Tauri 环境）：后端编译期间逐行推送
   useEffect(() => {
     if (!isTauri()) return;
     let unlisten: UnlistenFn | null = null;
     let disposed = false;
+
+    const flush = () => {
+      flushFrame.current = null;
+      const batch = pendingLines.current;
+      pendingLines.current = [];
+      if (!liveActiveRef.current || batch.length === 0) return;
+      setStream((prev) => {
+        let next = prev ?? [];
+        for (const line of batch) next = appendLiveLine(next, line);
+        return next;
+      });
+    };
+
     void listen<{ kind: string; line: string }>("compile-log", (e) => {
       if (!liveActiveRef.current) return;
-      setStream((prev) =>
-        appendLiveLine(prev ?? [], {
-          kind: e.payload.kind as CompileLogLine["kind"],
-          text: e.payload.line,
-        }),
-      );
+      pendingLines.current.push({
+        kind: e.payload.kind as CompileLogLine["kind"],
+        text: e.payload.line,
+      });
+      if (flushFrame.current === null) {
+        flushFrame.current = requestAnimationFrame(flush);
+      }
     }).then((fn) => {
       if (disposed) fn();
       else unlisten = fn;
     });
     return () => {
       disposed = true;
+      liveActiveRef.current = false;
       unlisten?.();
+      if (flushFrame.current !== null) cancelAnimationFrame(flushFrame.current);
+      flushFrame.current = null;
+      pendingLines.current = [];
     };
   }, []);
 
   // distance 约束让卡内输入框/下拉的单击不触发拖拽，拖动需移动 6px。
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
-    useSensor(KeyboardSensor, {
-      coordinateGetter: sortableKeyboardCoordinates,
-    }),
+    useSensor(PointerSensor, POINTER_SENSOR_OPTIONS),
+    useSensor(KeyboardSensor, KEYBOARD_SENSOR_OPTIONS),
   );
 
   const handleDragEnd = ({ active, over }: DragEndEvent) => {
@@ -114,12 +139,15 @@ export default function HomePage() {
       setError(t("editor.needDesktop"));
       return;
     }
+    // 编译期间并行预载预览 chunk（pdfjs 体积大），生成完成后 PdfViewer 无需等下载
+    void import("../components/PdfViewer");
     // page/imposition 只在这里用到，回调内按需读取，避免设置变更时重渲整个主界面
     const { page, imposition, sections: current } = useDocumentStore.getState();
     setGenerating(true);
     setError(null);
     setLog(null);
     setStream([]);
+    pendingLines.current = [];
     liveActiveRef.current = true;
     setSaveError(null);
     setSavedToast(null);
@@ -182,6 +210,11 @@ export default function HomePage() {
 
   const total = sections.reduce((sum, section) => sum + section.pages, 0);
   const overflow = total > PAGES_MAX;
+  // SortableContext 按 items 引用判断，稳定数组避免每次日志/状态更新都重算拖拽上下文
+  const sortableIds = useMemo(
+    () => sections.map((section) => section.id),
+    [sections],
+  );
 
   return (
     <>
@@ -209,7 +242,7 @@ export default function HomePage() {
             onDragEnd={handleDragEnd}
           >
             <SortableContext
-              items={sections.map((section) => section.id)}
+              items={sortableIds}
               strategy={verticalListSortingStrategy}
             >
               {sections.map((section, index) => (

@@ -55,20 +55,21 @@ export function splitCompileError(err: string): {
   return { message, log: log || null };
 }
 
+// 日志可能上万行，正则提到模块级避免逐行构造（js-hoist-regexp）
+const NEWLINE_RE = /\r?\n/;
+const OVERFULL_RE = /^(Overfull|Underfull)/;
+
 /** 逐行扫描 TeX 日志做启发式计数；多行警告体不重复计数。 */
 export function parseCompileLog(log: string): CompileLogSummary {
   if (log === "") return { errors: 0, warnings: 0, lines: 0 };
   let errors = 0;
   let warnings = 0;
   let lines = 0;
-  for (const line of log.split(/\r?\n/)) {
+  for (const line of log.split(NEWLINE_RE)) {
     lines++;
     if (line.startsWith("!")) {
       errors++;
-    } else if (
-      line.includes("Warning:") ||
-      /^(Overfull|Underfull)/.test(line)
-    ) {
+    } else if (line.includes("Warning:") || OVERFULL_RE.test(line)) {
       warnings++;
     }
   }

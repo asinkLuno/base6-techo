@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { memo, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { type CompileLogLine, parseCompileLog } from "../lib/compileLog";
 
@@ -13,8 +13,13 @@ interface CompileLogPanelProps {
   defaultOpen?: boolean;
 }
 
-/** 实时/最终统一按行渲染，kind 决定行颜色；空行渲染空格撑住行高。 */
-function LogLines({ lines }: { lines: CompileLogLine[] }) {
+/** 实时/最终统一按行渲染，kind 决定行颜色；空行渲染空格撑住行高。
+ *  memo：展开/复制等面板自身状态变化时不重复渲染几百行日志。 */
+const LogLines = memo(function LogLines({
+  lines,
+}: {
+  lines: CompileLogLine[];
+}) {
   return (
     <>
       {lines.map((line, i) => (
@@ -33,7 +38,7 @@ function LogLines({ lines }: { lines: CompileLogLine[] }) {
       ))}
     </>
   );
-}
+});
 
 /**
  * Tectonic 编译日志面板：daisyUI collapse。编译中为实时流（spinner、逐行追加、
@@ -50,6 +55,12 @@ export function CompileLogPanel({
   const [copied, setCopied] = useState(false);
   const preRef = useRef<HTMLPreElement | null>(null);
   const summary = useMemo(() => parseCompileLog(log ?? ""), [log]);
+  // 最终态按行拆开，与实时态共用渲染；日志不变则不重复切分
+  const finalLines = useMemo<CompileLogLine[]>(
+    () =>
+      (log ?? "").split("\n").map((text) => ({ kind: "tex" as const, text })),
+    [log],
+  );
 
   const isLive = live && stream !== null;
 
@@ -67,9 +78,9 @@ export function CompileLogPanel({
     }
     if (wasLive.current) {
       wasLive.current = false;
-      setOpen(parseCompileLog(log ?? "").errors > 0);
+      setOpen(summary.errors > 0);
     }
-  }, [isLive, log]);
+  }, [isLive, summary]);
 
   // 实时流每追加一行滚到底部（依赖行数变化触发；行数组本身不参与渲染判断）
   // biome-ignore lint/correctness/useExhaustiveDependencies: 以 stream 长度作为追加信号
@@ -88,16 +99,13 @@ export function CompileLogPanel({
 
   if (!isLive && !log) return null;
 
-  // 最终态按行拆开，与实时态共用渲染
-  const finalLines: CompileLogLine[] = (log ?? "")
-    .split("\n")
-    .map((text) => ({ kind: "tex", text }));
   const lines = isLive ? (stream ?? []) : finalLines;
-  const copyText = isLive
-    ? (stream ?? []).map((l) => l.text).join("\n")
-    : (log ?? "");
 
   const handleCopy = async () => {
+    // 拼接只在点击时做，避免实时流每次追加都重扫整段日志
+    const copyText = isLive
+      ? (stream ?? []).map((l) => l.text).join("\n")
+      : (log ?? "");
     try {
       await navigator.clipboard.writeText(copyText);
       setCopied(true);

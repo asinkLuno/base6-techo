@@ -34,6 +34,12 @@
     "zoomIn": "Zoom in",
     "zoomOut": "Zoom out",
     "zoomFit": "Fit width",
+    "toc": "Contents",
+    "viewContinuous": "Continuous",
+    "viewSingle": "Single",
+    "viewDouble": "Double",
+    "prevPage": "Previous page",
+    "nextPage": "Next page",
     "needDesktop": "Generation requires the desktop app: the browser page does not include the bundled Tectonic engine.",
     "log": {
       "title": "Tectonic compile log",
