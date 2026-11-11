@@ -251,6 +251,10 @@ export const OCTAN_DATE_SIZE_PT_MIN = 1;
 export const OCTAN_DATE_SIZE_PT_MAX = 72;
 export const OCTAN_CENTER_GAP_MM_MIN = 0;
 export const OCTAN_CENTER_GAP_MM_MAX = 1000;
+/** 格式串与星期表头的总长度上限，与 Rust 校验一致。 */
+export const OCTAN_TEXT_MAX = 128;
+/** 单个星期表头的长度上限。 */
+export const OCTAN_WEEKDAY_HEADER_MAX = 16;
 
 /** 与 Rust OctanWeekPattern::default 一致。 */
 export const DEFAULT_OCTAN_WEEK: OctanWeekPattern = {
@@ -412,9 +416,16 @@ export const isValidDateFormat = (format: string): boolean => {
 };
 
 export const isValidWeekdayHeaders = (headers: string): boolean => {
-  if (typeof headers !== "string") return false;
+  if (typeof headers !== "string" || headers.length > OCTAN_TEXT_MAX) {
+    return false;
+  }
   const items = headers.split(",").map((item) => item.trim());
-  return items.length === 7 && items.every((item) => item !== "");
+  return (
+    items.length === 7 &&
+    items.every(
+      (item) => item !== "" && item.length <= OCTAN_WEEKDAY_HEADER_MAX,
+    )
+  );
 };
 
 /** 9999-12-26 是 4 位年份可取到的最后一个周日；再往后 Rust 的日期解析会拒绝。 */
@@ -446,7 +457,9 @@ export const clampOctanWeek = (body: OctanWeekPattern): OctanWeekPattern => {
     startDate: isoFromOrdinal(monday),
     endDate: isoFromOrdinal(lastSunday),
     dateFormat:
-      typeof body.dateFormat === "string" && isValidDateFormat(body.dateFormat)
+      typeof body.dateFormat === "string" &&
+      body.dateFormat.length <= OCTAN_TEXT_MAX &&
+      isValidDateFormat(body.dateFormat)
         ? body.dateFormat
         : DEFAULT_OCTAN_WEEK.dateFormat,
     weekdayLang:
@@ -455,6 +468,7 @@ export const clampOctanWeek = (body: OctanWeekPattern): OctanWeekPattern => {
         : "zh",
     titleFormat:
       typeof body.titleFormat === "string" &&
+      body.titleFormat.length <= OCTAN_TEXT_MAX &&
       isValidDateFormat(body.titleFormat)
         ? body.titleFormat
         : DEFAULT_OCTAN_WEEK.titleFormat,

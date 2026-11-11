@@ -13,6 +13,8 @@ import {
   mondayOf,
   newDecorations,
   newOctanWeek,
+  OCTAN_TEXT_MAX,
+  OCTAN_WEEKDAY_HEADER_MAX,
   octanWeekPages,
   resolveSectionDecorations,
   resolveSectionMargins,
@@ -412,6 +414,18 @@ describe("octan week", () => {
     expect(body.lineStyle).toBe("solid");
     expect(body.centerGapMm).toBe(0);
     expect(body.dateSizePt).toBe(72);
+  });
+
+  it("超长格式串与表头回落到默认值", () => {
+    const body = clampOctanWeek({
+      ...DEFAULT_OCTAN_WEEK,
+      dateFormat: "%Y".repeat(OCTAN_TEXT_MAX),
+      titleFormat: "%m".repeat(OCTAN_TEXT_MAX),
+      weekdayHeaders: `${"月".repeat(OCTAN_WEEKDAY_HEADER_MAX + 1)},二,三,四,五,六,日`,
+    });
+    expect(body.dateFormat).toBe(DEFAULT_OCTAN_WEEK.dateFormat);
+    expect(body.titleFormat).toBe(DEFAULT_OCTAN_WEEK.titleFormat);
+    expect(body.weekdayHeaders).toBe(DEFAULT_OCTAN_WEEK.weekdayHeaders);
   });
 
   it("周数上限为 499（998 页）", () => {

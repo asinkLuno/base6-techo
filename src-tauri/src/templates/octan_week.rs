@@ -104,6 +104,8 @@ impl OctanWeekPattern {
         validate_color(&self.text_color)?;
         validate_color(&self.highlight_color)?;
         validate_color(&self.phase_color)?;
+        check_text_len("八分周视图日期格式", &self.date_format)?;
+        check_text_len("八分周视图月份格式", &self.title_format)?;
         validate_weekday_headers(&self.weekday_headers)?;
         validate_format(&self.date_format)?;
         validate_format(&self.title_format)
@@ -305,10 +307,30 @@ impl OctanWeekPattern {
     }
 }
 
+/// 格式串会原样写进 LaTeX 源，限制长度避免异常文件放大编译开销。
+const MAX_TEXT_CHARS: usize = 128;
+/// 单个星期表头是表格列标题，过长的值必然溢出。
+const MAX_WEEKDAY_HEADER_CHARS: usize = 16;
+
+fn check_text_len(label: &str, text: &str) -> Result<(), String> {
+    if text.chars().count() > MAX_TEXT_CHARS {
+        return Err(format!("{label}最多 {MAX_TEXT_CHARS} 个字符"));
+    }
+    Ok(())
+}
+
 fn validate_weekday_headers(headers: &str) -> Result<(), String> {
     let items = headers.split(',').map(str::trim).collect::<Vec<_>>();
     if items.len() != 7 || items.iter().any(|item| item.is_empty()) {
         return Err("星期表头必须是 7 个逗号分隔的非空值".into());
+    }
+    if items
+        .iter()
+        .any(|item| item.chars().count() > MAX_WEEKDAY_HEADER_CHARS)
+    {
+        return Err(format!(
+            "每个星期表头最多 {MAX_WEEKDAY_HEADER_CHARS} 个字符"
+        ));
     }
     Ok(())
 }
@@ -380,6 +402,23 @@ mod tests {
             "结束日期必须是星期日"
         );
         assert!(pattern("2026-08-03", "2026-08-09").validate().is_ok());
+    }
+
+    #[test]
+    fn rejects_oversized_text_fields() {
+        let mut p = pattern("2026-08-03", "2026-08-09");
+        p.date_format = "%Y".repeat(MAX_TEXT_CHARS);
+        assert_eq!(
+            p.validate().unwrap_err(),
+            format!("八分周视图日期格式最多 {MAX_TEXT_CHARS} 个字符")
+        );
+
+        let mut p = pattern("2026-08-03", "2026-08-09");
+        p.weekday_headers = format!("{},二,三,四,五,六,日", "月".repeat(17));
+        assert_eq!(
+            p.validate().unwrap_err(),
+            format!("每个星期表头最多 {MAX_WEEKDAY_HEADER_CHARS} 个字符")
+        );
     }
 
     #[test]
