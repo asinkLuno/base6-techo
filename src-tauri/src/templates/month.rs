@@ -7,20 +7,17 @@
 use serde::{Deserialize, Serialize};
 
 use super::{
-    calendar::{Date, MonthGrid, WeekdayLang, format_date, validate_format},
+    calendar::{Date, MonthGrid, MonthSpan, WeekdayLang, format_date, validate_format},
     common::{check_text_len, validate_weekday_headers, weekday_headers},
     document::PageContext,
     latex::{Canvas, validate_color},
     layout::{PageLayout, Rect, check_range},
     moon::{moon_illumination, moon_points},
+    table::{Landscape, TableGrid},
 };
-
-/// 连续月份数上限；每个模板块的页数上限是 999。
-pub(crate) const MONTHS_MAX: usize = 120;
 
 const HEAD_H: f64 = 4.0; // mm，星期表头行高
 const PAD: f64 = 0.2; // mm，日期距格边
-const GAP: f64 = 0.2; // mm，网格交叉处留白
 const MOON_INSET: f64 = 1.0; // mm，月相圆盘离格右上角的留白
 const MM_PER_PT: f64 = 25.4 / 72.27;
 
@@ -77,14 +74,7 @@ impl Default for MonthPattern {
 
 impl MonthPattern {
     pub(crate) fn validate(&self) -> Result<(), String> {
-        let start = parse_month(&self.start_month)?;
-        if !(1..=MONTHS_MAX).contains(&self.months) {
-            return Err(format!("月历月份数必须在 1–{MONTHS_MAX} 之间"));
-        }
-        let start_index = i64::from(start.year()) * 12 + i64::from(start.month()) - 1;
-        if start_index + self.months as i64 - 1 > 9999 * 12 + 11 {
-            return Err("月历范围不能超过 9999 年 12 月".into());
-        }
+        MonthSpan::parse("月历", &self.start_month, self.months)?;
         check_range("月历线宽（pt）", self.line_width_pt, 0.01, 10.0)?;
         check_range("月历日期字号（pt）", self.date_size_pt, 1.0, 72.0)?;
         validate_color(&self.line_color)?;
@@ -100,22 +90,11 @@ impl MonthPattern {
         self.months
     }
 
-    /// 起始月份起连续 `months` 个月的 1 号；校验已保证格式合法。
-    pub(crate) fn month_firsts(&self) -> Vec<Date> {
-        let Ok(mut first) = parse_month(&self.start_month) else {
-            return Vec::new();
-        };
-        let mut out = Vec::with_capacity(self.months);
-        for _ in 0..self.months {
-            out.push(first);
-            first = first.next_month_first();
-        }
-        out
-    }
-
     pub(crate) fn draw(&self, canvas: &mut Canvas<'_>, layout: &PageLayout, context: &PageContext) {
-        let month_firsts = self.month_firsts();
-        let Some(&first) = month_firsts.get(context.local_index) else {
+        let Ok(span) = MonthSpan::parse("月历", &self.start_month, self.months) else {
+            return;
+        };
+        let Some(&first) = span.firsts().get(context.local_index) else {
             return;
         };
         self.draw_month(canvas, layout.body, first);
@@ -141,10 +120,7 @@ impl MonthPattern {
         if g.cell_w <= 0.0 || g.cell_h <= 0.0 {
             return;
         }
-        // 设计坐标系 (x 向右、y 向下) → 页面坐标：逆时针转 90°，贴到页心左下角。
-        let base = body.y + body.height;
-        let left = body.x;
-        let to_page = |x: f64, y: f64| (left + y, base - x);
+        let land_map = Landscape::new(body);
 
         let line_style = super::components::TextStyle {
             size_pt: self.date_size_pt,
@@ -159,15 +135,15 @@ impl MonthPattern {
             color: self.text_color.clone(),
         };
 
-        self.draw_grid(canvas, &g, &to_page);
+        self.draw_grid(canvas, &g, land_map);
         for (column, header) in weekday_headers(&self.weekday_headers).iter().enumerate() {
-            let (x, y) = to_page(
+            let (x, y) = land_map.point(
                 g.land.x + g.cell_w * (column as f64 + 0.5),
                 g.land.y + HEAD_H / 2.0,
             );
             canvas.text(x, y, header, &line_style, "center", 90);
         }
-        let (title_x, title_y) = to_page(body.height / 2.0, body.width / 16.0);
+        let (title_x, title_y) = land_map.point(body.height / 2.0, body.width / 16.0);
         canvas.text(
             title_x,
             title_y,
@@ -180,75 +156,52 @@ impl MonthPattern {
         for day in 1..=grid.days {
             let (column, row) = grid.position(day);
             let date = first.add_days(day as i64 - 1);
-            let (x, y) = to_page(
+            let (x, y) = land_map.point(
                 g.land.x + g.cell_w * column as f64 + PAD,
                 g.gy + g.cell_h * row as f64 + PAD,
             );
             canvas.text(x, y, &day.to_string(), &text_style, "north west", 90);
             if self.show_phase {
-                self.draw_phase(canvas, &g, column, row, date, &to_page);
+                self.draw_phase(canvas, &g, column, row, date, land_map);
             }
         }
     }
 
-    /// 竖线按行分段、横线按列分段，交叉处各留 `GAP` 缺口。
-    fn draw_grid<F>(&self, canvas: &mut Canvas<'_>, g: &MonthLayout, to_page: &F)
-    where
-        F: Fn(f64, f64) -> (f64, f64),
-    {
-        for column in 0..=7 {
-            let x = g.land.x + g.cell_w * column as f64;
-            for row in 0..g.rows {
-                let y1 = g.gy + g.cell_h * row as f64 + GAP;
-                let y2 = g.gy + g.cell_h * (row + 1) as f64 - GAP;
-                let (x1, y1) = to_page(x, y1);
-                let (x2, y2) = to_page(x, y2);
-                canvas.line(x1, y1, x2, y2, self.line_width_pt, &self.line_color);
-            }
+    /// 7 列周网格；格线原语与月打卡共用。
+    fn draw_grid(&self, canvas: &mut Canvas<'_>, g: &MonthLayout, land_map: Landscape) {
+        let mut columns = [0.0; 8];
+        for (index, column) in columns.iter_mut().enumerate() {
+            *column = g.land.x + g.cell_w * index as f64;
         }
-        for row in 0..=g.rows {
-            let y = g.gy + g.cell_h * row as f64;
-            for column in 0..7 {
-                let x1 = g.land.x + g.cell_w * column as f64 + GAP;
-                let x2 = g.land.x + g.cell_w * (column + 1) as f64 - GAP;
-                let (x1, y1) = to_page(x1, y);
-                let (x2, y2) = to_page(x2, y);
-                canvas.line(x1, y1, x2, y2, self.line_width_pt, &self.line_color);
-            }
+        TableGrid {
+            columns: &columns,
+            top: g.gy,
+            row_height: g.cell_h,
+            rows: g.rows,
         }
+        .draw(canvas, self.line_width_pt, &self.line_color, land_map);
     }
 
     /// 右上角圆形月相：直径与日期字号同大。
-    fn draw_phase<F>(
+    fn draw_phase(
         &self,
         canvas: &mut Canvas<'_>,
         g: &MonthLayout,
         column: usize,
         row: usize,
         date: Date,
-        to_page: &F,
-    ) where
-        F: Fn(f64, f64) -> (f64, f64),
-    {
+        land_map: Landscape,
+    ) {
         let radius = self.date_size_pt * MM_PER_PT / 2.0;
         let cx = g.land.x + g.cell_w * (column as f64 + 1.0) - PAD - radius - MOON_INSET;
         let cy = g.gy + g.cell_h * row as f64 + PAD + radius + MOON_INSET;
         let (illumination, waxing) = moon_illumination(date);
         let points = moon_points(cx, cy, radius, illumination, waxing)
             .into_iter()
-            .map(|(x, y)| to_page(x, y))
+            .map(|(x, y)| land_map.point(x, y))
             .collect::<Vec<_>>();
         canvas.filled_path(&points, &self.phase_color);
-        let (x, y) = to_page(cx, cy);
+        let (x, y) = land_map.point(cx, cy);
         canvas.circle(x, y, radius, self.line_width_pt, &self.phase_color);
     }
-}
-
-/// 解析 `YYYY-MM` 为当月 1 号；格式错误统一报“月份必须为 YYYY-MM”。
-fn parse_month(text: &str) -> Result<Date, String> {
-    let bytes = text.as_bytes();
-    if bytes.len() != 7 || bytes[4] != b'-' || !bytes[..4].iter().all(u8::is_ascii_digit) {
-        return Err(format!("月份必须为 YYYY-MM，收到 {text}"));
-    }
-    Date::parse(&format!("{text}-01")).map_err(|_| format!("月份必须为 YYYY-MM，收到 {text}"))
 }

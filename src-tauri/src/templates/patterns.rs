@@ -5,6 +5,7 @@ use super::{
     layout::{PageLayout, Rect, check_range},
     month::MonthPattern,
     octan_week::OctanWeekPattern,
+    tracker::TrackerPattern,
 };
 use serde::{Deserialize, Serialize};
 
@@ -21,6 +22,7 @@ pub enum BodyTemplate {
     #[serde(rename = "octanWeek")]
     OctanWeek(OctanWeekPattern),
     Month(MonthPattern),
+    Tracker(TrackerPattern),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -216,6 +218,7 @@ impl BodyTemplate {
             Self::Hogen(p) => p.validate(),
             Self::OctanWeek(p) => p.validate(),
             Self::Month(p) => p.validate(),
+            Self::Tracker(p) => p.validate(),
             Self::Blank => Ok(()),
         }
     }
@@ -225,6 +228,7 @@ impl BodyTemplate {
         match self {
             Self::OctanWeek(p) => Some((p.required_pages(), "八分周视图每周需要 2 页")),
             Self::Month(p) => Some((p.required_pages(), "月历每月需要 1 页")),
+            Self::Tracker(p) => Some((p.required_pages(), "月打卡每月需要 1 页")),
             _ => None,
         }
     }
@@ -281,6 +285,7 @@ impl BodyTemplate {
             }
             Self::OctanWeek(p) => p.draw(canvas, layout, context),
             Self::Month(p) => p.draw(canvas, layout, context),
+            Self::Tracker(p) => p.draw(canvas, layout, context),
             Self::Hogen(p) => {
                 // 与其它模板一致：整块格线以页心中心为对称点，四周预留给外伸线与标记点。
                 let Some(lattice) = HogenLattice::fit(body) else {

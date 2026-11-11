@@ -188,6 +188,51 @@ impl MonthGrid {
     }
 }
 
+/// 连续月份数上限；每个模板块的页数上限是 999。
+pub(crate) const MONTHS_MAX: usize = 120;
+
+/// 连续月份范围：起始月 1 号 + 月数。月历与月打卡共用同一套边界校验。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct MonthSpan {
+    start: Date,
+    months: usize,
+}
+
+impl MonthSpan {
+    /// `label` 用作错误信息前缀（如「月历」「打卡」）。
+    pub(crate) fn parse(label: &str, start_month: &str, months: usize) -> Result<Self, String> {
+        let start = parse_month(start_month)?;
+        if !(1..=MONTHS_MAX).contains(&months) {
+            return Err(format!("{label}月份数必须在 1–{MONTHS_MAX} 之间"));
+        }
+        let start_index = i64::from(start.year()) * 12 + i64::from(start.month()) - 1;
+        if start_index + months as i64 - 1 > 9999 * 12 + 11 {
+            return Err(format!("{label}范围不能超过 9999 年 12 月"));
+        }
+        Ok(Self { start, months })
+    }
+
+    /// 起始月起连续 `months` 个月的 1 号。
+    pub(crate) fn firsts(self) -> Vec<Date> {
+        let mut first = self.start;
+        let mut out = Vec::with_capacity(self.months);
+        for _ in 0..self.months {
+            out.push(first);
+            first = first.next_month_first();
+        }
+        out
+    }
+}
+
+/// 解析 `YYYY-MM` 为当月 1 号；格式错误统一报「月份必须为 YYYY-MM」。
+pub(crate) fn parse_month(text: &str) -> Result<Date, String> {
+    let bytes = text.as_bytes();
+    if bytes.len() != 7 || bytes[4] != b'-' || !bytes[..4].iter().all(u8::is_ascii_digit) {
+        return Err(format!("月份必须为 YYYY-MM，收到 {text}"));
+    }
+    Date::parse(&format!("{text}-01")).map_err(|_| format!("月份必须为 YYYY-MM，收到 {text}"))
+}
+
 /// 校验格式串：非空，且每个 `%` 指令都在支持范围内。
 pub(crate) fn validate_format(format: &str) -> Result<(), String> {
     if format.is_empty() {

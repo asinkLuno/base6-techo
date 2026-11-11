@@ -341,6 +341,25 @@ impl<'a> Canvas<'a> {
         writeln!(self.source, "\\fill[ink] {path} -- cycle;").unwrap();
     }
 
+    /// 带箭头的折线，页面局部坐标；用于月打卡两表之间的行连接。
+    pub(crate) fn arrow_path(&mut self, points: &[(f64, f64)], width_pt: f64, color: &str) {
+        let Some((first_x, first_y)) = points.first() else {
+            return;
+        };
+        let width = width_pt * 25.4 / 72.27;
+        self.define_ink(color);
+        let mut path = format!("({},{})", number(*first_x), number(*first_y));
+        for (x, y) in &points[1..] {
+            path.push_str(&format!(" -- ({},{})", number(*x), number(*y)));
+        }
+        writeln!(
+            self.source,
+            "\\draw[->,ink,line width={}mm] {path};",
+            number(width)
+        )
+        .unwrap();
+    }
+
     fn pattern_fill_rect(&mut self, name: &str, left: f64, top: f64, right: f64, bottom: f64) {
         writeln!(self.source, "\\pgfsetfillpattern{{{name}}}{{ink}}").unwrap();
         writeln!(self.source, "\\pgfpathmoveto{{{}}}", xy_point(left, top)).unwrap();
