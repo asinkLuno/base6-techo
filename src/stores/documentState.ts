@@ -29,7 +29,7 @@ import {
   type Imposition,
   isPaperPresetKind,
   type Margins,
-  monthPages,
+  monthSpanPages,
   newDecorations,
   octanWeekPages,
   type PageSettings,
@@ -232,14 +232,16 @@ const patchDecorations = (
 ): SectionDecorationsOverride | null =>
   value === null ? null : (minimalDecorations(value, global) ?? {});
 
-/** 页数：八分周视图与月历由模板参数推导，其余模板用给定值（外部输入先 clamp）。 */
+/** 页数：八分周视图、月历与月打卡由模板参数推导，其余模板用给定值（外部输入先 clamp）。 */
 export const pagesFor = (
   body: SectionDraft["body"],
   manual: number | undefined,
   fallback: number,
 ): number => {
   if (body.kind === "octanWeek") return octanWeekPages(body);
-  if (body.kind === "month") return monthPages(body);
+  if (body.kind === "month" || body.kind === "tracker") {
+    return monthSpanPages(body);
+  }
   return clampPages(manual ?? fallback);
 };
 

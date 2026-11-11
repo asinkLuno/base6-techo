@@ -35,6 +35,7 @@ import {
   MARGIN_LINE_X_MM_MIN,
   newMonth,
   newOctanWeek,
+  newTracker,
   PAGES_MAX,
   PAGES_MIN,
   resolveSectionDecorations,
@@ -49,6 +50,7 @@ import { MonthFields } from "./MonthFields";
 import { NumberField } from "./NumberField";
 import { OctanWeekFields } from "./OctanWeekFields";
 import { ColorField, useBodyPatch } from "./PatternControls";
+import { TrackerFields } from "./TrackerFields";
 
 function GripIcon() {
   return (
@@ -380,6 +382,8 @@ const defaultBodyFor = (kind: string): BodyTemplate => {
       return newOctanWeek();
     case "month":
       return newMonth();
+    case "tracker":
+      return newTracker();
     default:
       return { kind: "blank" };
   }
@@ -433,10 +437,13 @@ const SectionEditor = memo(function SectionEditor({
             <option value="hogen">{t("editor.template.hogen")}</option>
             <option value="octanWeek">{t("editor.template.octanWeek")}</option>
             <option value="month">{t("editor.template.month")}</option>
+            <option value="tracker">{t("editor.template.tracker")}</option>
           </select>
         </fieldset>
 
-        {body.kind === "octanWeek" || body.kind === "month" ? (
+        {body.kind === "octanWeek" ||
+        body.kind === "month" ||
+        body.kind === "tracker" ? (
           <fieldset className="fieldset">
             <legend className="fieldset-legend">
               {t("editor.section.pages")}
@@ -450,7 +457,9 @@ const SectionEditor = memo(function SectionEditor({
             <p className="label">
               {body.kind === "octanWeek"
                 ? t("editor.config.octanPagesAuto")
-                : t("editor.config.monthPagesAuto")}
+                : body.kind === "month"
+                  ? t("editor.config.monthPagesAuto")
+                  : t("editor.config.trackerPagesAuto")}
             </p>
           </fieldset>
         ) : (
@@ -497,6 +506,9 @@ const SectionEditor = memo(function SectionEditor({
       )}
       {body.kind === "month" && (
         <MonthFields sectionId={section.id} body={body} />
+      )}
+      {body.kind === "tracker" && (
+        <TrackerFields sectionId={section.id} body={body} />
       )}
 
       <div className="divider my-0" />

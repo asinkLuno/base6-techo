@@ -132,6 +132,27 @@ export interface MonthPattern {
   showPhase: boolean;
 }
 
+/**
+ * 月打卡：单月两段式打卡表，整页旋转 90°；每月一页，页数由月份数推导。
+ * 上表 1–14 日带打卡项列，下表 15–月末，两表左缘用箭头逐行连接。
+ * 年度追踪（跨月网格）未移植。
+ */
+export interface TrackerPattern {
+  kind: "tracker";
+  /** 起始月份，YYYY-MM，Rust 侧拒绝非法月份 */
+  startMonth: string;
+  /** 连续月份数，Rust 校验 1–120；页数等于它 */
+  months: number;
+  /** 每页打卡项行数，Rust 校验 1–30 */
+  items: number;
+  /** 网格线颜色 */
+  lineColor: string;
+  /** 线宽，Rust 校验 0.01–10pt */
+  lineWidthPt: number;
+  /** 日期字号，Rust 校验 1–72pt */
+  dateSizePt: number;
+}
+
 export type BodyTemplate =
   | BlankPattern
   | LinearPattern
@@ -139,7 +160,8 @@ export type BodyTemplate =
   | GridPattern
   | HogenPattern
   | OctanWeekPattern
-  | MonthPattern;
+  | MonthPattern
+  | TrackerPattern;
 
 /** 页头/页脚内容，与 Rust BandContent（tag = "kind"）一致。 */
 export type BandContent =
@@ -346,6 +368,27 @@ export const newMonth = (today = new Date()): MonthPattern => ({
   startMonth: `${String(today.getFullYear()).padStart(4, "0")}-${pad2(today.getMonth() + 1)}`,
 });
 
+/** 月打卡打卡项数范围，与 Rust 校验一致。 */
+export const TRACKER_ITEMS_MIN = 1;
+export const TRACKER_ITEMS_MAX = 30;
+
+/** 与 Rust TrackerPattern::default 一致。 */
+export const DEFAULT_TRACKER: TrackerPattern = {
+  kind: "tracker",
+  startMonth: "2026-08",
+  months: 1,
+  items: 4,
+  lineColor: "#7A7A7A",
+  lineWidthPt: 0.4,
+  dateSizePt: 8,
+};
+
+/** 新建月打卡默认从当前月份开始。 */
+export const newTracker = (today = new Date()): TrackerPattern => ({
+  ...DEFAULT_TRACKER,
+  startMonth: `${String(today.getFullYear()).padStart(4, "0")}-${pad2(today.getMonth() + 1)}`,
+});
+
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
 const isLeapYear = (year: number): boolean =>
@@ -491,9 +534,14 @@ export const addMonths = (month: string, count: number): string => {
 export const monthOf = (date: Date): string =>
   `${String(date.getFullYear()).padStart(4, "0")}-${pad2(date.getMonth() + 1)}`;
 
-/** 月历页数：每月固定一页。 */
-export const monthPages = (body: MonthPattern): number =>
-  Math.round(clampNumber(body.months, 1, MONTHS_MAX, DEFAULT_MONTH.months));
+/** 月历/月打卡页数：每月固定一页。 */
+export const monthSpanPages = (body: { months: number }): number =>
+  Math.round(clampNumber(body.months, 1, MONTHS_MAX, 1));
+
+export const monthPages = (body: MonthPattern): number => monthSpanPages(body);
+
+export const trackerPages = (body: TrackerPattern): number =>
+  monthSpanPages(body);
 
 /** 支持的 strftime 子集，与 Rust validate_format 一致。 */
 export const isValidDateFormat = (format: string): boolean => {
@@ -610,19 +658,29 @@ export const clampOctanWeek = (body: OctanWeekPattern): OctanWeekPattern => {
   };
 };
 
-export const clampMonth = (body: MonthPattern): MonthPattern => {
+/** 月历与月打卡共用的起始月/月数收敛：起始月越靠后，可容纳的月数越少。 */
+const clampMonthSpan = (
+  startMonth: string,
+  months: number,
+): Pick<MonthPattern, "startMonth" | "months"> => {
   const fallbackIndex = monthIndex(DEFAULT_MONTH.startMonth) as number;
-  const parsed = monthIndex(body.startMonth);
+  const parsed = monthIndex(startMonth);
   const startIndex =
     parsed === null || parsed < 12 || parsed > LAST_MONTH_INDEX
       ? fallbackIndex
       : parsed;
-  // 起始月越靠后，可容纳的连续月份越少，避免标题越过 9999 年。
   const maxMonths = Math.min(MONTHS_MAX, LAST_MONTH_INDEX - startIndex + 1);
   return {
-    kind: "month",
     startMonth: isoMonthFromIndex(startIndex),
-    months: Math.round(clampNumber(body.months, 1, maxMonths, 1)),
+    months: Math.round(clampNumber(months, 1, maxMonths, 1)),
+  };
+};
+
+export const clampMonth = (body: MonthPattern): MonthPattern => {
+  const span = clampMonthSpan(body.startMonth, body.months);
+  return {
+    kind: "month",
+    ...span,
     titleFormat:
       typeof body.titleFormat === "string" &&
       body.titleFormat.length <= TEXT_MAX &&
@@ -649,6 +707,30 @@ export const clampMonth = (body: MonthPattern): MonthPattern => {
       DEFAULT_MONTH.dateSizePt,
     ),
     showPhase: body.showPhase !== false,
+  };
+};
+
+export const clampTracker = (body: TrackerPattern): TrackerPattern => {
+  const span = clampMonthSpan(body.startMonth, body.months);
+  return {
+    kind: "tracker",
+    ...span,
+    items: Math.round(
+      clampNumber(
+        body.items,
+        TRACKER_ITEMS_MIN,
+        TRACKER_ITEMS_MAX,
+        DEFAULT_TRACKER.items,
+      ),
+    ),
+    lineColor: clampColor(body.lineColor, DEFAULT_TRACKER.lineColor),
+    lineWidthPt: clampLineWidthPt(body.lineWidthPt),
+    dateSizePt: clampNumber(
+      body.dateSizePt,
+      MONTH_DATE_SIZE_PT_MIN,
+      MONTH_DATE_SIZE_PT_MAX,
+      DEFAULT_TRACKER.dateSizePt,
+    ),
   };
 };
 
@@ -826,6 +908,8 @@ export const clampBody = (body: BodyTemplate): BodyTemplate => {
       return clampOctanWeek(body);
     case "month":
       return clampMonth(body);
+    case "tracker":
+      return clampTracker(body);
     default:
       return { kind: "blank" };
   }

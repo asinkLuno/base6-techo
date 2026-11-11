@@ -6,9 +6,11 @@ import {
   clampBand,
   clampMonth,
   clampOctanWeek,
+  clampTracker,
   DEFAULT_MONTH,
   DEFAULT_OCTAN_WEEK,
   DEFAULT_PAGE,
+  DEFAULT_TRACKER,
   diffSectionDecorations,
   diffSectionMargins,
   hasSectionOverrides,
@@ -20,6 +22,7 @@ import {
   newDecorations,
   newMonth,
   newOctanWeek,
+  newTracker,
   octanWeekPages,
   resolveSectionDecorations,
   resolveSectionMargins,
@@ -27,6 +30,7 @@ import {
   sundayOf,
   TEXT_MAX,
   toSectionSpecs,
+  trackerPages,
   WEEKDAY_HEADER_MAX,
   weeksBetween,
 } from "./document";
@@ -503,5 +507,44 @@ describe("month pattern", () => {
     });
     expect(body.months).toBe(1);
     expect(monthPages(body)).toBe(1);
+  });
+});
+
+describe("tracker pattern", () => {
+  it("newTracker 从当前月份开始，每月一页", () => {
+    const body = newTracker(new Date(2026, 10, 11));
+    expect(body.startMonth).toBe("2026-11");
+    expect(body.items).toBe(DEFAULT_TRACKER.items);
+    expect(body.months).toBe(1);
+    expect(trackerPages(body)).toBe(1);
+  });
+
+  it("clamp 修复非法月份、月数、打卡项数、颜色与字号", () => {
+    const body = clampTracker({
+      kind: "tracker",
+      startMonth: "2026-13",
+      months: 0,
+      items: 0,
+      lineColor: "red",
+      lineWidthPt: 0,
+      dateSizePt: 100,
+    });
+    expect(body.startMonth).toBe(DEFAULT_TRACKER.startMonth);
+    expect(body.months).toBe(1);
+    expect(body.items).toBe(1);
+    expect(body.lineColor).toBe(DEFAULT_TRACKER.lineColor);
+    expect(body.lineWidthPt).toBe(0.01);
+    expect(body.dateSizePt).toBe(72);
+    expect(clampTracker({ ...DEFAULT_TRACKER, items: 31 }).items).toBe(30);
+  });
+
+  it("起始月接近 9999 年时月数收敛到年界内", () => {
+    const body = clampTracker({
+      ...DEFAULT_TRACKER,
+      startMonth: "9999-12",
+      months: 120,
+    });
+    expect(body.months).toBe(1);
+    expect(trackerPages(body)).toBe(1);
   });
 });

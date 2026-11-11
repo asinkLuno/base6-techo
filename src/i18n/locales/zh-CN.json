@@ -27,7 +27,8 @@
       "grid": "网格页",
       "hogen": "方眼罫（Midori）",
       "octanWeek": "八分周视图",
-      "month": "月历"
+      "month": "月历",
+      "tracker": "月打卡"
     },
     "config": {
       "spacingMm": "行距（mm）",
@@ -78,7 +79,15 @@
       "monthShowPhase": "显示月相",
       "monthShowPhaseHint": "每天右上角画近似月相",
       "monthPagesAuto": "页数由月份数自动计算：每月 1 页",
-      "monthClamped": "起始月接近 9999 年，月数已收敛为 {{months}}"
+      "monthClamped": "起始月接近 9999 年，月数已收敛为 {{months}}",
+      "trackerStart": "起始月份",
+      "trackerCount": "连续月数",
+      "trackerItems": "打卡项数",
+      "trackerItemsHint": "每页 1–30 项：上表 1–14 日，下表 15–月末",
+      "trackerDateSize": "日期字号（pt）",
+      "trackerLineColor": "网格线颜色",
+      "trackerPagesAuto": "页数由月份数自动计算：每月 1 页",
+      "trackerClamped": "起始月接近 9999 年，月数已收敛为 {{months}}"
     },
     "decorations": {
       "title": "页头、页脚与水印",

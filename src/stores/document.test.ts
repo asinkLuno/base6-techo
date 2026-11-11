@@ -8,6 +8,7 @@ import {
   DEFAULT_MONTH,
   DEFAULT_OCTAN_WEEK,
   DEFAULT_PAGE,
+  DEFAULT_TRACKER,
   newDecorations,
   SECTION_NAME_MAX,
   toSectionSpecs,
@@ -677,5 +678,22 @@ describe("month calendar pages", () => {
       body: { ...DEFAULT_MONTH, months: 3 },
     });
     expect(state().sections[0].pages).toBe(3);
+  });
+});
+
+describe("tracker pages", () => {
+  it("切换月份数时页数自动跟随，且不能被手工改走", () => {
+    state().addSection();
+    const id = state().sections[0].id;
+    state().updateSection(id, {
+      body: { ...DEFAULT_TRACKER, months: 3 },
+    });
+    expect(state().sections[0].pages).toBe(3);
+    state().updateSection(id, { pages: 99 });
+    expect(state().sections[0].pages).toBe(3);
+    state().updateSection(id, {
+      body: { ...DEFAULT_TRACKER, months: 2 },
+    });
+    expect(state().sections[0].pages).toBe(2);
   });
 });

@@ -27,7 +27,8 @@
       "grid": "Grid page",
       "hogen": "Hōgan grid (Midori)",
       "octanWeek": "Eight-part week",
-      "month": "Monthly calendar"
+      "month": "Monthly calendar",
+      "tracker": "Monthly tracker"
     },
     "config": {
       "spacingMm": "Line spacing (mm)",
@@ -78,7 +79,15 @@
       "monthShowPhase": "Show moon phase",
       "monthShowPhaseHint": "Approximate phase in each day's top-right corner",
       "monthPagesAuto": "Pages follow the month count: 1 per month",
-      "monthClamped": "Start month is near year 9999; months clamped to {{months}}"
+      "monthClamped": "Start month is near year 9999; months clamped to {{months}}",
+      "trackerStart": "Start month",
+      "trackerCount": "Months",
+      "trackerItems": "Habit rows",
+      "trackerItemsHint": "1–30 rows per page: days 1–14 on the upper table, 15–month end below",
+      "trackerDateSize": "Date size (pt)",
+      "trackerLineColor": "Grid color",
+      "trackerPagesAuto": "Pages follow the month count: 1 per month",
+      "trackerClamped": "Start month is near year 9999; months clamped to {{months}}"
     },
     "decorations": {
       "title": "Header, footer & watermarks",
