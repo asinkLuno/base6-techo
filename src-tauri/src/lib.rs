@@ -2,7 +2,7 @@ mod cache;
 pub mod compile;
 pub mod templates;
 
-use std::io::Write;
+use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -99,12 +99,43 @@ async fn save_pdf_file(
     if !bytes.starts_with(b"%PDF") {
         return Err("写入内容不是 PDF".to_string());
     }
-    let name = suggested_name(decode_header(request.headers(), "name")?);
+    let header = decode_header(request.headers(), "name")?;
+    let name = suggested_name(header.as_deref(), DEFAULT_PDF_NAME, "pdf");
     // spawn_blocking 要求 'static，把字节复制出来再移进闭包
     let bytes = bytes.to_vec();
-    tauri::async_runtime::spawn_blocking(move || save_via_dialog(&app, &name, &bytes))
+    tauri::async_runtime::spawn_blocking(move || save_via_dialog(&app, "PDF", "pdf", &name, &bytes))
         .await
         .map_err(|e| format!("保存任务异常终止：{e}"))?
+}
+
+/// 「导出配置」：对话框与写盘同样在后端，接收已序列化的 JSON 文本。
+#[tauri::command]
+async fn save_config_file(
+    app: tauri::AppHandle,
+    contents: String,
+    name: String,
+) -> Result<Option<String>, String> {
+    let name = suggested_name(Some(name.as_str()), DEFAULT_CONFIG_NAME, "json");
+    tauri::async_runtime::spawn_blocking(move || {
+        save_via_dialog(&app, "JSON", "json", &name, contents.as_bytes())
+    })
+    .await
+    .map_err(|e| format!("保存任务异常终止：{e}"))?
+}
+
+/// 用户选定的配置文件：路径只用于提示，解析交给前端。
+#[derive(Serialize)]
+struct OpenedConfigFile {
+    target: String,
+    contents: String,
+}
+
+/// 「导入配置」：对话框与读取都在后端，返回选定目标与 UTF-8 文本。
+#[tauri::command]
+async fn open_config_file(app: tauri::AppHandle) -> Result<Option<OpenedConfigFile>, String> {
+    tauri::async_runtime::spawn_blocking(move || open_config_via_dialog(&app))
+        .await
+        .map_err(|e| format!("读取任务异常终止：{e}"))?
 }
 
 /// 解码 header 里的百分号编码文本；header 缺失或不是 UTF-8 时按缺省处理。
@@ -120,66 +151,110 @@ fn decode_header(headers: &tauri::http::HeaderMap, name: &str) -> Result<Option<
 }
 
 const DEFAULT_PDF_NAME: &str = "base6-techo.pdf";
+const DEFAULT_CONFIG_NAME: &str = "base6-techo-config.json";
+/// 配置是外部输入，读进内存前先限长。
+const CONFIG_MAX_BYTES: u64 = 16 * 1024 * 1024;
 
-/// 对话框默认文件名：只取文件名部分，缺失扩展名时补 `.pdf`。
-fn suggested_name(raw: Option<String>) -> String {
+/// 对话框默认文件名：只取文件名部分，缺失扩展名时补 `extension`。
+fn suggested_name(raw: Option<&str>, fallback: &str, extension: &str) -> String {
     let name = raw
-        .as_deref()
         .and_then(|value| Path::new(value).file_name())
         .and_then(|name| name.to_str())
         .filter(|name| !name.is_empty())
-        .unwrap_or(DEFAULT_PDF_NAME);
-    if has_pdf_extension(Path::new(name)) {
+        .unwrap_or(fallback);
+    if has_extension(Path::new(name), extension) {
         name.to_owned()
     } else {
-        format!("{name}.pdf")
+        format!("{name}.{extension}")
     }
 }
 
-fn has_pdf_extension(path: &Path) -> bool {
+fn has_extension(path: &Path, extension: &str) -> bool {
     path.extension()
-        .and_then(|extension| extension.to_str())
-        .is_some_and(|extension| extension.eq_ignore_ascii_case("pdf"))
+        .and_then(|actual| actual.to_str())
+        .is_some_and(|actual| actual.eq_ignore_ascii_case(extension))
 }
 
 /// Linux 等平台的对话框不强制补扩展名；补在末尾而不是替换用户输入。
-fn ensure_pdf_extension(target: FilePath) -> FilePath {
+fn ensure_extension(target: FilePath, extension: &str) -> FilePath {
     match target {
-        FilePath::Path(path) if !has_pdf_extension(&path) => {
+        FilePath::Path(path) if !has_extension(&path, extension) => {
             let mut name = path.into_os_string();
-            name.push(".pdf");
+            name.push(".");
+            name.push(extension);
             FilePath::Path(PathBuf::from(name))
         }
         other => other,
     }
 }
 
-/// 在阻塞线程里弹对话框并写盘：桌面写普通路径，Android 由 fs 插件经
+/// 在阻塞线程里弹保存对话框并写盘：桌面写普通路径，Android 由 fs 插件经
 /// ContentResolver 写 SAF 的 content:// URI。
 fn save_via_dialog(
     app: &tauri::AppHandle,
+    filter_name: &str,
+    extension: &str,
     name: &str,
-    bytes: &[u8],
+    contents: &[u8],
 ) -> Result<Option<String>, String> {
     let Some(target) = app
         .dialog()
         .file()
-        .add_filter("PDF", &["pdf"])
+        .add_filter(filter_name, &[extension])
         .set_file_name(name)
         .blocking_save_file()
     else {
         return Ok(None);
     };
-    let target = ensure_pdf_extension(target);
+    let target = ensure_extension(target, extension);
     let mut options = OpenOptions::new();
     options.write(true).create(true).truncate(true);
     let mut file = app
         .fs()
         .open(target.clone(), options)
         .map_err(|e| format!("打开保存目标失败：{e}"))?;
-    file.write_all(bytes)
+    file.write_all(contents)
         .map_err(|e| format!("写入文件失败：{e}"))?;
     Ok(Some(target.to_string()))
+}
+
+fn open_config_via_dialog(app: &tauri::AppHandle) -> Result<Option<OpenedConfigFile>, String> {
+    let Some(target) = app
+        .dialog()
+        .file()
+        .add_filter("JSON", &["json"])
+        .blocking_pick_file()
+    else {
+        return Ok(None);
+    };
+    let mut options = OpenOptions::new();
+    options.read(true);
+    let file = app
+        .fs()
+        .open(target.clone(), options)
+        .map_err(|e| format!("打开配置文件失败：{e}"))?;
+    let contents = read_text_limited(file, CONFIG_MAX_BYTES)?;
+    Ok(Some(OpenedConfigFile {
+        target: target.to_string(),
+        contents,
+    }))
+}
+
+/// 读取 UTF-8 文本；超过 `limit` 字节直接报错，避免异常大文件占满内存。
+fn read_text_limited(mut reader: impl Read, limit: u64) -> Result<String, String> {
+    let mut text = String::new();
+    reader
+        .by_ref()
+        .take(limit + 1)
+        .read_to_string(&mut text)
+        .map_err(|e| match e.kind() {
+            std::io::ErrorKind::InvalidData => "配置文件不是有效的 UTF-8 文本".to_string(),
+            _ => format!("读取配置文件失败：{e}"),
+        })?;
+    if text.len() as u64 > limit {
+        return Err(format!("配置文件超过 {} MB", limit / (1024 * 1024)));
+    }
+    Ok(text)
 }
 
 fn compile_document(
@@ -268,7 +343,9 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             generate_lined_pdf,
             generate_document_pdf,
-            save_pdf_file
+            save_pdf_file,
+            save_config_file,
+            open_config_file
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application")
@@ -340,23 +417,47 @@ mod tests {
     }
 
     #[test]
-    fn suggested_name_keeps_pdf_and_drops_directories() {
-        assert_eq!(suggested_name(None), "base6-techo.pdf");
-        assert_eq!(suggested_name(Some(String::new())), "base6-techo.pdf");
+    fn suggested_name_keeps_extension_and_drops_directories() {
+        let pdf = |raw: Option<&str>| suggested_name(raw, DEFAULT_PDF_NAME, "pdf");
+        assert_eq!(pdf(None), "base6-techo.pdf");
+        assert_eq!(pdf(Some("")), "base6-techo.pdf");
         assert_eq!(
-            suggested_name(Some("base6-techo-20261111-0905.pdf".into())),
+            pdf(Some("base6-techo-20261111-0905.pdf")),
             "base6-techo-20261111-0905.pdf"
         );
-        assert_eq!(suggested_name(Some("notes".into())), "notes.pdf");
-        assert_eq!(suggested_name(Some("../../etc/x".into())), "x.pdf");
+        assert_eq!(pdf(Some("notes")), "notes.pdf");
+        assert_eq!(pdf(Some("../../etc/x")), "x.pdf");
+
+        let json = |raw: Option<&str>| suggested_name(raw, DEFAULT_CONFIG_NAME, "json");
+        assert_eq!(json(None), "base6-techo-config.json");
+        assert_eq!(json(Some("share")), "share.json");
+        assert_eq!(json(Some("share.JSON")), "share.JSON");
     }
 
     #[test]
-    fn chosen_target_gets_pdf_appended_but_never_replaced() {
-        let name = |path: &str| ensure_pdf_extension(FilePath::Path(path.into())).to_string();
+    fn chosen_target_gets_the_filter_extension_appended_but_never_replaced() {
+        let name = |path: &str| ensure_extension(FilePath::Path(path.into()), "pdf").to_string();
         assert_eq!(name("/tmp/notes"), "/tmp/notes.pdf");
         assert_eq!(name("/tmp/notes.PDF"), "/tmp/notes.PDF");
         assert_eq!(name("/tmp/notes.txt"), "/tmp/notes.txt.pdf");
+        assert_eq!(
+            ensure_extension(FilePath::Path("/tmp/config".into()), "json").to_string(),
+            "/tmp/config.json"
+        );
+    }
+
+    #[test]
+    fn read_text_limited_reads_utf8_and_rejects_binary_or_oversize() {
+        use std::io::Cursor;
+
+        assert_eq!(
+            read_text_limited(Cursor::new("配置".as_bytes()), 9).unwrap(),
+            "配置"
+        );
+        // 恰好等于上限仍可读；多一个字节就报错
+        assert_eq!(read_text_limited(Cursor::new("abc"), 3).unwrap(), "abc");
+        assert!(read_text_limited(Cursor::new("abcd"), 3).is_err());
+        assert!(read_text_limited(Cursor::new([0xff, 0xfe]), 16).is_err());
     }
 
     #[test]
