@@ -61,18 +61,25 @@ async fn generate_pdf(
             })
         };
         let out = compile_document(&app, &tex, vec![], &sink)?;
-        let log = out.log.into_bytes();
-        let tex_bytes = tex.into_bytes();
-        let mut payload = Vec::with_capacity(8 + log.len() + tex_bytes.len() + out.pdf.len());
-        payload.extend_from_slice(&(log.len() as u32).to_le_bytes());
-        payload.extend_from_slice(&log);
-        payload.extend_from_slice(&(tex_bytes.len() as u32).to_le_bytes());
-        payload.extend_from_slice(&tex_bytes);
-        payload.extend_from_slice(&out.pdf);
+        let payload = encode_response(&out.log, &tex, &out.pdf)?;
         Ok(tauri::ipc::Response::new(payload))
     })
     .await
     .map_err(|e| format!("生成任务异常终止：{e}"))?
+}
+
+/// 与 `src/lib/generatePdf.ts` 的 `parseCompileResponse` 对应：
+/// `[u32 log_len LE][log utf8][u32 tex_len LE][tex utf8][pdf bytes]`。
+fn encode_response(log: &str, tex: &str, pdf: &[u8]) -> Result<Vec<u8>, String> {
+    let log_len = u32::try_from(log.len()).map_err(|_| "编译日志过大".to_string())?;
+    let tex_len = u32::try_from(tex.len()).map_err(|_| "LaTeX 源码过大".to_string())?;
+    let mut payload = Vec::with_capacity(8 + log.len() + tex.len() + pdf.len());
+    payload.extend_from_slice(&log_len.to_le_bytes());
+    payload.extend_from_slice(log.as_bytes());
+    payload.extend_from_slice(&tex_len.to_le_bytes());
+    payload.extend_from_slice(tex.as_bytes());
+    payload.extend_from_slice(pdf);
+    Ok(payload)
 }
 
 /// 把预览的 PDF 字节写到用户在「另存为」对话框选定的路径（桌面端）。
@@ -242,6 +249,28 @@ mod tests {
             .collect();
         names.sort();
         names
+    }
+
+    #[test]
+    fn response_round_trips_the_frontend_framing() {
+        let payload = encode_response("log 日志", "\\documentclass", b"%PDF-1.7").unwrap();
+        let length_at = |offset: usize| {
+            u32::from_le_bytes(payload[offset..offset + 4].try_into().unwrap()) as usize
+        };
+        let log_len = length_at(0);
+        assert_eq!(&payload[4..4 + log_len], "log 日志".as_bytes());
+        let tex_offset = 4 + log_len;
+        let tex_len = length_at(tex_offset);
+        assert_eq!(
+            &payload[tex_offset + 4..tex_offset + 4 + tex_len],
+            "\\documentclass".as_bytes()
+        );
+        assert_eq!(&payload[tex_offset + 4 + tex_len..], b"%PDF-1.7");
+
+        assert_eq!(
+            encode_response("", "", b"").unwrap(),
+            vec![0, 0, 0, 0, 0, 0, 0, 0]
+        );
     }
 
     #[test]
