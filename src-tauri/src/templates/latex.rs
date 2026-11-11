@@ -24,6 +24,14 @@ fn number(v: f64) -> String {
     s.trim_end_matches('0').trim_end_matches('.').to_string()
 }
 
+/// 填充路径的坐标只保留 3 位小数（1 微米），远低于任何打印精度。
+/// 月相轮廓每页有上千个点，省下的字节与 TeX 解析开销最可观。
+fn path_number(v: f64) -> String {
+    let v = if v == 0.0 { 0.0 } else { v };
+    let s = format!("{v:.3}");
+    s.trim_end_matches('0').trim_end_matches('.').to_string()
+}
+
 /// pattern 名只允许字母/数字/下划线；负数与小数点转成 m/p。
 fn name_part(v: f64) -> String {
     number(v).replace('-', "m").replace('.', "p")
@@ -75,17 +83,26 @@ pub(crate) struct Canvas<'a> {
     sheet_x_mm: f64,
     /// 文档级已声明的 pattern；同名再声明会被 PGF 判为重复定义错误。
     declared_patterns: &'a mut HashSet<String>,
+    /// 当前 `ink` 的实际颜色。相邻图元同色时不再重复 `\definecolor`。
+    /// `\definecolor` 默认只在当前 TeX 组内有效，所以每个 `begin_region`
+    /// 都要把进入前的状态压栈，退出时恢复，避免跨 scope 复用已失效的定义。
+    current_ink: Option<String>,
+    ink_scopes: Vec<Option<String>>,
 }
 
 impl<'a> Canvas<'a> {
     /// 把颜色注册为当前图形环境的 `ink`（HTML 写法不带 `#`）。
     fn define_ink(&mut self, color: &str) {
+        if self.current_ink.as_deref() == Some(color) {
+            return;
+        }
         writeln!(
             self.source,
             "\\definecolor{{ink}}{{HTML}}{{{}}}",
             &color[1..]
         )
         .unwrap();
+        self.current_ink = Some(color.to_owned());
     }
 
     fn new(declared_patterns: &'a mut HashSet<String>) -> Self {
@@ -94,6 +111,8 @@ impl<'a> Canvas<'a> {
             sheet_height_mm: 0.0,
             sheet_x_mm: 0.0,
             declared_patterns,
+            current_ink: None,
+            ink_scopes: Vec::new(),
         }
     }
 
@@ -111,6 +130,7 @@ impl<'a> Canvas<'a> {
     }
 
     pub(crate) fn begin_region(&mut self, rect: Rect) {
+        self.ink_scopes.push(self.current_ink.clone());
         writeln!(
             self.source,
             "\\begin{{scope}}\n\\clip ({},{}) rectangle ({},{});",
@@ -124,6 +144,7 @@ impl<'a> Canvas<'a> {
 
     pub(crate) fn end_region(&mut self) {
         self.source.push_str("\\end{scope}\n");
+        self.current_ink = self.ink_scopes.pop().flatten();
     }
 
     /// 横线：用水平条纹 pattern 一次填充页心。
@@ -313,6 +334,35 @@ impl<'a> Canvas<'a> {
         .unwrap();
     }
 
+    /// 一组同色、同线宽的实线段合成为一条 TikZ 路径。
+    /// TikZ 允许一条 `\draw` 包含多个互不连接的子路径，线宽与颜色只解析一次；
+    /// 表格格线这类成百上千条短线在长文档里收益最明显。
+    pub(crate) fn line_batch(
+        &mut self,
+        segments: &[(f64, f64, f64, f64)],
+        width_pt: f64,
+        color: &str,
+    ) {
+        if segments.is_empty() {
+            return;
+        }
+        let width = width_pt * 25.4 / 72.27;
+        self.define_ink(color);
+        write!(self.source, "\\draw[ink,line width={}mm]", number(width)).unwrap();
+        for &(x1, y1, x2, y2) in segments {
+            write!(
+                self.source,
+                " ({},{}) -- ({},{})",
+                number(x1),
+                number(y1),
+                number(x2),
+                number(y2)
+            )
+            .unwrap();
+        }
+        self.source.push_str(";\n");
+    }
+
     /// 空心圆，页面局部坐标；用于月相轮廓。
     pub(crate) fn circle(&mut self, x: f64, y: f64, radius: f64, width_pt: f64, color: &str) {
         let width = width_pt * 25.4 / 72.27;
@@ -334,9 +384,9 @@ impl<'a> Canvas<'a> {
             return;
         };
         self.define_ink(color);
-        let mut path = format!("({},{})", number(*first_x), number(*first_y));
+        let mut path = format!("({},{})", path_number(*first_x), path_number(*first_y));
         for (x, y) in &points[1..] {
-            path.push_str(&format!(" -- ({},{})", number(*x), number(*y)));
+            path.push_str(&format!(" -- ({},{})", path_number(*x), path_number(*y)));
         }
         writeln!(self.source, "\\fill[ink] {path} -- cycle;").unwrap();
     }
@@ -458,7 +508,13 @@ impl<'a> Canvas<'a> {
         rotation: i32,
     ) {
         self.define_ink(&style.color);
-        writeln!(self.source, "\\node[anchor={anchor},rotate={rotation},inner sep=0pt,text=ink,font=\\fontsize{{{}}}{{{}}}\\selectfont] at ({},{}) {{{content}}};",
+        // rotate=0 是 TikZ 默认值，省掉可减少每个节点的固定开销。
+        let rotation = if rotation == 0 {
+            String::new()
+        } else {
+            format!(",rotate={rotation}")
+        };
+        writeln!(self.source, "\\node[anchor={anchor}{rotation},inner sep=0pt,text=ink,font=\\fontsize{{{}}}{{{}}}\\selectfont] at ({},{}) {{{content}}};",
             number(style.size_pt), number(style.size_pt * 1.2), number(x), number(y)).unwrap();
     }
 }
@@ -550,5 +606,34 @@ mod tests {
         assert_eq!(number(0.1), "0.1");
         assert_eq!(number(210.0), "210");
         assert_eq!(number(7.123456), "7.123456");
+    }
+
+    #[test]
+    fn ink_is_shared_inside_a_scope_but_redefined_for_a_sibling() {
+        // `\definecolor` 默认是组内定义：同 scope 内复用，换 scope 必须重发，
+        // 否则 xcolor 在 shipout 时会报 Undefined color 'ink'。
+        let mut declared = HashSet::new();
+        let mut canvas = Canvas::new(&mut declared);
+        let style = TextStyle::default();
+        let rect = Rect {
+            x: 0.0,
+            y: 0.0,
+            width: 10.0,
+            height: 10.0,
+        };
+        canvas.begin_region(rect);
+        canvas.text(1.0, 1.0, "a", &style, "center", 0);
+        canvas.text(1.0, 2.0, "b", &style, "center", 0);
+        canvas.end_region();
+        canvas.begin_region(rect);
+        canvas.text(1.0, 3.0, "c", &style, "center", 0);
+        canvas.end_region();
+        assert_eq!(
+            canvas
+                .source
+                .matches("\\definecolor{ink}{HTML}{000000}")
+                .count(),
+            2
+        );
     }
 }

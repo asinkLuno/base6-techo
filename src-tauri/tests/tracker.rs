@@ -47,8 +47,12 @@ fn august_2026_matches_archive_table_geometry() {
     let tex = generate_document_latex(&doc).unwrap();
     let page = pages(&tex)[0];
     // 上表 16 条列界 × 4 段 + 5 条横线 × 15 段；
-    // 下表 18 × 4 + 5 × 17，共 296 条格线。
-    assert_eq!(page.matches("\\draw[ink,line width=").count(), 296);
+    // 下表 18 × 4 + 5 × 17，共 296 条格线；每张表合并成一条路径。
+    let grid: String = page
+        .lines()
+        .filter(|line| line.starts_with("\\draw[ink,line width="))
+        .collect();
+    assert_eq!(grid.matches(" -- ").count(), 296);
     // 打卡项 4 行 → 4 条连接箭头。
     assert_eq!(page.matches("\\draw[->,ink,line width=").count(), 4);
     assert_eq!(texts(page, "south east").len(), 31);

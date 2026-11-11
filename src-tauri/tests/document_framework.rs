@@ -358,11 +358,17 @@ fn hogen_grid_reproduces_midori_geometry_from_the_page_center() {
     assert!(tex.contains("\\fill[ink] (22.5,105) circle (0.4);"));
     assert!(tex.contains("\\fill[ink] (125.5,55) circle (0.4);"));
     // 偶数格线向外伸 1.2mm，与格线间隔 1mm；标记线与最外圈不伸出。
-    assert!(tex.contains("\\draw[ink,line width=0.246022mm] (64,19) -- (64,17.8);"));
-    assert!(tex.contains("\\draw[ink,line width=0.246022mm] (23,95) -- (21.8,95);"));
+    assert!(tex.contains("(64,19) -- (64,17.8)"));
+    assert!(tex.contains("(23,95) -- (21.8,95)"));
     // 纵线 21 条（-10..10）可伸出 8 条 × 2；横线 35 条（-17..17）
-    // 可伸出 14 条 × 2（±17 是边框，标记线 0 与 ±10 改画点），共 44 条短线。
-    assert_eq!(tex.matches("\\draw[ink,line width=").count(), 44);
+    // 可伸出 14 条 × 2（±17 是边框，标记线 0 与 ±10 改画点），共 44 条短线，
+    // 合并成一条路径。
+    let fringe: Vec<&str> = tex
+        .lines()
+        .filter(|line| line.starts_with("\\draw[ink,line width=0.246022mm]"))
+        .collect();
+    assert_eq!(fringe.len(), 1);
+    assert_eq!(fringe[0].matches(" -- ").count(), 44);
     assert!(!tex.contains("fancyhdr"));
 }
 

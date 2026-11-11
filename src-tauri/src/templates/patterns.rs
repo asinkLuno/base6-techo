@@ -378,25 +378,13 @@ impl HogenLattice {
     /// 画格线外伸的短线和每 10 格的标记点；标记线用点代替外伸线。
     fn draw_fringe(self, canvas: &mut Canvas<'_>, color: &str) {
         let (gap, protrusion, width) = (HOGEN_GAP_MM, HOGEN_PROTRUSION_MM, HOGEN_LINE_WIDTH_PT);
+        // 所有外伸线同色同线宽，合并成一条路径；点单独画。
+        let mut segments = Vec::new();
         for offset in -self.half_x..=self.half_x {
             let x = self.x(offset);
             if hogen_extends(offset, self.half_x) {
-                canvas.line(
-                    x,
-                    self.y_min - gap,
-                    x,
-                    self.y_min - gap - protrusion,
-                    width,
-                    color,
-                );
-                canvas.line(
-                    x,
-                    self.y_max + gap,
-                    x,
-                    self.y_max + gap + protrusion,
-                    width,
-                    color,
-                );
+                segments.push((x, self.y_min - gap, x, self.y_min - gap - protrusion));
+                segments.push((x, self.y_max + gap, x, self.y_max + gap + protrusion));
             }
             if offset % HOGEN_MARKER_PERIOD == 0 {
                 canvas.dot(
@@ -416,22 +404,8 @@ impl HogenLattice {
         for offset in -self.half_y..=self.half_y {
             let y = self.y(offset);
             if hogen_extends(offset, self.half_y) {
-                canvas.line(
-                    self.x_min - gap,
-                    y,
-                    self.x_min - gap - protrusion,
-                    y,
-                    width,
-                    color,
-                );
-                canvas.line(
-                    self.x_max + gap,
-                    y,
-                    self.x_max + gap + protrusion,
-                    y,
-                    width,
-                    color,
-                );
+                segments.push((self.x_min - gap, y, self.x_min - gap - protrusion, y));
+                segments.push((self.x_max + gap, y, self.x_max + gap + protrusion, y));
             }
             if offset % HOGEN_MARKER_PERIOD == 0 {
                 canvas.dot(
@@ -448,6 +422,7 @@ impl HogenLattice {
                 );
             }
         }
+        canvas.line_batch(&segments, width, color);
     }
 }
 

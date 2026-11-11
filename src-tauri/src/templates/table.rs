@@ -48,13 +48,17 @@ impl TableGrid<'_> {
         color: &str,
         land: Landscape,
     ) {
+        // 一页表格有上百条短线，全部同色同线宽，合并成一条路径交给 TikZ。
+        let mut segments = Vec::with_capacity(
+            self.columns.len() * self.rows + (self.rows + 1) * self.columns.len().saturating_sub(1),
+        );
         for &x in self.columns {
             for row in 0..self.rows {
                 let y1 = self.top + self.row_height * row as f64 + GAP;
                 let y2 = self.top + self.row_height * (row + 1) as f64 - GAP;
                 let (x1, y1) = land.point(x, y1);
                 let (x2, y2) = land.point(x, y2);
-                canvas.line(x1, y1, x2, y2, width_pt, color);
+                segments.push((x1, y1, x2, y2));
             }
         }
         for row in 0..=self.rows {
@@ -62,8 +66,9 @@ impl TableGrid<'_> {
             for pair in self.columns.windows(2) {
                 let (x1, y1) = land.point(pair[0] + GAP, y);
                 let (x2, y2) = land.point(pair[1] - GAP, y);
-                canvas.line(x1, y1, x2, y2, width_pt, color);
+                segments.push((x1, y1, x2, y2));
             }
         }
+        canvas.line_batch(&segments, width_pt, color);
     }
 }

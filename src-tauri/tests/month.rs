@@ -49,8 +49,8 @@ fn june_2026_starts_on_monday_and_fills_five_rows() {
     let page = pages(&tex)[0];
     // 1 号在左上格：设计坐标 (0.2, 18.2) 旋转 90° 后落在页心左下。
     assert!(page.contains("(36.2,193.8) {1}"), "{page}");
-    // 5 行网格 = 8 条竖线 × 5 段 + 6 条横线 × 7 段 = 82 条线。
-    assert_eq!(page.matches("] (").count(), 82);
+    // 5 行网格 = 8 条竖线 × 5 段 + 6 条横线 × 7 段 = 82 条线，合并在一条路径里。
+    assert_eq!(page.matches(" -- ").count(), 82);
 }
 
 #[test]
