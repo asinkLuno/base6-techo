@@ -24,10 +24,17 @@ pub fn bootstrap(app: &tauri::AppHandle) -> Result<PathBuf, String> {
 }
 
 fn finish_bootstrap(cache_base: PathBuf, cache_zip: Option<&[u8]>) -> Result<PathBuf, String> {
-    if cache_base.join(STAMP_FILE).exists() {
+    if stamp_matches(&cache_base) {
         return Ok(cache_base);
     }
     install_cache(cache_base, cache_zip)
+}
+
+/// 缓存包随 App 版本更新：戳里的版本不一致时必须重新解包，否则升级后
+/// 离线设备拿到的仍是旧 bundle。
+fn stamp_matches(cache_base: &Path) -> bool {
+    fs::read_to_string(cache_base.join(STAMP_FILE))
+        .is_ok_and(|stamp| stamp.trim() == env!("CARGO_PKG_VERSION"))
 }
 
 fn install_cache(cache_base: PathBuf, cache_zip: Option<&[u8]>) -> Result<PathBuf, String> {
@@ -147,12 +154,32 @@ mod tests {
     fn finish_bootstrap_keeps_existing_cache_untouched() {
         let base = temp_dir("stamped");
         fs::create_dir_all(&base).unwrap();
-        fs::write(base.join(STAMP_FILE), "old").unwrap();
+        fs::write(base.join(STAMP_FILE), env!("CARGO_PKG_VERSION")).unwrap();
 
-        // 已有标记时不应再看缓存包内容（这里传的是坏 zip）。
+        // 版本一致时不应再看缓存包内容（这里传的是坏 zip）。
         finish_bootstrap(base.clone(), Some(b"not a zip")).unwrap();
 
-        assert_eq!(fs::read_to_string(base.join(STAMP_FILE)).unwrap(), "old");
+        assert_eq!(
+            fs::read_to_string(base.join(STAMP_FILE)).unwrap(),
+            env!("CARGO_PKG_VERSION")
+        );
+        let _ = fs::remove_dir_all(&base);
+    }
+
+    #[test]
+    fn finish_bootstrap_reinstalls_when_stamp_version_changes() {
+        let base = temp_dir("stale-version");
+        fs::create_dir_all(&base).unwrap();
+        fs::write(base.join(STAMP_FILE), "0.0.0").unwrap();
+        let bytes = zip_with(&[("bundles/new.txt", b"new")]);
+
+        finish_bootstrap(base.clone(), Some(&bytes)).unwrap();
+
+        assert_eq!(fs::read(base.join("bundles/new.txt")).unwrap(), b"new");
+        assert_eq!(
+            fs::read_to_string(base.join(STAMP_FILE)).unwrap(),
+            env!("CARGO_PKG_VERSION")
+        );
         let _ = fs::remove_dir_all(&base);
     }
 
