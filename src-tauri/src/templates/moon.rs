@@ -7,8 +7,10 @@ use std::f64::consts::{FRAC_PI_2, PI, TAU};
 use super::calendar::Date;
 
 const SYNODIC_DAYS: f64 = 29.530_588_67;
-/// 圆弧采样数；采样点越多路径越圆，24 段在印刷尺寸下已看不出折线。
-pub(crate) const MOON_STEPS: usize = 24;
+/// 半圆弧的采样段数。默认字号的月相直径约 3mm，16 段的最大弦高误差
+/// 约 0.008mm（300dpi 下不到 0.1 像素），印刷尺寸看不出折线；
+/// 再加密只会让每页的路径点数线性增长。
+pub(crate) const MOON_STEPS: usize = 16;
 
 /// 返回（照面比例 0..1，是否盈相）；`waxing` 为真时亮面在右。
 pub(crate) fn moon_illumination(date: Date) -> (f64, bool) {
