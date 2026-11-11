@@ -11,7 +11,7 @@ use super::{
     document::PageContext,
     latex::{Canvas, validate_color},
     layout::{PageLayout, Rect, check_range},
-    moon::{moon_illumination, moon_points},
+    moon::{draw_moon, moon_illumination, moon_outline},
 };
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -194,10 +194,8 @@ impl OctanWeekPattern {
             let (illumination, waxing) = moon_illumination(date);
             let moon_x = x + body.width / 2.0 - 4.0 - radius;
             let moon_y = y + 2.0 + radius;
-            canvas.filled_path(
-                &moon_points(moon_x, moon_y, radius, illumination, waxing),
-                &self.phase_color,
-            );
+            let outline = moon_outline(moon_x, moon_y, radius, illumination, waxing);
+            draw_moon(canvas, &outline, &self.phase_color);
             canvas.circle(
                 moon_x,
                 moon_y,

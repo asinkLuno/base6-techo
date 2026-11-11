@@ -12,7 +12,7 @@ use super::{
     document::PageContext,
     latex::{Canvas, validate_color},
     layout::{PageLayout, Rect, check_range},
-    moon::{moon_illumination, moon_points},
+    moon::{draw_moon, moon_illumination, moon_outline},
     table::{Landscape, TableGrid},
 };
 
@@ -196,11 +196,9 @@ impl MonthPattern {
         let cx = g.land.x + g.cell_w * (column as f64 + 1.0) - PAD - radius - MOON_INSET;
         let cy = g.gy + g.cell_h * row as f64 + PAD + radius + MOON_INSET;
         let (illumination, waxing) = moon_illumination(date);
-        let points = moon_points(cx, cy, radius, illumination, waxing)
-            .into_iter()
-            .map(|(x, y)| land_map.point(x, y))
-            .collect::<Vec<_>>();
-        canvas.filled_path(&points, &self.phase_color);
+        let outline =
+            moon_outline(cx, cy, radius, illumination, waxing).through(|x, y| land_map.point(x, y));
+        draw_moon(canvas, &outline, &self.phase_color);
         let (x, y) = land_map.point(cx, cy);
         canvas.circle(x, y, radius, self.line_width_pt, &self.phase_color);
     }

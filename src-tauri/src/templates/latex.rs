@@ -75,6 +75,26 @@ fn escape_text(text: &str) -> String {
     out
 }
 
+/// 一段椭圆弧，角度按画布坐标（x 向右、y 向下）度量。当前点必须落在
+/// 以 `start_deg` 为角度的圆周上，曲率中心由当前点、角度和半径反推。
+///
+/// PGF 的 `arc` 在页面坐标（y 向上）里解释角度，不受 TikZ 的 `y=-1mm`
+/// 影响；输出时要把角度取负，否则弧会翻到圆心另一侧。
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct Arc {
+    pub(crate) start_deg: f64,
+    pub(crate) end_deg: f64,
+    pub(crate) x_radius: f64,
+    pub(crate) y_radius: f64,
+}
+
+/// 闭合轮廓的一段；坐标与半径均为毫米。
+#[derive(Debug, Clone, Copy)]
+pub(crate) enum Curve {
+    Arc(Arc),
+    Line { x: f64, y: f64 },
+}
+
 pub(crate) struct Canvas<'a> {
     source: String,
     /// 当前阅读页所在印刷面的纸高与水平偏移（mm）。点阵 pattern 的坐标固定在
@@ -378,15 +398,34 @@ impl<'a> Canvas<'a> {
         .unwrap();
     }
 
-    /// 用页面局部坐标填充一个闭合多边形；用于月相亮面。
-    pub(crate) fn filled_path(&mut self, points: &[(f64, f64)], color: &str) {
-        let Some((first_x, first_y)) = points.first() else {
-            return;
-        };
+    /// 用页面局部坐标填充一个由圆弧/直线组成的闭合轮廓；用于月相亮面。
+    pub(crate) fn filled_outline(&mut self, start: (f64, f64), curves: &[Curve], color: &str) {
         self.define_ink(color);
-        let mut path = format!("({},{})", path_number(*first_x), path_number(*first_y));
-        for (x, y) in &points[1..] {
-            path.push_str(&format!(" -- ({},{})", path_number(*x), path_number(*y)));
+        let mut path = format!("({},{})", path_number(start.0), path_number(start.1));
+        for curve in curves {
+            match curve {
+                Curve::Arc(arc) => {
+                    let unit = |v: f64| format!("{}mm", path_number(v));
+                    // 画布 y 向下，PGF 角度 y 向上，取负才能落在同一侧。
+                    let start = number(-arc.start_deg);
+                    let end = number(-arc.end_deg);
+                    if arc.x_radius == arc.y_radius {
+                        path.push_str(&format!(
+                            " arc[start angle={start},end angle={end},radius={}]",
+                            unit(arc.x_radius)
+                        ));
+                    } else {
+                        path.push_str(&format!(
+                            " arc[start angle={start},end angle={end},x radius={},y radius={}]",
+                            unit(arc.x_radius),
+                            unit(arc.y_radius)
+                        ));
+                    }
+                }
+                Curve::Line { x, y } => {
+                    path.push_str(&format!(" -- ({},{})", path_number(*x), path_number(*y)));
+                }
+            }
         }
         writeln!(self.source, "\\fill[ink] {path} -- cycle;").unwrap();
     }
@@ -635,5 +674,42 @@ mod tests {
                 .count(),
             2
         );
+    }
+
+    #[test]
+    fn filled_outline_emits_arcs_with_explicit_millimetres() {
+        let mut declared = HashSet::new();
+        let mut canvas = Canvas::new(&mut declared);
+        canvas.filled_outline(
+            (10.0, 8.0),
+            &[
+                Curve::Arc(Arc {
+                    start_deg: -90.0,
+                    end_deg: 90.0,
+                    x_radius: 2.0,
+                    y_radius: 2.0,
+                }),
+                Curve::Arc(Arc {
+                    start_deg: 90.0,
+                    end_deg: 270.0,
+                    x_radius: 1.5,
+                    y_radius: 2.0,
+                }),
+            ],
+            "#000000",
+        );
+        // 半径是 TikZ 的尺寸量，必须显式带 mm，否则会被当成 pt。
+        // 角度取负：画布 y 向下，PGF 的页面角度 y 向上。
+        assert!(
+            canvas
+                .source
+                .contains("arc[start angle=90,end angle=-90,radius=2mm]")
+        );
+        assert!(
+            canvas
+                .source
+                .contains("arc[start angle=-90,end angle=-270,x radius=1.5mm,y radius=2mm]")
+        );
+        assert!(canvas.source.contains("-- cycle;"));
     }
 }
