@@ -6,7 +6,9 @@
 use std::path::PathBuf;
 
 use base6_techo_lib::compile;
-use base6_techo_lib::templates::lined::{generate_lined_latex, LinedDocParams, PageNumberPos, PaperSize};
+use base6_techo_lib::templates::lined::{
+    LinedDocParams, PageNumberPos, PaperSize, generate_lined_latex,
+};
 
 #[test]
 fn lined_template_compiles_to_real_pdf() {
@@ -16,7 +18,10 @@ fn lined_template_compiles_to_real_pdf() {
         .to_path_buf();
     let cache = repo_root.join("build/prewarm-work/tectonic-cache");
     let home = repo_root.join("build/prewarm-work/home");
-    assert!(cache.join("bundles").exists(), "预热缓存不存在，先跑 scripts/make-offline-cache.sh");
+    assert!(
+        cache.join("bundles").exists(),
+        "预热缓存不存在，先跑 scripts/make-offline-cache.sh"
+    );
 
     compile::set_engine_env(&cache, &home);
 
@@ -28,11 +33,16 @@ fn lined_template_compiles_to_real_pdf() {
     };
     let tex = generate_lined_latex(&params).expect("参数合法");
     let job = std::env::temp_dir().join(format!("base6-e2e-lined-{}", std::process::id()));
-    let out = compile::compile(&tex, &job, &[], &compile::noop_sink()).expect("tectonic 编译横线本");
+    let out =
+        compile::compile(&tex, &job, &[], &compile::noop_sink()).expect("tectonic 编译横线本");
     let _ = std::fs::remove_dir_all(&job);
 
     assert!(out.pdf.starts_with(b"%PDF"), "输出不是 PDF");
-    assert!(out.pdf.len() > 2000, "PDF 过小（{} 字节），疑似空文档", out.pdf.len());
+    assert!(
+        out.pdf.len() > 2000,
+        "PDF 过小（{} 字节），疑似空文档",
+        out.pdf.len()
+    );
 
     // 留一份样例到 build/（gitignored）供人工目检。
     let sample = repo_root.join("build/lined-sample.pdf");

@@ -9,7 +9,7 @@ use std::path::PathBuf;
 
 use base6_techo_lib::compile;
 use base6_techo_lib::templates::lined::{
-    generate_lined_latex, LinedDocParams, PageNumberPos, PaperSize,
+    LinedDocParams, PageNumberPos, PaperSize, generate_lined_latex,
 };
 
 /// Documents whose dependencies get pulled into the cache: the actual product
@@ -29,7 +29,8 @@ fn warm_docs() -> Vec<(&'static str, String)> {
         ),
         (
             "lined-a5-center",
-            generate_lined_latex(&doc(PaperSize::A5, 8.0, PageNumberPos::Center)).expect("参数合法"),
+            generate_lined_latex(&doc(PaperSize::A5, 8.0, PageNumberPos::Center))
+                .expect("参数合法"),
         ),
         (
             "lined-custom-a6-inner",

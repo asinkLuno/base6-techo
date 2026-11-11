@@ -74,10 +74,7 @@ pub fn compile(
 }
 
 /// Fresh job dir per run: tectonic writes outputs and reads \input files here.
-fn prepare_job_root(
-    job_root: &Path,
-    extra_files: &[(String, Vec<u8>)],
-) -> Result<(), String> {
+fn prepare_job_root(job_root: &Path, extra_files: &[(String, Vec<u8>)]) -> Result<(), String> {
     if job_root.exists() {
         fs::remove_dir_all(job_root)
             .map_err(|e| format!("无法清理任务目录 {}：{e}", job_root.display()))?;
@@ -120,11 +117,7 @@ fn clean_rel_path(name: &str) -> Result<PathBuf, String> {
     Ok(out)
 }
 
-fn run_engine(
-    source: &str,
-    job_root: &Path,
-    sink: &Arc<LogSink>,
-) -> Result<CompileOutput, String> {
+fn run_engine(source: &str, job_root: &Path, sink: &Arc<LogSink>) -> Result<CompileOutput, String> {
     let config = tectonic::config::PersistentConfig::open(false)
         .map_err(|e| format!("无法打开 tectonic 配置：{e}"))?;
     // only_cached = false: prefer the local (prewarmed) cache; missing files
@@ -156,8 +149,8 @@ fn run_engine(
         .create(&mut status)
         .map_err(|e| format!("无法创建编译会话：{e}"))?;
     // 仅引擎运行期间把进程 stdout 重定向进管道，转写逐行推给 sink
-    let _capture = capture::StdoutCapture::start(sink)
-        .map_err(|e| format!("无法捕获引擎输出：{e}"))?;
+    let _capture =
+        capture::StdoutCapture::start(sink).map_err(|e| format!("无法捕获引擎输出：{e}"))?;
     session.run(&mut status).map_err(|e| {
         // 失败路径 tectonic 仍会写出 document.log（driver 的 write_files(only_logs)），
         // 把它随错误串带回前端，供日志面板展示 `! LaTeX Error:` 等详情。
@@ -262,7 +255,10 @@ mod capture {
                 }
             });
 
-            Ok(Self { saved_fd, write_fd: fds[1] })
+            Ok(Self {
+                saved_fd,
+                write_fd: fds[1],
+            })
         }
     }
 
