@@ -2,9 +2,10 @@ mod cache;
 pub mod compile;
 pub mod templates;
 
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use serde::Serialize;
 use tauri::{Emitter, Manager};
@@ -107,27 +108,62 @@ fn compile_document(
     sink: &Arc<compile::LogSink>,
 ) -> Result<compile::CompileOutput, String> {
     let data_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    let jobs_dir = data_dir.join("jobs");
+    let job_root = next_job_root(&jobs_dir);
+    let result = compile::compile(source, &job_root, &extra_files, sink);
+    prune_jobs(&jobs_dir, &job_root);
+    result
+}
+
+/// 毫秒时间戳 + pid + 序号：同名目录会让并发（或另一个 App 实例）互相清空。
+fn next_job_root(jobs_dir: &Path) -> PathBuf {
+    static SEQUENCE: AtomicU64 = AtomicU64::new(0);
     let stamp = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap_or_default()
         .as_millis();
-    let job_root = data_dir.join("jobs").join(stamp.to_string());
-    let result = compile::compile(source, &job_root, &extra_files, sink);
-    prune_jobs(&data_dir.join("jobs"), 5);
-    result
+    let sequence = SEQUENCE.fetch_add(1, Ordering::Relaxed);
+    jobs_dir.join(format!("{stamp}-{}-{sequence}", std::process::id()))
 }
 
-/// Keep the newest `keep` job dirs around for debugging.
-fn prune_jobs(jobs_dir: &Path, keep: usize) {
+/// 只保留最近 `JOB_RETENTION` 个任务目录用于排查，且绝不删除当前目录或
+/// 最近 `JOB_MIN_AGE` 内仍可能被另一个进程写入的目录。
+fn prune_jobs(jobs_dir: &Path, current: &Path) {
+    prune_jobs_older_than(jobs_dir, current, JOB_RETENTION, JOB_MIN_AGE);
+}
+
+const JOB_RETENTION: usize = 5;
+const JOB_MIN_AGE: Duration = Duration::from_secs(30 * 60);
+
+fn prune_jobs_older_than(jobs_dir: &Path, current: &Path, keep: usize, min_age: Duration) {
     let Ok(entries) = std::fs::read_dir(jobs_dir) else {
         return;
     };
-    let mut dirs: Vec<_> = entries.flatten().map(|e| e.path()).collect();
+    let now = SystemTime::now();
+    let mut dirs: Vec<PathBuf> = entries
+        .flatten()
+        .map(|entry| entry.path())
+        .filter(|path| path.is_dir())
+        .collect();
     dirs.sort();
-    while dirs.len() > keep {
-        let oldest = dirs.remove(0);
-        let _ = std::fs::remove_dir_all(oldest);
+    let mut remaining = dirs.len();
+    for dir in dirs {
+        if remaining <= keep {
+            break;
+        }
+        if dir == current || !is_older_than(&dir, now, min_age) {
+            continue;
+        }
+        if std::fs::remove_dir_all(&dir).is_ok() {
+            remaining -= 1;
+        }
     }
+}
+
+fn is_older_than(path: &Path, now: SystemTime, min_age: Duration) -> bool {
+    path.metadata()
+        .and_then(|metadata| metadata.modified())
+        .is_ok_and(|modified| now.duration_since(modified).is_ok_and(|age| age >= min_age))
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -155,4 +191,81 @@ pub fn run() {
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+
+    fn temp_dir(name: &str) -> PathBuf {
+        std::env::temp_dir().join(format!("base6-lib-{name}-{}", std::process::id()))
+    }
+
+    fn make_jobs(root: &Path, count: usize) -> Vec<PathBuf> {
+        fs::create_dir_all(root).unwrap();
+        (0..count)
+            .map(|index| {
+                let job = root.join(format!("job-{index}"));
+                fs::create_dir(&job).unwrap();
+                job
+            })
+            .collect()
+    }
+
+    fn names(root: &Path) -> Vec<std::ffi::OsString> {
+        let mut names: Vec<_> = fs::read_dir(root)
+            .unwrap()
+            .flatten()
+            .map(|entry| entry.file_name())
+            .collect();
+        names.sort();
+        names
+    }
+
+    #[test]
+    fn job_roots_are_unique_within_one_millisecond() {
+        let jobs_dir = PathBuf::from("/tmp/base6-jobs");
+        assert_ne!(next_job_root(&jobs_dir), next_job_root(&jobs_dir));
+    }
+
+    #[test]
+    fn prune_removes_only_the_oldest_surplus_dirs() {
+        let root = temp_dir("prune");
+        let jobs = make_jobs(&root, 8);
+
+        prune_jobs_older_than(&root, &jobs[7], 3, Duration::ZERO);
+
+        let expected: Vec<_> = jobs[5..]
+            .iter()
+            .map(|job| job.file_name().unwrap().to_os_string())
+            .collect();
+        assert_eq!(names(&root), expected);
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn prune_skips_dirs_recently_touched_by_another_process() {
+        let root = temp_dir("prune-recent");
+        let jobs = make_jobs(&root, 8);
+
+        prune_jobs_older_than(&root, &jobs[7], 1, Duration::from_secs(3600));
+
+        assert_eq!(names(&root).len(), jobs.len());
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn prune_never_removes_the_current_job() {
+        let root = temp_dir("prune-current");
+        let jobs = make_jobs(&root, 2);
+
+        prune_jobs_older_than(&root, &jobs[0], 1, Duration::ZERO);
+
+        assert_eq!(
+            names(&root),
+            vec![jobs[0].file_name().unwrap().to_os_string()]
+        );
+        let _ = fs::remove_dir_all(&root);
+    }
 }

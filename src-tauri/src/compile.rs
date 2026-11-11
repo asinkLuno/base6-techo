@@ -3,13 +3,16 @@
 
 use std::fs;
 use std::path::{Component, Path, PathBuf};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use tectonic::status::{MessageKind, StatusBackend};
 
 const DOC_NAME: &str = "document.tex";
 const PDF_NAME: &str = "document.pdf";
 const LOG_NAME: &str = "document.log";
+
+/// 串行化引擎调用：stdout 捕获是进程级状态。
+static ENGINE_LOCK: Mutex<()> = Mutex::new(());
 
 pub struct CompileOutput {
     pub pdf: Vec<u8>,
@@ -51,6 +54,12 @@ pub fn compile(
     extra_files: &[(String, Vec<u8>)],
     sink: &Arc<LogSink>,
 ) -> Result<CompileOutput, String> {
+    // 引擎运行期间会重定向进程级 fd1（见 capture），两个编译并发会互相
+    // 抢 stdout，恢复顺序错乱后还可能把 fd1 指到已关闭的管道。这里把
+    // 「一次只有一个编译」编码进结构，而不是依赖 UI 禁用按钮。
+    let _guard = ENGINE_LOCK
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
     prepare_job_root(job_root, extra_files)?;
 
     let source = source.to_string();
