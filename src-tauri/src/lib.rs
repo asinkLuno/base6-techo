@@ -92,6 +92,9 @@ async fn write_pdf_file(request: tauri::ipc::Request<'_>) -> Result<(), String> 
     let tauri::ipc::InvokeBody::Raw(bytes) = request.body() else {
         return Err("请求体应为原始字节".to_string());
     };
+    // 自定义命令不受 fs 插件 scope 约束，路径又来自 webview：只接受另存为
+    // 对话框会返回的绝对 .pdf 路径，并确认内容确实是 PDF。
+    let path = validate_pdf_target(&path, bytes)?;
     // spawn_blocking 要求 'static，把字节复制出来再移进闭包
     let bytes = bytes.to_vec();
     tauri::async_runtime::spawn_blocking(move || {
@@ -99,6 +102,24 @@ async fn write_pdf_file(request: tauri::ipc::Request<'_>) -> Result<(), String> 
     })
     .await
     .map_err(|e| format!("写入任务异常终止：{e}"))?
+}
+
+fn validate_pdf_target(path: &str, bytes: &[u8]) -> Result<PathBuf, String> {
+    let path = PathBuf::from(path);
+    if !path.is_absolute() {
+        return Err("保存路径必须是绝对路径".into());
+    }
+    let is_pdf = path
+        .extension()
+        .and_then(|extension| extension.to_str())
+        .is_some_and(|extension| extension.eq_ignore_ascii_case("pdf"));
+    if !is_pdf {
+        return Err("保存路径必须以 .pdf 结尾".into());
+    }
+    if !bytes.starts_with(b"%PDF") {
+        return Err("写入内容不是 PDF".into());
+    }
+    Ok(path)
 }
 
 fn compile_document(
@@ -221,6 +242,15 @@ mod tests {
             .collect();
         names.sort();
         names
+    }
+
+    #[test]
+    fn pdf_target_requires_absolute_pdf_path_and_pdf_bytes() {
+        assert!(validate_pdf_target("/tmp/out.pdf", b"%PDF-1.7").is_ok());
+        assert!(validate_pdf_target("/tmp/out.PDF", b"%PDF").is_ok());
+        assert!(validate_pdf_target("out.pdf", b"%PDF").is_err());
+        assert!(validate_pdf_target("/tmp/out.txt", b"%PDF").is_err());
+        assert!(validate_pdf_target("/tmp/out.pdf", b"not a pdf").is_err());
     }
 
     #[test]
