@@ -14,7 +14,7 @@ import { ConfigTransferPanel } from "../components/ConfigTransferPanel";
 import { PageSettingsPanel } from "../components/PageSettingsPanel";
 import { SectionList } from "../components/SectionList";
 import {
-  appendLiveLine,
+  appendLiveLines,
   type CompileLogLine,
   parseCompileLogKind,
   splitCompileError,
@@ -66,11 +66,7 @@ export default function HomePage() {
       const batch = pendingLines.current;
       pendingLines.current = [];
       if (!liveActiveRef.current || batch.length === 0) return;
-      setStream((prev) => {
-        let next = prev ?? [];
-        for (const line of batch) next = appendLiveLine(next, line);
-        return next;
-      });
+      setStream((prev) => appendLiveLines(prev ?? [], batch));
     };
 
     void listen<{ kind: string; line: string }>("compile-log", (e) => {
@@ -128,15 +124,6 @@ export default function HomePage() {
       });
       setPdfBytes(out.pdf);
       setLog(out.log || null);
-      // 预览卡片在 setState 后才挂载，等一帧再滚动
-      setTimeout(
-        () =>
-          previewRef.current?.scrollIntoView({
-            behavior: "smooth",
-            block: "start",
-          }),
-        60,
-      );
     } catch (e) {
       setPdfBytes(null);
       const { message, log: errLog } = splitCompileError(
@@ -151,6 +138,12 @@ export default function HomePage() {
       setGenerating(false);
     }
   };
+
+  // 新预览提交后再滚动：effect 在预览卡片的 DOM 挂载后运行，不依赖固定延时
+  useEffect(() => {
+    if (!pdfBytes) return;
+    previewRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [pdfBytes]);
 
   // 保存成功 toast 约四秒后自动消失
   useEffect(() => {

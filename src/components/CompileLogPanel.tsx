@@ -31,7 +31,7 @@ const LogLine = memo(function LogLine({ line }: { line: CompileLogLine }) {
   );
 });
 
-/** 实时/最终统一按行渲染，kind 决定行颜色；空行渲染空格撑住行高。
+/** 实时日志按行渲染，kind 决定行颜色；空行渲染空格撑住行高。
  *  memo：展开/复制等面板自身状态变化时不重复渲染几百行日志。 */
 const LogLines = memo(function LogLines({
   lines,
@@ -67,16 +67,6 @@ export function CompileLogPanel({
   // 收起时不拆行也不挂载正文：成功的编译日志动辄上千行，没必要常驻 DOM。
   // 摘要徽章仍需计数，故 parseCompileLog 保留（只扫一遍字符串）。
   const showContent = open || isLive;
-  // 最终态按行拆开，与实时态共用渲染；日志不变则不重复切分
-  const finalLines = useMemo<CompileLogLine[]>(
-    () =>
-      showContent
-        ? (log ?? "")
-            .split(/\r?\n/)
-            .map((text) => ({ kind: "tex" as const, text }))
-        : [],
-    [log, showContent],
-  );
 
   // 进入实时态强制展开
   useEffect(() => {
@@ -118,7 +108,8 @@ export function CompileLogPanel({
 
   if (!isLive && !log) return null;
 
-  const lines = isLive ? (stream ?? []) : finalLines;
+  // 最终日志没有逐行级别，行数直接用 parseCompileLog 的统计，不再切分字符串
+  const lineCount = isLive ? (stream?.length ?? 0) : summary.lines;
 
   const handleCopy = async () => {
     // 拼接只在点击时做，避免实时流每次追加都重扫整段日志
@@ -171,7 +162,7 @@ export function CompileLogPanel({
       <div className="collapse-content">
         <div className="mb-2 flex items-center justify-between gap-2">
           <span className="badge badge-ghost badge-sm">
-            {t("editor.log.lines", { num: lines.length })}
+            {t("editor.log.lines", { num: lineCount })}
           </span>
           <button
             type="button"
@@ -182,17 +173,28 @@ export function CompileLogPanel({
           </button>
         </div>
         {showContent &&
-          (lines.length === 0 ? (
+          (isLive ? (
+            (stream?.length ?? 0) === 0 ? (
+              <p className="font-mono text-xs opacity-60">
+                {t("editor.log.waiting")}
+              </p>
+            ) : (
+              <pre
+                ref={preRef}
+                className="bg-neutral text-neutral-content max-h-[60vh] overflow-auto rounded-lg p-4 font-mono text-xs leading-relaxed break-words whitespace-pre-wrap"
+              >
+                <LogLines lines={stream ?? []} />
+              </pre>
+            )
+          ) : log ? (
+            // 最终日志全部是普通文本：直接渲染一个文本节点，不为上万行各建 DOM 节点
+            <pre className="bg-neutral text-neutral-content max-h-[60vh] overflow-auto rounded-lg p-4 font-mono text-xs leading-relaxed break-words whitespace-pre-wrap">
+              {log}
+            </pre>
+          ) : (
             <p className="font-mono text-xs opacity-60">
               {t("editor.log.waiting")}
             </p>
-          ) : (
-            <pre
-              ref={preRef}
-              className="bg-neutral text-neutral-content max-h-[60vh] overflow-auto rounded-lg p-4 font-mono text-xs leading-relaxed break-words whitespace-pre-wrap"
-            >
-              <LogLines lines={lines} />
-            </pre>
           ))}
       </div>
     </details>

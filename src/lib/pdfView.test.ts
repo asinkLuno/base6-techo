@@ -179,6 +179,45 @@ describe("resolveOutline", () => {
     ]);
   });
 
+  it("整棵树的兄弟子树并发解析", async () => {
+    let inFlight = 0;
+    let maxInFlight = 0;
+    const pendingResolvers: (() => void)[] = [];
+    const doc: TocSource = {
+      async getOutline() {
+        return [
+          { title: "A", dest: "a", items: [{ title: "A1", dest: "a1" }] },
+          { title: "B", dest: "b", items: [{ title: "B1", dest: "b1" }] },
+        ];
+      },
+      getDestination() {
+        inFlight++;
+        maxInFlight = Math.max(maxInFlight, inFlight);
+        return new Promise((resolve) => {
+          pendingResolvers.push(() => {
+            inFlight--;
+            resolve([7, { name: "Fit" }]);
+          });
+        });
+      },
+      async getPageIndex() {
+        return 0;
+      },
+    };
+
+    const resolved = resolveOutline(doc);
+    // 等 getOutline 的 await 落地：所有目的地此时应已同时发出
+    await Promise.resolve();
+    expect(maxInFlight).toBe(4);
+    for (const settle of pendingResolvers) settle();
+    await expect(resolved).resolves.toEqual([
+      { id: 0, title: "A", page: 8, depth: 0 },
+      { id: 1, title: "A1", page: 8, depth: 1 },
+      { id: 2, title: "B", page: 8, depth: 0 },
+      { id: 3, title: "B1", page: 8, depth: 1 },
+    ]);
+  });
+
   it("无大纲 / 空大纲返回空数组", async () => {
     await expect(resolveOutline(fakeDoc(null))).resolves.toEqual([]);
     await expect(resolveOutline(fakeDoc([]))).resolves.toEqual([]);

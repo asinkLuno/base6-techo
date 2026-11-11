@@ -98,30 +98,39 @@ export async function destPage(
   }
 }
 
-/** 拍平大纲树为阅读顺序条目；同级目的地并行解析后按原序展开。 */
+/**
+ * 拍平大纲树为阅读顺序条目。
+ * 先同步做一次先序展开（层级与顺序在此定下），再并发解析所有目的地；
+ * 旧写法逐个子树 await，兄弟节点也会串行，深层目录要等整棵树一层层解析。
+ */
 export async function resolveOutline(doc: TocSource): Promise<TocEntry[]> {
   const root = await doc.getOutline();
   if (!root || root.length === 0) return [];
-  const out: TocEntry[] = [];
-  let nextId = 0;
-  const walk = async (
-    nodes: OutlineNodeLike[],
-    depth: number,
-  ): Promise<void> => {
-    const resolved = await Promise.all(
-      nodes.map(async (node) => ({
+  const flat: { title: string; dest: unknown; depth: number }[] = [];
+  const collect = (nodes: OutlineNodeLike[], depth: number) => {
+    for (const node of nodes) {
+      flat.push({
         title: typeof node.title === "string" ? node.title : "",
-        page: node.dest != null ? await destPage(doc, node.dest) : null,
-        children: Array.isArray(node.items) ? node.items : [],
-      })),
-    );
-    for (const node of resolved) {
-      out.push({ id: nextId++, title: node.title, page: node.page, depth });
-      if (node.children.length > 0) await walk(node.children, depth + 1);
+        dest: node.dest,
+        depth,
+      });
+      if (Array.isArray(node.items) && node.items.length > 0) {
+        collect(node.items, depth + 1);
+      }
     }
   };
-  await walk(root, 0);
-  return out;
+  collect(root, 0);
+  const pages = await Promise.all(
+    flat.map((node) =>
+      node.dest != null ? destPage(doc, node.dest) : Promise.resolve(null),
+    ),
+  );
+  return flat.map((node, id) => ({
+    id,
+    title: node.title,
+    page: pages[id],
+    depth: node.depth,
+  }));
 }
 
 /** 当前页对应的目录高亮条目：阅读顺序里最后一个起始页不超过 active 的条目。 */

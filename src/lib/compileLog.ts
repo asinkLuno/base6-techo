@@ -43,15 +43,31 @@ export interface CompileLogLine {
 /** 实时流上限：超出后丢最旧行，防长书编译刷爆内存（最终完整日志不受影响）。 */
 export const LIVE_LOG_CAP = 400;
 
-/** 追加一行实时日志；超过 cap 时丢弃最旧的行。id 取最后一行的后继，永不回退。 */
+/**
+ * 批量追加实时日志：一次分配、一次裁剪。
+ * 编译期每帧可能到达几十行，逐行调用 appendLiveLine 会按「行数 × cap」复制数组。
+ * id 取最后一行的后继，永不回退；超过 cap 时只保留最新 cap 行。
+ */
+export function appendLiveLines(
+  prev: CompileLogLine[],
+  lines: readonly CompileLogLine[],
+  cap: number = LIVE_LOG_CAP,
+): CompileLogLine[] {
+  if (lines.length === 0) return prev;
+  let id = (prev[prev.length - 1]?.id ?? -1) + 1;
+  const next = prev.slice();
+  for (const line of lines) next.push({ ...line, id: id++ });
+  if (next.length > cap) next.splice(0, next.length - cap);
+  return next;
+}
+
+/** 追加一行实时日志；超过 cap 时丢弃最旧的行。 */
 export function appendLiveLine(
   prev: CompileLogLine[],
   line: CompileLogLine,
   cap: number = LIVE_LOG_CAP,
 ): CompileLogLine[] {
-  const id = (prev[prev.length - 1]?.id ?? -1) + 1;
-  const base = prev.length >= cap ? prev.slice(prev.length - cap + 1) : prev;
-  return [...base, { ...line, id }];
+  return appendLiveLines(prev, [line], cap);
 }
 
 /**

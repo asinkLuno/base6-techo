@@ -13,8 +13,9 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import clsx from "clsx";
-import { memo, useMemo } from "react";
+import { memo } from "react";
 import { useTranslation } from "react-i18next";
+import { useShallow } from "zustand/react/shallow";
 import { useDocumentStore } from "../stores/document";
 import { PAGES_MAX } from "../types/document";
 import SectionListItem from "./SectionListItem";
@@ -65,10 +66,11 @@ export const SectionList = memo(function SectionList() {
 
   const total = sections.reduce((sum, section) => sum + section.pages, 0);
   const overflow = total > PAGES_MAX;
-  // SortableContext 按 items 引用判断：仅在 sections 变化时重算
-  const sortableIds = useMemo(
-    () => sections.map((section) => section.id),
-    [sections],
+  // SortableContext 把 items 放进 context value：数组引用一变，所有 useSortable
+  // 消费者都会重渲（memo 拦不住 context）。useShallow 让 id 不变时复用同一数组，
+  // 编辑某节内容不会波及整张列表。
+  const sortableIds = useDocumentStore(
+    useShallow((s) => s.sections.map((section) => section.id)),
   );
 
   return (

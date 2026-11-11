@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   appendLiveLine,
+  appendLiveLines,
   COMPILE_LOG_MARKER,
   type CompileLogLine,
   parseCompileLog,
@@ -84,5 +85,29 @@ describe("appendLiveLine", () => {
     lines = appendLiveLine(lines, line("d"), 3);
     lines = appendLiveLine(lines, line("e"), 3);
     expect(lines.map((l) => l.text)).toEqual(["c", "d", "e"]);
+  });
+});
+
+describe("appendLiveLines", () => {
+  const line = (text: string) => ({ kind: "tex" as const, text });
+
+  it("批量追加一次完成，顺序与 id 连续", () => {
+    const prev: CompileLogLine[] = [{ ...line("a"), id: 0 }];
+    const next = appendLiveLines(prev, [line("b"), line("c")], 10);
+    expect(next.map((l) => l.text)).toEqual(["a", "b", "c"]);
+    expect(next.map((l) => l.id)).toEqual([0, 1, 2]);
+    expect(prev.map((l) => l.text)).toEqual(["a"]);
+  });
+
+  it("整批超过上限时只保留最新 cap 行", () => {
+    const next = appendLiveLines([], ["a", "b", "c", "d"].map(line), 3);
+    expect(next.map((l) => l.text)).toEqual(["b", "c", "d"]);
+    // id 不回退：丢弃最旧行后仍从 1 继续
+    expect(next.map((l) => l.id)).toEqual([1, 2, 3]);
+  });
+
+  it("空批次不产生新数组", () => {
+    const prev: CompileLogLine[] = [line("a")];
+    expect(appendLiveLines(prev, [])).toBe(prev);
   });
 });

@@ -323,6 +323,10 @@ export const PdfViewer = memo(function PdfViewer({
     setDoc(null);
     setError("");
     setToc([]);
+    // 新文档页码从 1 重新开始：清掉上一份文档的 canvas 引用与缓存闭包，
+    // 否则生成过的大文档会按页数留下永不使用的回调。
+    canvasRefs.current = [];
+    canvasRefCache.current = [];
     if (!pdfBytes) return;
     let cancelled = false;
     let task: pdfjsLib.PDFDocumentLoadingTask | null = null;
