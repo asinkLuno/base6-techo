@@ -159,8 +159,17 @@ const payload = await invoke<ArrayBuffer>("generate_document_pdf", {
 2. 在 `validate` 中校验一次模板参数。
 3. 在 `draw` 中使用传入的页心区域和 `PageContext` 绘制。模板不重算全书页序或装订侧；需要左右差异时，读取传入布局中的 `binding_side`。
 4. 增加模板行为测试和真实 PDF 编译样例。
+5. 成百上千条同色同线宽的短线用 `Canvas::line_batch` 合并成一条 TikZ 路径，不要逐条 `line`；月相等填充路径的坐标用 3 位小数即可。
 
 当前所有 section 共享纸张与装订方向；四周边距、页头、页脚与水印可按节覆盖，未覆盖的项继承全书。覆盖在编排层统一解析：`plan_document` 为每个 section 计算有效的 `PageSettings`，`render_page` 用有效的 `Decorations`，各组件不各自继承配置。
+
+## 输出体积与颜色作用域
+
+生成器会压缩重复的 TeX 输出，视觉结果不变：
+
+- 同一 `begin_region`／`end_region` 内，相邻图元同色时只发一次 `\definecolor{ink}`。`\definecolor` 默认是 TeX 组内定义，所以退出 scope 时会恢复进入前的颜色状态，换 scope 后必须重新定义。
+- `TableGrid` 的格线、方眼罫外伸线等大量同色同线宽实线合并成一条 `\draw` 的多个子路径，选项和颜色只解析一次。
+- 月相填充路径的坐标保留 3 位小数（1 微米），并采用 16 段半圆采样，默认字号下的弦高误差约 0.008mm。
 
 ## 验证
 
