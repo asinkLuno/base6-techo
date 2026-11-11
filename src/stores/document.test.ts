@@ -586,3 +586,36 @@ describe("imposition", () => {
     expect(state().imposition).toEqual({ mode: "booklet" });
   });
 });
+
+describe("replaceDocument", () => {
+  it("导入配置时整体替换 section、页面设置、装饰与装订方式", () => {
+    state().addSection();
+    state().updateImposition({ mode: "booklet" });
+
+    const decorations = newDecorations();
+    decorations.header.content = { kind: "text", text: "导入的页头" };
+    const snapshot = {
+      sections: [
+        {
+          id: "imported",
+          name: "导入的节",
+          pages: 4,
+          numbered: false,
+          body: { kind: "blank" as const },
+          margins: null,
+          decorations: null,
+        },
+      ],
+      page: { ...DEFAULT_PAGE, paper: { kind: "a4" as const } },
+      decorations,
+      imposition: { mode: "thread" as const, sheetsPerSignature: 2 },
+    };
+
+    state().replaceDocument(snapshot);
+
+    expect(state().sections).toEqual(snapshot.sections);
+    expect(state().page).toEqual(snapshot.page);
+    expect(state().decorations).toEqual(snapshot.decorations);
+    expect(state().imposition).toEqual(snapshot.imposition);
+  });
+});

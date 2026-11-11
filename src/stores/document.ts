@@ -15,6 +15,7 @@ import {
 } from "../types/document";
 import {
   applySectionPatch,
+  type DocumentSnapshot,
   mergeDocumentState,
   migrateDocumentState,
 } from "./documentState";
@@ -40,6 +41,8 @@ interface DocumentState {
   updateDecorations: (decorations: Decorations) => void;
   /** 整体替换装订方式，锁线每帖纸张数写入前 clamp。 */
   updateImposition: (imposition: Imposition) => void;
+  /** 导入配置：整体替换文档数据；快照须已过 parseConfigFile 的边界校验。 */
+  replaceDocument: (snapshot: DocumentSnapshot) => void;
 }
 
 const newId = (): string => crypto.randomUUID();
@@ -101,6 +104,7 @@ export const useDocumentStore = create<DocumentState>()(
         set(() => ({ decorations: clampDecorations(decorations) })),
       updateImposition: (imposition) =>
         set(() => ({ imposition: clampImposition(imposition) })),
+      replaceDocument: (snapshot) => set(() => snapshot),
     }),
     {
       name: "base6-techo:document",
