@@ -159,7 +159,7 @@ const payload = await invoke<ArrayBuffer>("generate_document_pdf", {
 2. 在 `validate` 中校验一次模板参数。
 3. 在 `draw` 中使用传入的页心区域和 `PageContext` 绘制。模板不重算全书页序或装订侧；需要左右差异时，读取传入布局中的 `binding_side`。
 4. 增加模板行为测试和真实 PDF 编译样例。
-5. 成百上千条同色同线宽的短线用 `Canvas::line_batch` 合并成一条 TikZ 路径，不要逐条 `line`；月相等填充路径的坐标用 3 位小数即可。
+5. 成百上千条同色同线宽的短线用 `Canvas::line_batch` 合并成一条 TikZ 路径，不要逐条 `line`；月相等圆弧轮廓用 `Canvas::filled_outline`，角度按画布坐标（y 向下）给，输出时会转成 PGF 的页面角度。
 
 当前所有 section 共享纸张与装订方向；四周边距、页头、页脚与水印可按节覆盖，未覆盖的项继承全书。覆盖在编排层统一解析：`plan_document` 为每个 section 计算有效的 `PageSettings`，`render_page` 用有效的 `Decorations`，各组件不各自继承配置。
 
@@ -169,7 +169,8 @@ const payload = await invoke<ArrayBuffer>("generate_document_pdf", {
 
 - 同一 `begin_region`／`end_region` 内，相邻图元同色时只发一次 `\definecolor{ink}`。`\definecolor` 默认是 TeX 组内定义，所以退出 scope 时会恢复进入前的颜色状态，换 scope 后必须重新定义。
 - `TableGrid` 的格线、方眼罫外伸线等大量同色同线宽实线合并成一条 `\draw` 的多个子路径，选项和颜色只解析一次。
-- 月相填充路径的坐标保留 3 位小数（1 微米），并采用 16 段半圆采样，默认字号下的弦高误差约 0.008mm。
+- 月相亮面用两段 `arc`（半圆 + 椭圆明暗界线）表示，不再逐点采样多边形；半径与起点坐标保留 3 位小数（1 微米）即可。
+- PGF 的 `arc` 角度按页面坐标（y 向上）解释，不受 TikZ `y=-1mm` 影响；画布角度 y 向下，输出时取负，否则弧会翻到圆心另一侧。
 
 ## 验证
 
