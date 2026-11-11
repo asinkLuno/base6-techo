@@ -1,7 +1,7 @@
 import { useTranslation } from "react-i18next";
 import {
   clampNumber,
-  DEFAULT_PAGE,
+  defaultMarginsForPaper,
   MARGIN_MM_MIN,
   type Margins,
   maxMarginMm,
@@ -25,6 +25,7 @@ export function MarginsEditor({
 }) {
   const { t } = useTranslation();
   const dims = paperDimsMm(paper);
+  const recommended = defaultMarginsForPaper(paper);
   const { headerMm, footerMm, innerMm, outerMm } = margins;
   const contentWidth = Math.max(0, dims.widthMm - innerMm - outerMm);
   const contentHeight = Math.max(0, dims.heightMm - headerMm - footerMm);
@@ -42,7 +43,7 @@ export function MarginsEditor({
           step={1}
           clamp={clampMargin(
             maxMarginMm(dims.heightMm, footerMm),
-            DEFAULT_PAGE.margins.headerMm,
+            recommended.headerMm,
           )}
           onCommit={(headerMm) => set({ headerMm })}
         />
@@ -54,7 +55,7 @@ export function MarginsEditor({
           step={1}
           clamp={clampMargin(
             maxMarginMm(dims.heightMm, headerMm),
-            DEFAULT_PAGE.margins.footerMm,
+            recommended.footerMm,
           )}
           onCommit={(footerMm) => set({ footerMm })}
         />
@@ -66,7 +67,7 @@ export function MarginsEditor({
           step={1}
           clamp={clampMargin(
             maxMarginMm(dims.widthMm, outerMm),
-            DEFAULT_PAGE.margins.innerMm,
+            recommended.innerMm,
           )}
           onCommit={(innerMm) => set({ innerMm })}
         />
@@ -78,7 +79,7 @@ export function MarginsEditor({
           step={1}
           clamp={clampMargin(
             maxMarginMm(dims.widthMm, innerMm),
-            DEFAULT_PAGE.margins.outerMm,
+            recommended.outerMm,
           )}
           onCommit={(outerMm) => set({ outerMm })}
         />

@@ -357,7 +357,7 @@ describe("document store", () => {
     expect(spec.margins).toEqual({
       headerMm: 30,
       footerMm: 24,
-      innerMm: 18,
+      innerMm: 13,
       outerMm: 18,
     });
   });
@@ -481,15 +481,35 @@ describe("page settings", () => {
     useDocumentStore.setState({ sections: [], page: DEFAULT_PAGE }),
   );
 
-  it("初始页面设置为 Rust 默认：A5、16/16/18/18", () => {
+  it("初始页面设置为 Rust 默认：A5、15/19/13/18", () => {
     expect(state().page).toEqual(DEFAULT_PAGE);
     // 装订固定为左侧，状态里没有可选择的装订方向。
     expect(state().page).not.toHaveProperty("binding");
   });
 
-  it("updatePage 可切换预设纸张", () => {
+  it("updatePage 可切换预设纸张，并按 archive 规则重算边距", () => {
     state().updatePage({ paper: { kind: "b6" } });
     expect(state().page.paper).toEqual({ kind: "b6" });
+    // 125×176：页头 12、页脚 16、装订 11、外侧 15。
+    expect(state().page.margins).toEqual({
+      headerMm: 12,
+      footerMm: 16,
+      innerMm: 11,
+      outerMm: 15,
+    });
+  });
+
+  it("显式传入 margins 时不被自动边距覆盖", () => {
+    state().updatePage({
+      paper: { kind: "a6" },
+      margins: { headerMm: 20, footerMm: 20, innerMm: 20, outerMm: 20 },
+    });
+    expect(state().page.margins).toEqual({
+      headerMm: 20,
+      footerMm: 20,
+      innerMm: 20,
+      outerMm: 20,
+    });
   });
 
   it("updatePage 把自定义纸张 clamp 到 30–1000mm，非法值回落 A5 尺寸", () => {

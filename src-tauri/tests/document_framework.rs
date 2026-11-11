@@ -1,7 +1,7 @@
 use base6_techo_lib::templates::{
     components::{Band, BandContent, Decorations, Watermark},
     document::{Document, Section, generate_document_latex, plan_document},
-    layout::Side,
+    layout::{Margins, Side},
     patterns::{BodyTemplate, DotsPattern, GridPattern, HogenPattern, LinearPattern},
 };
 
@@ -100,6 +100,13 @@ fn accepts_exact_page_limit_and_smallest_body() {
         width_mm: 37.0,
         height_mm: 33.0,
     };
+    // 固定边距，留下恰好 1×1mm 的页心。
+    doc.page.margins = Margins {
+        header_mm: 16.0,
+        footer_mm: 16.0,
+        inner_mm: 18.0,
+        outer_mm: 18.0,
+    };
     let plan = plan_document(&doc).unwrap();
     assert_eq!(plan.pages()[0].layout.body.width, 1.0);
     assert_eq!(plan.pages()[0].layout.body.height, 1.0);
@@ -142,6 +149,9 @@ fn rejects_nonfinite_dimensions_margins_and_invalid_ink() {
 #[test]
 fn all_regions_share_the_same_mirrored_body_and_centers() {
     let mut doc = document();
+    // 显式固定页头/页脚，几何断言与默认美学规则解耦。
+    doc.page.margins.header_mm = 16.0;
+    doc.page.margins.footer_mm = 16.0;
     doc.page.margins.inner_mm = 20.0;
     doc.page.margins.outer_mm = 8.0;
     let plan = plan_document(&doc).unwrap();
@@ -177,7 +187,10 @@ fn all_regions_share_the_same_mirrored_body_and_centers() {
 fn linear_pattern_stays_in_body_and_skips_header_footer() {
     let doc: Document = serde_json::from_str(
         r#"{
-        "page":{"paper":{"kind":"a4"}},
+        "page":{
+            "paper":{"kind":"a4"},
+            "margins":{"headerMm":16,"footerMm":16,"innerMm":18,"outerMm":18}
+        },
         "sections":[{"body":{"kind":"linear","spacingMm":7}}]
     }"#,
     )
@@ -197,6 +210,7 @@ fn linear_pattern_stays_in_body_and_skips_header_footer() {
 fn dots_fill_the_body_with_a_pattern_and_optional_center_dot() {
     let doc: Document = serde_json::from_str(
         r##"{
+        "page":{"margins":{"headerMm":16,"footerMm":16,"innerMm":18,"outerMm":18}},
         "sections": [{
             "body": {
                 "kind": "dots",
@@ -268,7 +282,10 @@ fn dots_can_omit_the_center_dot_and_reject_invalid_parameters() {
 #[test]
 fn grid_spreads_from_the_page_center_with_a_closed_border() {
     let doc: Document = serde_json::from_str(
-        r##"{"sections":[{"body":{"kind":"grid","spacingMm":5,"color":"#7A9AC9","lineWidthPt":0.2}}]}"##,
+        r##"{
+        "page":{"margins":{"headerMm":16,"footerMm":16,"innerMm":18,"outerMm":18}},
+        "sections":[{"body":{"kind":"grid","spacingMm":5,"color":"#7A9AC9","lineWidthPt":0.2}}]
+    }"##,
     )
     .unwrap();
     let tex = generate_document_latex(&doc).unwrap();
@@ -318,9 +335,13 @@ fn dense_grid_output_stays_compact_and_rejects_invalid_parameters() {
 
 #[test]
 fn hogen_grid_reproduces_midori_geometry_from_the_page_center() {
-    let doc: Document =
-        serde_json::from_str(r##"{"sections":[{"body":{"kind":"hogen","color":"#A9D1AE"}}]}"##)
-            .unwrap();
+    let doc: Document = serde_json::from_str(
+        r##"{
+        "page":{"margins":{"headerMm":16,"footerMm":16,"innerMm":18,"outerMm":18}},
+        "sections":[{"body":{"kind":"hogen","color":"#A9D1AE"}}]
+    }"##,
+    )
+    .unwrap();
     let tex = generate_document_latex(&doc).unwrap();
     // A5 默认页心 (18,16)-(130,194)，中心 (74,105)。四周各预留 1mm 断口 +
     // 1.2mm 外伸后，每边放 10 格（x 24..124）、17 格（y 20..190）。
@@ -365,6 +386,13 @@ fn hogen_grid_degrades_to_nothing_when_the_body_cannot_fit_one_cell() {
         width_mm: 37.0,
         height_mm: 33.0,
     };
+    // 固定边距，留下恰好 1×1mm 的页心。
+    doc.page.margins = Margins {
+        header_mm: 16.0,
+        footer_mm: 16.0,
+        inner_mm: 18.0,
+        outer_mm: 18.0,
+    };
     doc.sections = vec![Section {
         pages: 1,
         body: BodyTemplate::Hogen(HogenPattern::default()),
@@ -379,6 +407,7 @@ fn hogen_grid_degrades_to_nothing_when_the_body_cannot_fit_one_cell() {
 fn linear_stripes_are_centered_with_symmetric_margins() {
     let doc: Document = serde_json::from_str(
         r#"{
+        "page":{"margins":{"headerMm":16,"footerMm":16,"innerMm":18,"outerMm":18}},
         "sections":[{"body":{"kind":"linear","spacingMm":2}}]
     }"#,
     )

@@ -9,6 +9,8 @@ import {
   PAPER_MM_MAX,
   PAPER_MM_MIN,
   PAPER_PRESET_KINDS,
+  PAPER_PRESET_NAMES,
+  paperDimsMm,
   SHEETS_PER_SIGNATURE_MAX,
   SHEETS_PER_SIGNATURE_MIN,
 } from "../types/document";
@@ -88,11 +90,24 @@ export const PageSettingsPanel = memo(function PageSettingsPanel() {
             });
           }}
         >
-          {PAPER_PRESET_KINDS.map((kind) => (
-            <option key={kind} value={kind}>
-              {kind.toUpperCase()}
-            </option>
-          ))}
+          {PAPER_PRESET_KINDS.map((kind) => {
+            const dims = paperDimsMm({ kind });
+            const name =
+              kind === "a5sTnStandard"
+                ? t("editor.page.paperA5sTn")
+                : kind === "tnPassport"
+                  ? t("editor.page.paperTnPassport")
+                  : PAPER_PRESET_NAMES[kind];
+            return (
+              <option key={kind} value={kind}>
+                {t("editor.page.paperOption", {
+                  name,
+                  width: dims.widthMm,
+                  height: dims.heightMm,
+                })}
+              </option>
+            );
+          })}
           <option value="custom">{t("editor.page.custom")}</option>
         </select>
       </fieldset>

@@ -947,10 +947,22 @@ export const toSectionSpecs = (
 /** 纸张尺寸，与 Rust PaperSize（内部 tagged enum）一致；预设名为小写。 */
 export type PaperSize =
   | { kind: "a4" }
+  | { kind: "a5sTnStandard" }
+  | { kind: "tnPassport" }
   | { kind: "a5" }
-  | { kind: "b5" }
   | { kind: "a6" }
+  | { kind: "a6fc" }
+  | { kind: "a6Personal" }
+  | { kind: "a6pw" }
+  | { kind: "a6Slim" }
+  | { kind: "a7" }
+  | { kind: "a7x127" }
+  | { kind: "b5" }
   | { kind: "b6" }
+  | { kind: "b6Slim" }
+  | { kind: "m5x74" }
+  | { kind: "m5x67" }
+  | { kind: "m5x62" }
   | { kind: "letter" }
   | { kind: "custom"; widthMm: number; heightMm: number };
 
@@ -973,26 +985,60 @@ export const PAPER_MM_MAX = 1000;
 export const MARGIN_MM_MIN = 0;
 export const MARGIN_MM_MAX = 1000;
 
-/** 与 Rust PageSettings::default 一致。 */
+/** 与 Rust PageSettings::default 一致；A5 按 archive 的谐和边距规则推导。 */
 export const DEFAULT_PAGE: PageSettings = {
   paper: { kind: "a5" },
-  margins: { headerMm: 16, footerMm: 16, innerMm: 18, outerMm: 18 },
+  margins: { headerMm: 15, footerMm: 19, innerMm: 13, outerMm: 18 },
 };
 
 /** 自定义纸张非法时的回落尺寸（取 A5）。 */
 export const A5_DIMS = { widthMm: 148, heightMm: 210 } as const;
 
-/** 预设纸张尺寸（mm），与 Rust PaperSize::dims_mm 一致。 */
+/** 预设纸张尺寸（mm），与 Rust PaperSize::dims_mm 一致；顺序即下拉选项顺序。 */
 const PRESET_DIMS_MM = {
   a4: { widthMm: 210, heightMm: 297 },
+  a5sTnStandard: { widthMm: 110, heightMm: 210 },
+  tnPassport: { widthMm: 88, heightMm: 125 },
   a5: A5_DIMS,
-  b5: { widthMm: 176, heightMm: 250 },
   a6: { widthMm: 105, heightMm: 148 },
-  b6: { widthMm: 128, heightMm: 182 },
+  a6fc: { widthMm: 108, heightMm: 171 },
+  a6Personal: { widthMm: 95, heightMm: 171 },
+  a6pw: { widthMm: 120, heightMm: 170 },
+  a6Slim: { widthMm: 80, heightMm: 171 },
+  a7: { widthMm: 80, heightMm: 120 },
+  a7x127: { widthMm: 80, heightMm: 127 },
+  b5: { widthMm: 176, heightMm: 250 },
+  b6: { widthMm: 125, heightMm: 176 },
+  b6Slim: { widthMm: 98, heightMm: 176 },
+  m5x74: { widthMm: 74, heightMm: 105 },
+  m5x67: { widthMm: 67, heightMm: 105 },
+  m5x62: { widthMm: 62, heightMm: 105 },
   letter: { widthMm: 215.9, heightMm: 279.4 },
 } as const;
 
 export type PaperPresetKind = Exclude<PaperSize["kind"], "custom">;
+
+/** 预设纸张的展示名；A5S/TN 与 TN 护照在组件里按语言覆盖。 */
+export const PAPER_PRESET_NAMES: Record<PaperPresetKind, string> = {
+  a4: "A4",
+  a5sTnStandard: "A5S/TN 标准",
+  tnPassport: "TN护照",
+  a5: "A5",
+  a6: "A6",
+  a6fc: "A6FC",
+  a6Personal: "A6Personal",
+  a6pw: "A6PW",
+  a6Slim: "A6Slim",
+  a7: "A7",
+  a7x127: "127A7",
+  b5: "B5",
+  b6: "B6",
+  b6Slim: "B6Slim",
+  m5x74: "74M5",
+  m5x67: "67M5",
+  m5x62: "62M5",
+  letter: "Letter",
+};
 
 /** 预设纸张名（不含 custom），供下拉选项与外部数据校验共用。 */
 export const PAPER_PRESET_KINDS = Object.keys(
@@ -1027,6 +1073,30 @@ export const clampPaperSize = (paper: PaperSize): PaperSize =>
         ),
       }
     : paper;
+
+/**
+ * archive 的谐和边距规则（mm）：
+ * 装订边 = 宽×9%（≥8），外侧 = 宽×12%（≥7）；
+ * 页头 = 高×7%（≥6），页脚 = 高×9%（≥8）。
+ * 切换纸张或修改自定义尺寸时用它重置全书边距。
+ */
+export const defaultMarginsForPaper = (paper: PaperSize): Margins => {
+  const { widthMm, heightMm } = paperDimsMm(clampPaperSize(paper));
+  return {
+    headerMm: Math.max(6, Math.round(heightMm * 0.07)),
+    footerMm: Math.max(8, Math.round(heightMm * 0.09)),
+    innerMm: Math.max(8, Math.round(widthMm * 0.09)),
+    outerMm: Math.max(7, Math.round(widthMm * 0.12)),
+  };
+};
+
+/** 纸张是否相同；自定义尺寸逐值比较。 */
+export const paperEquals = (a: PaperSize, b: PaperSize): boolean =>
+  a.kind === "custom"
+    ? b.kind === "custom" &&
+      a.widthMm === b.widthMm &&
+      a.heightMm === b.heightMm
+    : b.kind === a.kind;
 
 export const clampMargins = (margins: Margins): Margins => ({
   headerMm: clampNumber(

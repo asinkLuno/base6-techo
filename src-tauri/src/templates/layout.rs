@@ -10,10 +10,22 @@ use serde::{Deserialize, Serialize};
 )]
 pub enum PaperSize {
     A4,
+    A5sTnStandard,
+    TnPassport,
     A5,
-    B5,
     A6,
+    A6fc,
+    A6Personal,
+    A6pw,
+    A6Slim,
+    A7,
+    A7x127,
+    B5,
     B6,
+    B6Slim,
+    M5x74,
+    M5x67,
+    M5x62,
     Letter,
     Custom { width_mm: f64, height_mm: f64 },
 }
@@ -22,10 +34,22 @@ impl PaperSize {
     pub fn dims_mm(&self) -> (f64, f64) {
         match self {
             Self::A4 => (210.0, 297.0),
+            Self::A5sTnStandard => (110.0, 210.0),
+            Self::TnPassport => (88.0, 125.0),
             Self::A5 => (148.0, 210.0),
-            Self::B5 => (176.0, 250.0),
             Self::A6 => (105.0, 148.0),
-            Self::B6 => (128.0, 182.0),
+            Self::A6fc => (108.0, 171.0),
+            Self::A6Personal => (95.0, 171.0),
+            Self::A6pw => (120.0, 170.0),
+            Self::A6Slim => (80.0, 171.0),
+            Self::A7 => (80.0, 120.0),
+            Self::A7x127 => (80.0, 127.0),
+            Self::B5 => (176.0, 250.0),
+            Self::B6 => (125.0, 176.0),
+            Self::B6Slim => (98.0, 176.0),
+            Self::M5x74 => (74.0, 105.0),
+            Self::M5x67 => (67.0, 105.0),
+            Self::M5x62 => (62.0, 105.0),
             Self::Letter => (215.9, 279.4),
             Self::Custom {
                 width_mm,
@@ -51,11 +75,13 @@ pub struct Margins {
 }
 
 impl Default for Margins {
+    /// A5（148×210）按 archive 的谐和边距规则推导：
+    /// 装订 13、外侧 18、页头 15、页脚 19。
     fn default() -> Self {
         Self {
-            header_mm: 16.0,
-            footer_mm: 16.0,
-            inner_mm: 18.0,
+            header_mm: 15.0,
+            footer_mm: 19.0,
+            inner_mm: 13.0,
             outer_mm: 18.0,
         }
     }
@@ -200,6 +226,61 @@ impl PageLayout {
             } else {
                 Side::Right
             },
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{Margins, PageSettings, PaperSize};
+
+    /// A5 默认边距遵循 archive 的谐和规则：宽×9%/12%、高×7%/9%。
+    #[test]
+    fn default_margins_follow_the_archive_rule_for_a5() {
+        let margins = Margins::default();
+        assert_eq!(
+            (
+                margins.header_mm,
+                margins.footer_mm,
+                margins.inner_mm,
+                margins.outer_mm
+            ),
+            (15.0, 19.0, 13.0, 18.0)
+        );
+        let page = PageSettings::default();
+        assert_eq!(page.paper, PaperSize::A5);
+        assert_eq!(page.margins.inner_mm, 13.0);
+    }
+
+    /// 预设纸张的 JSON kind 必须与前端 `PaperSize` / `PRESET_DIMS_MM` 一致。
+    #[test]
+    fn preset_papers_serialize_with_expected_kind_and_dims() {
+        let cases = [
+            (PaperSize::A4, "a4", (210.0, 297.0)),
+            (PaperSize::A5sTnStandard, "a5sTnStandard", (110.0, 210.0)),
+            (PaperSize::TnPassport, "tnPassport", (88.0, 125.0)),
+            (PaperSize::A5, "a5", (148.0, 210.0)),
+            (PaperSize::A6, "a6", (105.0, 148.0)),
+            (PaperSize::A6fc, "a6fc", (108.0, 171.0)),
+            (PaperSize::A6Personal, "a6Personal", (95.0, 171.0)),
+            (PaperSize::A6pw, "a6pw", (120.0, 170.0)),
+            (PaperSize::A6Slim, "a6Slim", (80.0, 171.0)),
+            (PaperSize::A7, "a7", (80.0, 120.0)),
+            (PaperSize::A7x127, "a7x127", (80.0, 127.0)),
+            (PaperSize::B5, "b5", (176.0, 250.0)),
+            (PaperSize::B6, "b6", (125.0, 176.0)),
+            (PaperSize::B6Slim, "b6Slim", (98.0, 176.0)),
+            (PaperSize::M5x74, "m5x74", (74.0, 105.0)),
+            (PaperSize::M5x67, "m5x67", (67.0, 105.0)),
+            (PaperSize::M5x62, "m5x62", (62.0, 105.0)),
+            (PaperSize::Letter, "letter", (215.9, 279.4)),
+        ];
+        for (paper, kind, dims) in cases {
+            let json = serde_json::to_value(&paper).expect("序列化预设纸张");
+            assert_eq!(json, serde_json::json!({ "kind": kind }));
+            let parsed: PaperSize = serde_json::from_value(json).expect("反序列化预设纸张");
+            assert_eq!(parsed, paper);
+            assert_eq!(paper.dims_mm(), dims);
         }
     }
 }

@@ -549,9 +549,9 @@
       "kind": "a5"
     },
     "margins": {
-      "headerMm": 16,
-      "footerMm": 16,
-      "innerMm": 18,
+      "headerMm": 15,
+      "footerMm": 19,
+      "innerMm": 13,
       "outerMm": 18
     }
   },

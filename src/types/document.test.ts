@@ -11,6 +11,7 @@ import {
   DEFAULT_OCTAN_WEEK,
   DEFAULT_PAGE,
   DEFAULT_TRACKER,
+  defaultMarginsForPaper,
   diffSectionDecorations,
   diffSectionMargins,
   hasSectionOverrides,
@@ -52,6 +53,39 @@ const draft = (overrides: Partial<SectionDraft> = {}): SectionDraft => ({
   margins: null,
   decorations: null,
   ...overrides,
+});
+
+describe("defaultMarginsForPaper", () => {
+  it("按 archive 的谐和边距规则推导 A5", () => {
+    expect(defaultMarginsForPaper({ kind: "a5" })).toEqual(
+      DEFAULT_PAGE.margins,
+    );
+    expect(DEFAULT_PAGE.margins).toEqual({
+      headerMm: 15,
+      footerMm: 19,
+      innerMm: 13,
+      outerMm: 18,
+    });
+  });
+
+  it("小尺寸纸张保留下限：装订≥8、外侧≥7、页头≥6、页脚≥8", () => {
+    expect(defaultMarginsForPaper({ kind: "m5x62" })).toEqual({
+      headerMm: 7,
+      footerMm: 9,
+      innerMm: 8,
+      outerMm: 7,
+    });
+  });
+
+  it("自定义尺寸先按 30–1000mm clamp 再推导", () => {
+    expect(
+      defaultMarginsForPaper({
+        kind: "custom",
+        widthMm: 1,
+        heightMm: 5000,
+      }),
+    ).toEqual({ headerMm: 70, footerMm: 90, innerMm: 8, outerMm: 7 });
+  });
 });
 
 describe("resolveSectionMargins", () => {

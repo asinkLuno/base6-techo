@@ -8,9 +8,11 @@ import {
   DEFAULT_LINEAR,
   DEFAULT_PAGE,
   type Decorations,
+  defaultMarginsForPaper,
   type Imposition,
   newDecorations,
   type PageSettings,
+  paperEquals,
   type SectionDraft,
 } from "../types/document";
 import {
@@ -97,9 +99,18 @@ export const useDocumentStore = create<DocumentState>()(
           ),
         })),
       updatePage: (patch) =>
-        set((state) => ({
-          page: clampPageSettings({ ...state.page, ...patch }),
-        })),
+        set((state) => {
+          const next = { ...state.page, ...patch };
+          // 换纸或改自定义尺寸时按 archive 规则重置边距；显式传入 margins 的编辑不受影响。
+          if (
+            patch.paper !== undefined &&
+            patch.margins === undefined &&
+            !paperEquals(patch.paper, state.page.paper)
+          ) {
+            next.margins = defaultMarginsForPaper(next.paper);
+          }
+          return { page: clampPageSettings(next) };
+        }),
       updateDecorations: (decorations) =>
         set(() => ({ decorations: clampDecorations(decorations) })),
       updateImposition: (imposition) =>

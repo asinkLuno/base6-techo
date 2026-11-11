@@ -4,6 +4,7 @@ use base6_techo_lib::templates::document::{Document, generate_document_latex, pl
 fn document(body: &str, pages: usize) -> Document {
     serde_json::from_str(&format!(
         r#"{{
+            "page": {{"margins": {{"headerMm": 16, "footerMm": 16, "innerMm": 18, "outerMm": 18}}}},
             "sections": [{{"pages": {pages}, "body": {body}}}]
         }}"#
     ))
