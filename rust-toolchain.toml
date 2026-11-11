@@ -1,0 +1,13 @@
+# 工具链唯一来源。放仓库根而非 src-tauri/：rustup 从当前目录向上查找，
+# 这样从仓库根（yarn 脚本）和 src-tauri/（tauri CLI、Android 脚本）发起都能命中。
+[toolchain]
+channel = "1.99.1"
+profile = "minimal"
+components = ["clippy", "rustfmt", "rust-src"]
+targets = [
+  "x86_64-unknown-linux-gnu",
+  "aarch64-linux-android",
+  "armv7-linux-androideabi",
+  "i686-linux-android",
+  "x86_64-linux-android",
+]
