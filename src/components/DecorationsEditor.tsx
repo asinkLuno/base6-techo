@@ -11,6 +11,7 @@ import {
   type Watermark,
 } from "../types/document";
 import { NumberField } from "./NumberField";
+import { ColorField, TextField } from "./PatternControls";
 
 const clampSizePt = (value: number) =>
   clampNumber(value, TEXT_SIZE_PT_MIN, TEXT_SIZE_PT_MAX, 10);
@@ -101,20 +102,15 @@ function BandFields({
         </fieldset>
 
         {band.content.kind === "text" && (
-          <fieldset className="fieldset sm:col-span-2">
-            <legend className="fieldset-legend">
-              {t("editor.decorations.text")}
-            </legend>
-            <input
-              type="text"
-              className="input w-full"
-              maxLength={TEXT_MAX}
+          <div className="sm:col-span-2">
+            <TextField
+              label={t("editor.decorations.text")}
               value={band.content.text}
-              onChange={(e) =>
-                set({ content: { kind: "text", text: e.target.value } })
-              }
+              maxLength={TEXT_MAX}
+              clamp={(text) => text.slice(0, TEXT_MAX)}
+              onCommit={(text) => set({ content: { kind: "text", text } })}
             />
-          </fieldset>
+          </div>
         )}
 
         <fieldset className="fieldset">
@@ -139,17 +135,11 @@ function BandFields({
           onCommit={(sizePt) => setStyle({ sizePt })}
         />
 
-        <fieldset className="fieldset">
-          <legend className="fieldset-legend">
-            {t("editor.decorations.textColor")}
-          </legend>
-          <input
-            type="color"
-            className="input h-10 w-full cursor-pointer p-1"
-            value={band.style.color}
-            onChange={(e) => setStyle({ color: e.target.value })}
-          />
-        </fieldset>
+        <ColorField
+          label={t("editor.decorations.textColor")}
+          value={band.style.color}
+          onChange={(color) => setStyle({ color })}
+        />
       </div>
     </fieldset>
   );
@@ -195,18 +185,15 @@ function WatermarkFields({
 
       {watermark && (
         <div className="grid gap-3 sm:grid-cols-2">
-          <fieldset className="fieldset sm:col-span-2">
-            <legend className="fieldset-legend">
-              {t("editor.decorations.watermarkText")}
-            </legend>
-            <input
-              type="text"
-              className="input w-full"
-              maxLength={TEXT_MAX}
+          <div className="sm:col-span-2">
+            <TextField
+              label={t("editor.decorations.watermarkText")}
               value={watermark.text}
-              onChange={(e) => onChange({ ...watermark, text: e.target.value })}
+              maxLength={TEXT_MAX}
+              clamp={(text) => text.slice(0, TEXT_MAX)}
+              onCommit={(text) => onChange({ ...watermark, text })}
             />
-          </fieldset>
+          </div>
 
           <NumberField
             label={t("editor.decorations.sizePt")}
@@ -218,17 +205,11 @@ function WatermarkFields({
             onCommit={(sizePt) => setStyle({ sizePt })}
           />
 
-          <fieldset className="fieldset">
-            <legend className="fieldset-legend">
-              {t("editor.decorations.textColor")}
-            </legend>
-            <input
-              type="color"
-              className="input h-10 w-full cursor-pointer p-1"
-              value={watermark.style.color}
-              onChange={(e) => setStyle({ color: e.target.value })}
-            />
-          </fieldset>
+          <ColorField
+            label={t("editor.decorations.textColor")}
+            value={watermark.style.color}
+            onChange={(color) => setStyle({ color })}
+          />
         </div>
       )}
     </fieldset>
