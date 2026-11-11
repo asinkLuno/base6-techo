@@ -114,10 +114,9 @@ pub fn plan_document(document: &Document) -> Result<PlannedDocument<'_>, String>
     let mut pages = Vec::with_capacity(total);
     let mut next_number = 1;
     for (section_index, section) in document.sections.iter().enumerate() {
-        // 纸张与装订方向全书共用，只有四周边距可按节覆盖。
+        // 纸张全书共用，只有四周边距可按节覆盖。
         let settings = PageSettings {
             paper: document.page.paper.clone(),
-            binding: document.page.binding,
             margins: section
                 .margins
                 .clone()

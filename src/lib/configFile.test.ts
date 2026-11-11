@@ -53,7 +53,6 @@ const snapshot = (): DocumentSnapshot => {
     ],
     page: {
       paper: { kind: "b6" },
-      binding: "right",
       margins: { headerMm: 12, footerMm: 14, innerMm: 16, outerMm: 18 },
     },
     decorations,
@@ -75,6 +74,8 @@ describe("serializeConfig", () => {
     expect(sections).toHaveLength(2);
     expect(sections[0]).not.toHaveProperty("id");
     expect(sections[0]).toMatchObject({ name: "第一章", pages: 2 });
+    // 装订只有左侧，不写进导出文件。
+    expect(file.page).not.toHaveProperty("binding");
   });
 });
 

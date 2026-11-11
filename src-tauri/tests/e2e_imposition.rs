@@ -1,10 +1,9 @@
-//! 骑马订、锁线分帖与右装订的真实 PDF，坐标检查见 scripts/check-imposition-samples.py。
+//! 骑马订与锁线分帖的真实 PDF，坐标检查见 scripts/check-imposition-samples.py。
 use base6_techo_lib::{
     compile,
     templates::{
         document::{Document, generate_document_latex},
         imposition::Imposition,
-        layout::Binding,
     },
 };
 use std::path::PathBuf;
@@ -32,20 +31,17 @@ fn imposed_documents_compile_to_real_pdf() {
     }"#,
     )
     .unwrap();
-    for (name, count, binding, imposition) in [
-        ("booklet", 5, Binding::Left, Imposition::Booklet {}),
+    for (name, count, imposition) in [
+        ("booklet", 5, Imposition::Booklet {}),
         (
             "thread",
             10,
-            Binding::Left,
             Imposition::Thread {
                 sheets_per_signature: 2,
             },
         ),
-        ("right-booklet", 8, Binding::Right, Imposition::Booklet {}),
     ] {
         doc.sections[0].pages = count;
-        doc.page.binding = binding;
         doc.imposition = imposition;
         let tex = generate_document_latex(&doc).unwrap();
         assert!(tex.contains("paperwidth=296mm,paperheight=210mm"));

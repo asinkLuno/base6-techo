@@ -1,6 +1,6 @@
 use base6_techo_lib::templates::{
     document::{Document, Section, generate_document_latex, plan_document},
-    layout::{Binding, Side},
+    layout::Side,
 };
 
 fn document() -> Document {
@@ -112,41 +112,6 @@ fn thread_binding_keeps_equal_size_signatures_across_sections() {
 }
 
 #[test]
-fn right_binding_swaps_both_front_and_back_halves() {
-    use base6_techo_lib::templates::imposition::{Imposition, plan_output};
-    let mut doc = document();
-    doc.sections = vec![Section {
-        pages: 8,
-        ..Default::default()
-    }];
-    doc.page.binding = Binding::Right;
-    doc.imposition = Imposition::Booklet {};
-    let book = plan_document(&doc).unwrap();
-    let output = plan_output(&book);
-    let pairs: Vec<_> = output
-        .pages()
-        .iter()
-        .map(|p| {
-            p.placements
-                .iter()
-                .map(|p| p.physical_page)
-                .collect::<Vec<_>>()
-        })
-        .collect();
-    assert_eq!(
-        pairs,
-        vec![
-            vec![Some(1), Some(8)],
-            vec![Some(7), Some(2)],
-            vec![Some(3), Some(6)],
-            vec![Some(5), Some(4)]
-        ]
-    );
-    assert_eq!(output.padded_blank_pages, 0);
-    assert_eq!(book.pages()[0].layout.binding_side, Side::Right);
-}
-
-#[test]
 fn reading_output_remains_single_pages_in_order() {
     use base6_techo_lib::templates::imposition::plan_output;
     let doc = document();
@@ -217,36 +182,30 @@ fn imposition_covers_every_reading_page_exactly_once_at_signature_boundaries() {
     use base6_techo_lib::templates::imposition::{Imposition, plan_output};
     for count in [1, 4, 5, 8, 10, 999] {
         for sheets in [1, 2, 4, 250] {
-            for binding in [Binding::Left, Binding::Right] {
-                let doc = Document {
-                    page: base6_techo_lib::templates::layout::PageSettings {
-                        binding,
-                        ..Default::default()
-                    },
-                    sections: vec![Section {
-                        pages: count,
-                        ..Default::default()
-                    }],
-                    imposition: Imposition::Thread {
-                        sheets_per_signature: sheets,
-                    },
+            let doc = Document {
+                sections: vec![Section {
+                    pages: count,
                     ..Default::default()
-                };
-                let book = plan_document(&doc).unwrap();
-                let output = plan_output(&book);
-                let mut visible: Vec<_> = output
-                    .pages()
-                    .iter()
-                    .flat_map(|page| page.placements.iter().filter_map(|p| p.physical_page))
-                    .collect();
-                visible.sort_unstable();
-                assert_eq!(visible, (1..=count).collect::<Vec<_>>());
-                let padded = count.div_ceil(sheets * 4) * sheets * 4;
-                assert_eq!(output.pages().len(), padded / 2);
-                assert_eq!(output.padded_blank_pages, padded - count);
-                assert_eq!(output.sheet_count, padded / 4);
-                assert_eq!(output.signature_count, padded / (sheets * 4));
-            }
+                }],
+                imposition: Imposition::Thread {
+                    sheets_per_signature: sheets,
+                },
+                ..Default::default()
+            };
+            let book = plan_document(&doc).unwrap();
+            let output = plan_output(&book);
+            let mut visible: Vec<_> = output
+                .pages()
+                .iter()
+                .flat_map(|page| page.placements.iter().filter_map(|p| p.physical_page))
+                .collect();
+            visible.sort_unstable();
+            assert_eq!(visible, (1..=count).collect::<Vec<_>>());
+            let padded = count.div_ceil(sheets * 4) * sheets * 4;
+            assert_eq!(output.pages().len(), padded / 2);
+            assert_eq!(output.padded_blank_pages, padded - count);
+            assert_eq!(output.sheet_count, padded / 4);
+            assert_eq!(output.signature_count, padded / (sheets * 4));
         }
     }
 }

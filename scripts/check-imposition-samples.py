@@ -9,7 +9,7 @@ ROOT = Path(__file__).resolve().parent.parent
 HALF_WIDTH_PT = 148 * 72 / 25.4
 
 
-def check_sample(name, expected, right_binding=False):
+def check_sample(name, expected):
     pdf = ROOT / f"build/{name}-sample.pdf"
     result = subprocess.run(
         ["gs", "-q", "-dBATCH", "-dNOPAUSE", "-sDEVICE=txtwrite", "-dTextFormat=0",
@@ -31,7 +31,7 @@ def check_sample(name, expected, right_binding=False):
             assert sum(text == "BOOK" for text, _ in visible) == 1
             inner = next(bounds for text, bounds in visible if text == "INNER")
             outer = next(bounds for text, bounds in visible if text == "OUTER")
-            binding_left = (physical_page % 2 == 1) != right_binding
+            binding_left = physical_page % 2 == 1
             assert (inner[0] < outer[0]) == binding_left, (name, physical_page, "watermarks reversed")
             footer_x = (footer[0][1][0] + footer[0][1][2]) / 2
             assert (footer_x > (half + 0.5) * HALF_WIDTH_PT) == binding_left
@@ -51,4 +51,3 @@ if __name__ == "__main__":
     check_sample("booklet", [(None, 1), (2, None), (None, 3), (4, 5)])
     check_sample("thread", [(8, 1), (2, 7), (6, 3), (4, 5),
                             (None, 9), (10, None), (None, None), (None, None)])
-    check_sample("right-booklet", [(1, 8), (7, 2), (3, 6), (5, 4)], right_binding=True)

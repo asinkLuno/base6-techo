@@ -1,7 +1,7 @@
 use base6_techo_lib::templates::{
     components::{Band, BandContent, Decorations, Watermark},
     document::{Document, Section, generate_document_latex, plan_document},
-    layout::{Binding, Side},
+    layout::Side,
     patterns::{BodyTemplate, DotsPattern, GridPattern, HogenPattern, LinearPattern},
 };
 
@@ -41,27 +41,6 @@ fn binding_follows_book_order_even_across_unnumbered_sections() {
     assert_eq!(page.context.display_number, Some(1));
     assert_eq!(plan.pages()[4].context.display_number, Some(2));
     assert_eq!(plan.pages()[0].context.display_number, None);
-}
-
-#[test]
-fn right_binding_mirrors_all_regions() {
-    let mut doc = document();
-    doc.page.binding = Binding::Right;
-    doc.page.margins.inner_mm = 20.0;
-    doc.page.margins.outer_mm = 8.0;
-    let plan = plan_document(&doc).unwrap();
-    let odd = &plan.pages()[0].layout;
-    let even = &plan.pages()[1].layout;
-    assert_eq!(odd.binding_side, Side::Right);
-    assert_eq!(odd.body.x, 8.0);
-    assert_eq!(even.body.x, 20.0);
-    assert_eq!(odd.body.width, 120.0);
-    assert_eq!(odd.inner.x, 128.0);
-    assert_eq!(odd.outer.x, 0.0);
-    assert_eq!(odd.header.x, odd.body.x);
-    assert_eq!(odd.footer.width, odd.body.width);
-    assert_eq!(odd.body.y, doc.page.margins.header_mm);
-    assert_eq!(odd.body.y + odd.body.height, odd.footer.y);
 }
 
 #[test]
@@ -165,32 +144,30 @@ fn all_regions_share_the_same_mirrored_body_and_centers() {
     let mut doc = document();
     doc.page.margins.inner_mm = 20.0;
     doc.page.margins.outer_mm = 8.0;
-    for binding in [Binding::Left, Binding::Right] {
-        doc.page.binding = binding;
-        let plan = plan_document(&doc).unwrap();
-        for page in plan.pages() {
-            let l = &page.layout;
-            assert_eq!(l.paper.center(), (74.0, 105.0));
-            assert_eq!(l.body.height, 178.0);
-            assert_eq!(l.header.height, 16.0);
-            assert_eq!(l.footer.y, 194.0);
-            assert_eq!(l.header.width, l.body.width);
-            assert_eq!(l.footer.x, l.body.x);
-            assert_eq!(l.inner.width, 20.0);
-            assert_eq!(l.outer.width, 8.0);
-            assert_eq!(l.inner.y, l.body.y);
-            assert_eq!(l.outer.height, l.body.height);
-            let (inner_x, _) = l.inner.center();
-            let (outer_x, _) = l.outer.center();
-            match l.binding_side {
-                Side::Left => {
-                    assert_eq!((inner_x, outer_x), (10.0, 144.0));
-                    assert_eq!(l.body.center(), (80.0, 105.0));
-                }
-                Side::Right => {
-                    assert_eq!((inner_x, outer_x), (138.0, 4.0));
-                    assert_eq!(l.body.center(), (68.0, 105.0));
-                }
+    let plan = plan_document(&doc).unwrap();
+    for page in plan.pages() {
+        let l = &page.layout;
+        assert_eq!(l.paper.center(), (74.0, 105.0));
+        assert_eq!(l.body.height, 178.0);
+        assert_eq!(l.header.height, 16.0);
+        assert_eq!(l.footer.y, 194.0);
+        assert_eq!(l.header.width, l.body.width);
+        assert_eq!(l.footer.x, l.body.x);
+        assert_eq!(l.inner.width, 20.0);
+        assert_eq!(l.outer.width, 8.0);
+        assert_eq!(l.inner.y, l.body.y);
+        assert_eq!(l.outer.height, l.body.height);
+        let (inner_x, _) = l.inner.center();
+        let (outer_x, _) = l.outer.center();
+        // 左装订：奇数页装订边在左，偶数页装订边在右。
+        match l.binding_side {
+            Side::Left => {
+                assert_eq!((inner_x, outer_x), (10.0, 144.0));
+                assert_eq!(l.body.center(), (80.0, 105.0));
+            }
+            Side::Right => {
+                assert_eq!((inner_x, outer_x), (138.0, 4.0));
+                assert_eq!(l.body.center(), (68.0, 105.0));
             }
         }
     }
@@ -573,7 +550,7 @@ fn invalid_section_decorations_are_rejected() {
 }
 
 /// 前端编辑器发出的确切负载形状（src/lib/generatePdf.ts 的 DocumentPayload）：
-/// page 带自定义纸张/右装订边/默认边距，imposition 为锁线 2 张一帖，
+/// page 带自定义纸张/默认边距，imposition 为锁线 2 张一帖，
 /// sections 为 camelCase linear 三字段齐全。
 #[test]
 fn frontend_section_payload_parses_and_generates() {
@@ -581,7 +558,6 @@ fn frontend_section_payload_parses_and_generates() {
         r##"{
         "page": {
             "paper": {"kind": "custom", "widthMm": 120, "heightMm": 200},
-            "binding": "right",
             "margins": {"headerMm": 16, "footerMm": 16, "innerMm": 18, "outerMm": 18}
         },
         "imposition": {"mode": "thread", "sheetsPerSignature": 2},

@@ -332,7 +332,8 @@ describe("migrateDocumentState", () => {
     });
 
     expect(snapshot.page.paper).toEqual(DEFAULT_PAGE.paper);
-    expect(snapshot.page.binding).toBe("left");
+    // 装订固定为左侧，旧数据里的 binding 字段在迁移时丢弃。
+    expect(snapshot.page).not.toHaveProperty("binding");
     expect(snapshot.page.margins).toEqual({
       ...DEFAULT_PAGE.margins,
       outerMm: 30,

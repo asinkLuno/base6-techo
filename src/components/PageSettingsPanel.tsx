@@ -44,7 +44,7 @@ const clampSheets = (value: number) =>
     DEFAULT_SHEETS_PER_SIGNATURE,
   );
 
-/** 右侧栏的页面设置区（无卡片外框）：纸张（含自定义宽高）、装订边、装订方式。
+/** 右侧栏的页面设置区（无卡片外框）：纸张（含自定义宽高）、装订方式。
  *  memo：无 props，编译日志每帧推流导致父组件重渲时跳过本面板；store 订阅仍照常触发自身更新。 */
 export const PageSettingsPanel = memo(function PageSettingsPanel() {
   const { t } = useTranslation();
@@ -121,22 +121,6 @@ export const PageSettingsPanel = memo(function PageSettingsPanel() {
           />
         </div>
       )}
-
-      <fieldset className="fieldset">
-        <legend className="fieldset-legend">{t("editor.page.binding")}</legend>
-        <select
-          className="select w-full"
-          value={page.binding}
-          onChange={(e) =>
-            updatePage({
-              binding: e.target.value === "right" ? "right" : "left",
-            })
-          }
-        >
-          <option value="left">{t("editor.page.bindingLeft")}</option>
-          <option value="right">{t("editor.page.bindingRight")}</option>
-        </select>
-      </fieldset>
 
       <fieldset className="fieldset">
         <legend className="fieldset-legend flex items-center gap-1">

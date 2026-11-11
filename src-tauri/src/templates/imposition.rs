@@ -1,5 +1,5 @@
 //! 阅读页 → 印刷纸张正反面。此层只重排、平移，不改变阅读页布局或编号。
-use super::{document::PlannedDocument, layout::Binding};
+use super::document::PlannedDocument;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -119,7 +119,6 @@ pub fn plan_output(book: &PlannedDocument<'_>) -> OutputPlan {
                     pair,
                     count,
                     width,
-                    book.document.page.binding,
                     SheetSide {
                         signature_index: start / stride,
                         sheet_index: sheet,
@@ -158,16 +157,7 @@ fn reading_output(count: usize, width: f64, height: f64) -> OutputPlan {
     }
 }
 
-fn imposed_page(
-    mut pair: [usize; 2],
-    count: usize,
-    width: f64,
-    binding: Binding,
-    sheet: SheetSide,
-) -> OutputPage {
-    if binding == Binding::Right {
-        pair.swap(0, 1);
-    }
+fn imposed_page(pair: [usize; 2], count: usize, width: f64, sheet: SheetSide) -> OutputPage {
     OutputPage {
         placements: pair
             .into_iter()

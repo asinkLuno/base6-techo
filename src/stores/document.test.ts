@@ -481,13 +481,14 @@ describe("page settings", () => {
     useDocumentStore.setState({ sections: [], page: DEFAULT_PAGE }),
   );
 
-  it("初始页面设置为 Rust 默认：A5、左装订、16/16/18/18", () => {
+  it("初始页面设置为 Rust 默认：A5、16/16/18/18", () => {
     expect(state().page).toEqual(DEFAULT_PAGE);
+    // 装订固定为左侧，状态里没有可选择的装订方向。
+    expect(state().page).not.toHaveProperty("binding");
   });
 
-  it("updatePage 可切换装订与预设纸张", () => {
-    state().updatePage({ binding: "right", paper: { kind: "b6" } });
-    expect(state().page.binding).toBe("right");
+  it("updatePage 可切换预设纸张", () => {
+    state().updatePage({ paper: { kind: "b6" } });
     expect(state().page.paper).toEqual({ kind: "b6" });
   });
 

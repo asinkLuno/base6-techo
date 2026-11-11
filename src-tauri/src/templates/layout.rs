@@ -35,14 +35,6 @@ impl PaperSize {
     }
 }
 
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "lowercase")]
-pub enum Binding {
-    #[default]
-    Left,
-    Right,
-}
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Side {
     Left,
@@ -89,7 +81,6 @@ impl Margins {
 #[serde(default, rename_all = "camelCase", deny_unknown_fields)]
 pub struct PageSettings {
     pub paper: PaperSize,
-    pub binding: Binding,
     pub margins: Margins,
 }
 
@@ -97,7 +88,6 @@ impl Default for PageSettings {
     fn default() -> Self {
         Self {
             paper: PaperSize::A5,
-            binding: Binding::Left,
             margins: Margins::default(),
         }
     }
@@ -150,7 +140,8 @@ impl PageLayout {
     pub(crate) fn resolve(settings: &PageSettings, physical_page: usize) -> Self {
         let (width, height) = settings.paper.dims_mm();
         let m = &settings.margins;
-        let binding_left = (physical_page % 2 == 1) == (settings.binding == Binding::Left);
+        // 装订固定在左侧：奇数页是右手页，装订边在左。
+        let binding_left = physical_page % 2 == 1;
         let (left, right) = if binding_left {
             (m.inner_mm, m.outer_mm)
         } else {

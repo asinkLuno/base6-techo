@@ -128,7 +128,6 @@ const toPageSettings = (value: unknown): PageSettings => {
   const data = isRecord(value) ? value : {};
   return clampPageSettings({
     paper: toPaper(data.paper),
-    binding: data.binding === "right" ? "right" : "left",
     margins: toMargins(data.margins),
   });
 };

@@ -954,8 +954,6 @@ export type PaperSize =
   | { kind: "letter" }
   | { kind: "custom"; widthMm: number; heightMm: number };
 
-export type Binding = "left" | "right";
-
 export interface Margins {
   headerMm: number;
   footerMm: number;
@@ -963,9 +961,9 @@ export interface Margins {
   outerMm: number;
 }
 
+/** 装订固定在左侧，因此页面设置里没有装订方向。 */
 export interface PageSettings {
   paper: PaperSize;
-  binding: Binding;
   margins: Margins;
 }
 
@@ -978,7 +976,6 @@ export const MARGIN_MM_MAX = 1000;
 /** 与 Rust PageSettings::default 一致。 */
 export const DEFAULT_PAGE: PageSettings = {
   paper: { kind: "a5" },
-  binding: "left",
   margins: { headerMm: 16, footerMm: 16, innerMm: 18, outerMm: 18 },
 };
 
@@ -1096,7 +1093,6 @@ export const clampPageSettings = (page: PageSettings): PageSettings => {
   const paper = clampPaperSize(page.paper);
   return {
     paper,
-    binding: page.binding === "right" ? "right" : "left",
     margins: clampMarginsForPaper(page.margins, paper),
   };
 };
