@@ -4,6 +4,7 @@ import {
   DEFAULT_LINEAR,
   DEFAULT_PAGE,
   newDecorations,
+  SECTION_NAME_MAX,
   type SectionDraft,
 } from "../types/document";
 import {
@@ -14,6 +15,7 @@ import {
 
 const section = (overrides: Partial<SectionDraft> = {}): SectionDraft => ({
   id: "s1",
+  name: "",
   pages: 1,
   numbered: true,
   body: { kind: "blank" },
@@ -41,6 +43,26 @@ describe("applySectionPatch", () => {
       newDecorations(),
     );
     expect(after).toEqual({ ...before, pages: 7 });
+  });
+
+  it("名称写入前去掉首尾空白，超长部分截断", () => {
+    const page = DEFAULT_PAGE;
+    expect(
+      applySectionPatch(
+        section(),
+        { name: "  第三章  " },
+        page,
+        newDecorations(),
+      ).name,
+    ).toBe("第三章");
+    expect(
+      applySectionPatch(
+        section(),
+        { name: "x".repeat(SECTION_NAME_MAX + 10) },
+        page,
+        newDecorations(),
+      ).name,
+    ).toHaveLength(SECTION_NAME_MAX);
   });
 
   it("页数与模板参数在写入前 clamp", () => {
@@ -225,6 +247,7 @@ describe("migrateDocumentState", () => {
     const snapshot = migrateDocumentState(persisted);
     expect(snapshot.sections[0]).toEqual({
       id: "a",
+      name: "",
       pages: 5,
       numbered: false,
       body: DEFAULT_LINEAR,
@@ -366,12 +389,30 @@ describe("migrateDocumentState", () => {
       sections: [{ id: "a" }],
     }).sections;
     expect(migrated).toMatchObject({
+      name: "",
       pages: 1,
       numbered: true,
       body: DEFAULT_LINEAR,
       margins: null,
       decorations: null,
     });
+  });
+
+  it("自定义名称随持久化保留并按边界清洗，非字符串回落未命名", () => {
+    const snapshot = migrateDocumentState({
+      sections: [
+        { id: "a", name: "  日记  " },
+        { id: "b", name: 42 },
+        { id: "c" },
+        { id: "d", name: "x".repeat(SECTION_NAME_MAX + 10) },
+      ],
+    });
+    expect(snapshot.sections.map((s) => s.name)).toEqual([
+      "日记",
+      "",
+      "",
+      "x".repeat(SECTION_NAME_MAX),
+    ]);
   });
 
   it("空覆盖 {} 哨兵在迁移后保留，未改动的旧整块才回到继承", () => {

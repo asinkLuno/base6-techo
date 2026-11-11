@@ -58,6 +58,7 @@ export const useDocumentStore = create<DocumentState>()(
             ...state.sections,
             {
               id: newId(),
+              name: "",
               pages: 1,
               numbered: true,
               body: { ...DEFAULT_LINEAR },

@@ -7,6 +7,7 @@ import {
   DEFAULT_LINEAR,
   DEFAULT_PAGE,
   newDecorations,
+  SECTION_NAME_MAX,
   toSectionSpecs,
 } from "../types/document";
 import { useDocumentStore } from "./document";
@@ -36,12 +37,24 @@ describe("document store", () => {
     expect(sections).toHaveLength(2);
     expect(new Set(sections.map((s) => s.id)).size).toBe(2);
     expect(sections[0]).toMatchObject({
+      name: "",
       pages: 1,
       numbered: true,
       body: DEFAULT_LINEAR,
       margins: null,
       decorations: null,
     });
+  });
+
+  it("updateSection 可重命名 section：去首尾空白、超长截断，空名回到未命名", () => {
+    state().addSection();
+    const id = state().sections[0].id;
+    state().updateSection(id, { name: "  第一章  " });
+    expect(state().sections[0].name).toBe("第一章");
+    state().updateSection(id, { name: "长".repeat(100) });
+    expect(state().sections[0].name).toHaveLength(SECTION_NAME_MAX);
+    state().updateSection(id, { name: "   " });
+    expect(state().sections[0].name).toBe("");
   });
 
   it("removeSection 只删指定 id", () => {
@@ -387,6 +400,7 @@ describe("toSectionSpecs", () => {
     const drafts = [
       {
         id: "x",
+        name: "第一章",
         pages: 2,
         numbered: true,
         body: DEFAULT_LINEAR,
@@ -395,6 +409,7 @@ describe("toSectionSpecs", () => {
       },
       {
         id: "y",
+        name: "",
         pages: 1,
         numbered: false,
         body: { kind: "blank" as const },
@@ -430,6 +445,7 @@ describe("toSectionSpecs", () => {
     const drafts = [
       {
         id: "x",
+        name: "",
         pages: 1,
         numbered: true,
         body: { kind: "blank" as const },

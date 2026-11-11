@@ -16,6 +16,7 @@ import {
   clampPageSettings,
   clampPages,
   clampPaperSize,
+  clampSectionName,
   clampTextStyle,
   DEFAULT_IMPOSITION,
   DEFAULT_LINEAR,
@@ -238,6 +239,7 @@ export function applySectionPatch(
 ): SectionDraft {
   return {
     ...section,
+    ...(patch.name !== undefined && { name: clampSectionName(patch.name) }),
     ...(patch.pages !== undefined && { pages: clampPages(patch.pages) }),
     ...(patch.numbered !== undefined && { numbered: patch.numbered }),
     ...(patch.body !== undefined && { body: clampBody(patch.body) }),
@@ -277,6 +279,7 @@ const migrateSection = (
 ): SectionDraft => {
   return {
     id,
+    name: typeof raw.name === "string" ? clampSectionName(raw.name) : "",
     pages: clampPages(finiteOr(raw.pages, 1)),
     numbered: typeof raw.numbered === "boolean" ? raw.numbered : true,
     body: isRecord(raw.body)

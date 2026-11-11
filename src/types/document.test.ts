@@ -23,6 +23,7 @@ const band = (overrides: Partial<Band> = {}): Band => ({
 
 const draft = (overrides: Partial<SectionDraft> = {}): SectionDraft => ({
   id: "s1",
+  name: "",
   pages: 1,
   numbered: true,
   body: { kind: "blank" },

@@ -140,6 +140,8 @@ export interface SectionSpec {
 export interface SectionDraft {
   /** 前端专用稳定 id（列表 key 与拖拽用），序列化前剥离。 */
   id: string;
+  /** 用户自定义名称；空串 = 未命名，列表显示默认的「Section N」。不发送给 Rust。 */
+  name: string;
   pages: number;
   numbered: boolean;
   body: BodyTemplate;
@@ -149,6 +151,7 @@ export interface SectionDraft {
 
 export const PAGES_MIN = 1;
 export const PAGES_MAX = 999;
+export const SECTION_NAME_MAX = 40;
 export const SPACING_MM_MIN = 0.1;
 export const SPACING_MM_MAX = 1000;
 export const LINE_WIDTH_PT_MIN = 0.01;
@@ -229,6 +232,10 @@ export function clampNumber(
 
 export const clampPages = (value: number): number =>
   Math.round(clampNumber(value, PAGES_MIN, PAGES_MAX, PAGES_MIN));
+
+/** 名称是纯展示文本：去首尾空白、截断到上限；空串表示回到默认标签。 */
+export const clampSectionName = (value: string): string =>
+  value.trim().slice(0, SECTION_NAME_MAX);
 
 /** 同一范围 + 回落值的数字 clamp；各模板参数只声明一次范围。 */
 const clampRange =
@@ -378,7 +385,13 @@ export const toSectionSpecs = (
   decorations: Decorations,
 ): SectionSpec[] =>
   sections.map(
-    ({ id: _id, margins, decorations: decorationOverride, ...spec }) => ({
+    ({
+      id: _id,
+      name: _name,
+      margins,
+      decorations: decorationOverride,
+      ...spec
+    }) => ({
       ...spec,
       margins: hasSectionOverrides(margins)
         ? clampMarginsForPaper(
