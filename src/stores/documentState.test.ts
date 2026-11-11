@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   DEFAULT_DOTS,
   DEFAULT_LINEAR,
+  DEFAULT_OCTAN_WEEK,
   DEFAULT_PAGE,
   newDecorations,
   SECTION_NAME_MAX,
@@ -484,5 +485,48 @@ describe("mergeDocumentState", () => {
     );
     expect(merged.sections[0].pages).toBe(1);
     expect(merged.addSection).toBe(current.addSection);
+  });
+});
+
+describe("octan week migration", () => {
+  it("导入时按整周修正日期，并按周数重算页数", () => {
+    const snapshot = migrateDocumentState({
+      sections: [
+        {
+          pages: 1,
+          body: {
+            kind: "octanWeek",
+            startDate: "2026-08-06",
+            endDate: "2026-08-16",
+            dateFormat: "%Q",
+            lineWidthPt: 0,
+          },
+        },
+      ],
+    });
+    const body = snapshot.sections[0].body;
+    expect(body.kind).toBe("octanWeek");
+    if (body.kind !== "octanWeek") return;
+    expect(body.startDate).toBe("2026-08-03");
+    expect(body.endDate).toBe("2026-08-16");
+    expect(body.dateFormat).toBe(DEFAULT_OCTAN_WEEK.dateFormat);
+    expect(body.lineWidthPt).toBe(0.01);
+    expect(snapshot.sections[0].pages).toBe(4);
+  });
+
+  it("日期非法时回落到默认整周", () => {
+    const snapshot = migrateDocumentState({
+      sections: [
+        {
+          pages: 2,
+          body: { kind: "octanWeek", startDate: "nope", endDate: "" },
+        },
+      ],
+    });
+    const body = snapshot.sections[0].body;
+    if (body.kind !== "octanWeek") throw new Error("expected octanWeek");
+    expect(body.startDate).toBe(DEFAULT_OCTAN_WEEK.startDate);
+    expect(body.endDate).toBe(DEFAULT_OCTAN_WEEK.endDate);
+    expect(snapshot.sections[0].pages).toBe(2);
   });
 });

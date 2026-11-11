@@ -30,6 +30,7 @@ import {
   isPaperPresetKind,
   type Margins,
   newDecorations,
+  octanWeekPages,
   type PageSettings,
   type PaperSize,
   resolveSectionDecorations,
@@ -237,12 +238,20 @@ export function applySectionPatch(
   page: PageSettings,
   globalDecorations: Decorations,
 ): SectionDraft {
+  const body = patch.body !== undefined ? clampBody(patch.body) : section.body;
+  // 八分周视图的页数由日期范围推导，手工页数（包括同一补丁里的）一律忽略。
+  const pages =
+    body.kind === "octanWeek"
+      ? octanWeekPages(body)
+      : patch.pages !== undefined
+        ? clampPages(patch.pages)
+        : section.pages;
   return {
     ...section,
     ...(patch.name !== undefined && { name: clampSectionName(patch.name) }),
-    ...(patch.pages !== undefined && { pages: clampPages(patch.pages) }),
+    pages,
     ...(patch.numbered !== undefined && { numbered: patch.numbered }),
-    ...(patch.body !== undefined && { body: clampBody(patch.body) }),
+    body,
     ...(patch.margins !== undefined && {
       margins: patchMargins(patch.margins, page),
     }),
@@ -277,14 +286,19 @@ const migrateSection = (
   page: PageSettings,
   decorations: Decorations,
 ): SectionDraft => {
+  const body = isRecord(raw.body)
+    ? clampBody(raw.body as unknown as SectionDraft["body"])
+    : { ...DEFAULT_LINEAR };
   return {
     id,
     name: typeof raw.name === "string" ? clampSectionName(raw.name) : "",
-    pages: clampPages(finiteOr(raw.pages, 1)),
+    // 八分周视图的页数以日期范围为准，旧文件里的页数只是历史值。
+    pages:
+      body.kind === "octanWeek"
+        ? octanWeekPages(body)
+        : clampPages(finiteOr(raw.pages, 1)),
     numbered: typeof raw.numbered === "boolean" ? raw.numbered : true,
-    body: isRecord(raw.body)
-      ? clampBody(raw.body as unknown as SectionDraft["body"])
-      : { ...DEFAULT_LINEAR },
+    body,
     margins: migrateMargins(raw.margins, page),
     decorations: migrateDecorations(raw.decorations, decorations),
   };

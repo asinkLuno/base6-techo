@@ -1,16 +1,24 @@
 import { describe, expect, it } from "vitest";
 import {
+  addDays,
   type Band,
   clampBand,
+  clampOctanWeek,
+  DEFAULT_OCTAN_WEEK,
   DEFAULT_PAGE,
   diffSectionDecorations,
   diffSectionMargins,
   hasSectionOverrides,
+  isIsoDate,
+  mondayOf,
   newDecorations,
+  octanWeekPages,
   resolveSectionDecorations,
   resolveSectionMargins,
   type SectionDraft,
+  sundayOf,
   toSectionSpecs,
+  weeksBetween,
 } from "./document";
 
 const band = (overrides: Partial<Band> = {}): Band => ({
@@ -341,5 +349,68 @@ describe("toSectionSpecs", () => {
     );
     expect(spec.margins).toBeNull();
     expect(spec.decorations).toBeNull();
+  });
+});
+
+describe("octan week", () => {
+  it("按周一/周日吸附并计算整周数", () => {
+    expect(isIsoDate("2026-08-03")).toBe(true);
+    expect(isIsoDate("2026-02-30")).toBe(false);
+    expect(isIsoDate("2026-8-3")).toBe(false);
+    expect(mondayOf("2026-08-06")).toBe("2026-08-03");
+    expect(sundayOf("2026-08-06")).toBe("2026-08-09");
+    expect(addDays("2026-08-31", 6)).toBe("2026-09-06");
+    expect(weeksBetween("2026-08-03", "2026-08-09")).toBe(1);
+    expect(weeksBetween("2026-08-03", "2026-08-16")).toBe(2);
+    expect(weeksBetween("2026-08-09", "2026-08-03")).toBe(0);
+  });
+
+  it("每周固定两页", () => {
+    expect(
+      octanWeekPages({ ...DEFAULT_OCTAN_WEEK, endDate: "2026-08-16" }),
+    ).toBe(4);
+    expect(octanWeekPages(DEFAULT_OCTAN_WEEK)).toBe(2);
+  });
+
+  it("clamp 修复非整周日期、非法格式与越界数值", () => {
+    const body = clampOctanWeek({
+      kind: "octanWeek",
+      startDate: "2026-08-06",
+      endDate: "2026-08-06",
+      dateFormat: "%Q",
+      weekdayLang: "xx" as never,
+      titleFormat: "",
+      weekdayHeaders: "一,二",
+      lineColor: "red",
+      textColor: "#xyz",
+      highlightColor: "blue",
+      phaseColor: "",
+      lineWidthPt: 0,
+      lineStyle: "wavy" as never,
+      centerGapMm: -1,
+      dateSizePt: 100,
+    });
+    expect(body.startDate).toBe("2026-08-03");
+    expect(body.endDate).toBe("2026-08-09");
+    expect(body.dateFormat).toBe(DEFAULT_OCTAN_WEEK.dateFormat);
+    expect(body.titleFormat).toBe(DEFAULT_OCTAN_WEEK.titleFormat);
+    expect(body.weekdayLang).toBe("zh");
+    expect(body.weekdayHeaders).toBe(DEFAULT_OCTAN_WEEK.weekdayHeaders);
+    expect(body.lineColor).toBe(DEFAULT_OCTAN_WEEK.lineColor);
+    expect(body.textColor).toBe(DEFAULT_OCTAN_WEEK.textColor);
+    expect(body.highlightColor).toBe(DEFAULT_OCTAN_WEEK.highlightColor);
+    expect(body.phaseColor).toBe(DEFAULT_OCTAN_WEEK.phaseColor);
+    expect(body.lineWidthPt).toBe(0.01);
+    expect(body.lineStyle).toBe("solid");
+    expect(body.centerGapMm).toBe(0);
+    expect(body.dateSizePt).toBe(72);
+  });
+
+  it("周数上限为 499（998 页）", () => {
+    const body = clampOctanWeek({
+      ...DEFAULT_OCTAN_WEEK,
+      endDate: addDays(DEFAULT_OCTAN_WEEK.startDate, 700 * 7 - 1),
+    });
+    expect(octanWeekPages(body)).toBe(998);
   });
 });

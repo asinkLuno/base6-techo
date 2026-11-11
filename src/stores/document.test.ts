@@ -5,6 +5,7 @@ import {
   DEFAULT_HOGEN,
   DEFAULT_IMPOSITION,
   DEFAULT_LINEAR,
+  DEFAULT_OCTAN_WEEK,
   DEFAULT_PAGE,
   newDecorations,
   SECTION_NAME_MAX,
@@ -617,5 +618,46 @@ describe("replaceDocument", () => {
     expect(state().page).toEqual(snapshot.page);
     expect(state().decorations).toEqual(snapshot.decorations);
     expect(state().imposition).toEqual(snapshot.imposition);
+  });
+});
+
+describe("octan week pages", () => {
+  const octanBody = (startDate: string, endDate: string) => ({
+    ...DEFAULT_OCTAN_WEEK,
+    startDate,
+    endDate,
+  });
+
+  it("切换模板或改日期时页数自动跟随周数", () => {
+    state().addSection();
+    const id = state().sections[0].id;
+    state().updateSection(id, {
+      body: octanBody("2026-08-03", "2026-08-09"),
+    });
+    expect(state().sections[0].pages).toBe(2);
+    state().updateSection(id, {
+      body: octanBody("2026-08-03", "2026-08-16"),
+    });
+    expect(state().sections[0].pages).toBe(4);
+  });
+
+  it("八分周视图的页数不能被手工改走", () => {
+    state().addSection();
+    const id = state().sections[0].id;
+    state().updateSection(id, {
+      body: octanBody("2026-08-03", "2026-08-09"),
+    });
+    state().updateSection(id, { pages: 99 });
+    expect(state().sections[0].pages).toBe(2);
+  });
+
+  it("切回其他模板后保留当前页数", () => {
+    state().addSection();
+    const id = state().sections[0].id;
+    state().updateSection(id, {
+      body: octanBody("2026-08-03", "2026-08-16"),
+    });
+    state().updateSection(id, { body: { ...DEFAULT_LINEAR } });
+    expect(state().sections[0].pages).toBe(4);
   });
 });

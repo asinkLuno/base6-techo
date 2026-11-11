@@ -61,12 +61,54 @@ export interface HogenPattern {
   color: string;
 }
 
+/** 星期短名语言，与 Rust WeekdayLang 一致。 */
+export type WeekdayLang = "zh" | "en" | "ja";
+
+/** 中心十字线的线型，与 Rust LineStyle 一致。 */
+export type LineStyle = "solid" | "dashed" | "dotted" | "dashDot";
+
+/**
+ * 八分周视图：每页四格，每周两页；空白格放当月与次月迷你月历。
+ * 日期范围必须是完整的周一到周日，页数由周数推导（每周 2 页）。
+ */
+export interface OctanWeekPattern {
+  kind: "octanWeek";
+  /** 整周起点，必须落在周一；Rust 侧拒绝非整周范围 */
+  startDate: string;
+  /** 整周终点，必须落在周日 */
+  endDate: string;
+  /** 格子日期格式，支持 %Y/%m/%-m/%d/%-d/%a/%% */
+  dateFormat: string;
+  /** %a 使用的星期短名语言 */
+  weekdayLang: WeekdayLang;
+  /** 迷你月历月份标题格式，指令同 dateFormat */
+  titleFormat: string;
+  /** 迷你月历星期表头，英文逗号分隔 7 项 */
+  weekdayHeaders: string;
+  /** 分隔线颜色 */
+  lineColor: string;
+  /** 迷你月历普通文字颜色 */
+  textColor: string;
+  /** 迷你月历里当周日期的高亮颜色 */
+  highlightColor: string;
+  /** 月相颜色 */
+  phaseColor: string;
+  /** 线宽，Rust 校验 0.01–10pt */
+  lineWidthPt: number;
+  lineStyle: LineStyle;
+  /** 中心十字线留出的空隙，Rust 校验 0–1000mm */
+  centerGapMm: number;
+  /** 日期字号，Rust 校验 1–72pt */
+  dateSizePt: number;
+}
+
 export type BodyTemplate =
   | BlankPattern
   | LinearPattern
   | DotsPattern
   | GridPattern
-  | HogenPattern;
+  | HogenPattern
+  | OctanWeekPattern;
 
 /** 页头/页脚内容，与 Rust BandContent（tag = "kind"）一致。 */
 export type BandContent =
@@ -201,6 +243,241 @@ export const DEFAULT_GRID: GridPattern = {
 export const DEFAULT_HOGEN: HogenPattern = {
   kind: "hogen",
   color: "#A9D1AE",
+};
+
+/** 八分周视图的周数上限：每周 2 页，全书页数上限 999。 */
+export const OCTAN_WEEKS_MAX = 499;
+export const OCTAN_DATE_SIZE_PT_MIN = 1;
+export const OCTAN_DATE_SIZE_PT_MAX = 72;
+export const OCTAN_CENTER_GAP_MM_MIN = 0;
+export const OCTAN_CENTER_GAP_MM_MAX = 1000;
+
+/** 与 Rust OctanWeekPattern::default 一致。 */
+export const DEFAULT_OCTAN_WEEK: OctanWeekPattern = {
+  kind: "octanWeek",
+  startDate: "2026-08-03",
+  endDate: "2026-08-09",
+  dateFormat: "%-d",
+  weekdayLang: "zh",
+  titleFormat: "%Y年%-m月",
+  weekdayHeaders: "一,二,三,四,五,六,日",
+  lineColor: "#7A7A7A",
+  textColor: "#000000",
+  highlightColor: "#8B0000",
+  phaseColor: "#E5B93F",
+  lineWidthPt: 0.4,
+  lineStyle: "solid",
+  centerGapMm: 2,
+  dateSizePt: 10,
+};
+
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+
+const isLeapYear = (year: number): boolean =>
+  (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0;
+
+const daysInCivilMonth = (year: number, month: number): number =>
+  month === 2 && isLeapYear(year)
+    ? 29
+    : [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][month - 1];
+
+/** Howard Hinnant 的 days_from_civil：1970-01-01 为第 0 天。 */
+const daysFromCivil = (year: number, month: number, day: number): number => {
+  const adjusted = year - (month <= 2 ? 1 : 0);
+  const era = Math.floor(adjusted / 400);
+  const yoe = adjusted - era * 400;
+  const doy =
+    Math.floor((153 * (month > 2 ? month - 3 : month + 9) + 2) / 5) + day - 1;
+  return (
+    era * 146097 +
+    yoe * 365 +
+    Math.floor(yoe / 4) -
+    Math.floor(yoe / 100) +
+    doy -
+    719468
+  );
+};
+
+const civilFromDays = (days: number): [number, number, number] => {
+  const shifted = days + 719468;
+  const era = Math.floor(shifted / 146097);
+  const doe = shifted - era * 146097;
+  const yoe = Math.floor(
+    (doe -
+      Math.floor(doe / 1460) +
+      Math.floor(doe / 36524) -
+      Math.floor(doe / 146096)) /
+      365,
+  );
+  const doy = doe - (365 * yoe + Math.floor(yoe / 4) - Math.floor(yoe / 100));
+  const mp = Math.floor((5 * doy + 2) / 153);
+  const day = doy - Math.floor((153 * mp + 2) / 5) + 1;
+  const month = mp < 10 ? mp + 3 : mp - 9;
+  return [yoe + era * 400 + (month <= 2 ? 1 : 0), month, day];
+};
+
+/** 把 YYYY-MM-DD 解析成序号；非法日期返回 null。 */
+const parseIsoOrdinal = (text: string): number | null => {
+  if (!ISO_DATE.test(text)) return null;
+  const year = Number(text.slice(0, 4));
+  const month = Number(text.slice(5, 7));
+  const day = Number(text.slice(8, 10));
+  if (year < 1 || year > 9999 || month < 1 || month > 12) return null;
+  if (day < 1 || day > daysInCivilMonth(year, month)) return null;
+  return daysFromCivil(year, month, day);
+};
+
+const isoFromOrdinal = (ordinal: number): string => {
+  const [year, month, day] = civilFromDays(ordinal);
+  const pad = (value: number, width: number) =>
+    String(value).padStart(width, "0");
+  return `${pad(year, 4)}-${pad(month, 2)}-${pad(day, 2)}`;
+};
+
+/** 周一为 0，周日为 6。 */
+const weekdayOf = (ordinal: number): number => (((ordinal + 3) % 7) + 7) % 7;
+
+export const isIsoDate = (text: string): boolean =>
+  parseIsoOrdinal(text) !== null;
+
+/** 吸附到所在周的周一；非法输入原样返回。 */
+export const mondayOf = (date: string): string => {
+  const ordinal = parseIsoOrdinal(date);
+  return ordinal === null ? date : isoFromOrdinal(ordinal - weekdayOf(ordinal));
+};
+
+/** 吸附到所在周的周日；非法输入原样返回。 */
+export const sundayOf = (date: string): string => {
+  const ordinal = parseIsoOrdinal(date);
+  return ordinal === null
+    ? date
+    : isoFromOrdinal(ordinal + 6 - weekdayOf(ordinal));
+};
+
+/** 按天偏移；非法输入原样返回。 */
+export const addDays = (date: string, days: number): string => {
+  const ordinal = parseIsoOrdinal(date);
+  return ordinal === null ? date : isoFromOrdinal(ordinal + Math.trunc(days));
+};
+
+/** 两个日期之间的完整周数；非法、倒置或不足一周返回 0。 */
+export const weeksBetween = (start: string, end: string): number => {
+  const from = parseIsoOrdinal(start);
+  const to = parseIsoOrdinal(end);
+  if (from === null || to === null || to < from) return 0;
+  const days = to - from + 1;
+  return days % 7 === 0 ? days / 7 : 0;
+};
+
+/** 八分周视图页数：每周固定两页。 */
+export const octanWeekPages = (body: OctanWeekPattern): number =>
+  weeksBetween(body.startDate, body.endDate) * 2;
+
+/** 支持的 strftime 子集，与 Rust validate_format 一致。 */
+export const isValidDateFormat = (format: string): boolean => {
+  if (typeof format !== "string" || format === "") return false;
+  const chars = Array.from(format);
+  for (let i = 0; i < chars.length; i++) {
+    if (chars[i] !== "%") continue;
+    i += 1;
+    const directive = chars[i];
+    if (
+      directive === "%" ||
+      directive === "Y" ||
+      directive === "m" ||
+      directive === "d" ||
+      directive === "a"
+    ) {
+      continue;
+    }
+    if (directive === "-" && (chars[i + 1] === "m" || chars[i + 1] === "d")) {
+      i += 1;
+      continue;
+    }
+    return false;
+  }
+  return true;
+};
+
+export const isValidWeekdayHeaders = (headers: string): boolean => {
+  if (typeof headers !== "string") return false;
+  const items = headers.split(",").map((item) => item.trim());
+  return items.length === 7 && items.every((item) => item !== "");
+};
+
+/** 9999-12-26 是 4 位年份可取到的最后一个周日；再往后 Rust 的日期解析会拒绝。 */
+const LAST_SUNDAY_ORDINAL = daysFromCivil(9999, 12, 26);
+
+export const clampOctanWeek = (body: OctanWeekPattern): OctanWeekPattern => {
+  const defaultMonday = parseIsoOrdinal(DEFAULT_OCTAN_WEEK.startDate) as number;
+  const startOrdinal = parseIsoOrdinal(body.startDate);
+  let monday =
+    startOrdinal === null
+      ? defaultMonday
+      : startOrdinal - weekdayOf(startOrdinal);
+  if (monday > LAST_SUNDAY_ORDINAL) monday = defaultMonday;
+
+  const endOrdinal = parseIsoOrdinal(body.endDate);
+  const sunday =
+    endOrdinal === null ? monday + 6 : endOrdinal + 6 - weekdayOf(endOrdinal);
+  // 先按输入得到整周数，再压到「499 周」与「不越过 9999 年」两个上限。
+  const desiredWeeks = Math.max(
+    1,
+    Math.min(OCTAN_WEEKS_MAX, Math.floor((sunday - monday + 1) / 7)),
+  );
+  const weeksAtYearEnd = Math.floor((LAST_SUNDAY_ORDINAL - monday) / 7) + 1;
+  const weeks = Math.min(desiredWeeks, weeksAtYearEnd);
+  const lastSunday = monday + weeks * 7 - 1;
+
+  return {
+    kind: "octanWeek",
+    startDate: isoFromOrdinal(monday),
+    endDate: isoFromOrdinal(lastSunday),
+    dateFormat:
+      typeof body.dateFormat === "string" && isValidDateFormat(body.dateFormat)
+        ? body.dateFormat
+        : DEFAULT_OCTAN_WEEK.dateFormat,
+    weekdayLang:
+      body.weekdayLang === "en" || body.weekdayLang === "ja"
+        ? body.weekdayLang
+        : "zh",
+    titleFormat:
+      typeof body.titleFormat === "string" &&
+      isValidDateFormat(body.titleFormat)
+        ? body.titleFormat
+        : DEFAULT_OCTAN_WEEK.titleFormat,
+    weekdayHeaders:
+      typeof body.weekdayHeaders === "string" &&
+      isValidWeekdayHeaders(body.weekdayHeaders)
+        ? body.weekdayHeaders
+        : DEFAULT_OCTAN_WEEK.weekdayHeaders,
+    lineColor: clampColor(body.lineColor, DEFAULT_OCTAN_WEEK.lineColor),
+    textColor: clampColor(body.textColor, DEFAULT_OCTAN_WEEK.textColor),
+    highlightColor: clampColor(
+      body.highlightColor,
+      DEFAULT_OCTAN_WEEK.highlightColor,
+    ),
+    phaseColor: clampColor(body.phaseColor, DEFAULT_OCTAN_WEEK.phaseColor),
+    lineWidthPt: clampLineWidthPt(body.lineWidthPt),
+    lineStyle:
+      body.lineStyle === "dashed" ||
+      body.lineStyle === "dotted" ||
+      body.lineStyle === "dashDot"
+        ? body.lineStyle
+        : "solid",
+    centerGapMm: clampNumber(
+      body.centerGapMm,
+      OCTAN_CENTER_GAP_MM_MIN,
+      OCTAN_CENTER_GAP_MM_MAX,
+      DEFAULT_OCTAN_WEEK.centerGapMm,
+    ),
+    dateSizePt: clampNumber(
+      body.dateSizePt,
+      OCTAN_DATE_SIZE_PT_MIN,
+      OCTAN_DATE_SIZE_PT_MAX,
+      DEFAULT_OCTAN_WEEK.dateSizePt,
+    ),
+  };
 };
 
 /** 与 Rust Band::default / TextStyle::default 一致的空页头。 */
@@ -373,6 +650,8 @@ export const clampBody = (body: BodyTemplate): BodyTemplate => {
         kind: "hogen",
         color: clampColor(body.color, DEFAULT_HOGEN.color),
       };
+    case "octanWeek":
+      return clampOctanWeek(body);
     default:
       return { kind: "blank" };
   }

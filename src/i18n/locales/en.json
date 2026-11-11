@@ -25,7 +25,8 @@
       "linear": "Lined page",
       "dots": "Dot grid",
       "grid": "Grid page",
-      "hogen": "Hōgan grid (Midori)"
+      "hogen": "Hōgan grid (Midori)",
+      "octanWeek": "Eight-part week"
     },
     "config": {
       "spacingMm": "Line spacing (mm)",
@@ -40,7 +41,30 @@
       "marginLineHint": "Runs the full page height, ignoring header and footer bands",
       "marginLineX": "From left edge (mm)",
       "marginLineColor": "Margin line color",
-      "marginLineWidth": "Margin line width (pt)"
+      "marginLineWidth": "Margin line width (pt)",
+      "octanStartDate": "Start date (Monday)",
+      "octanWeeks": "Weeks",
+      "octanDateFormat": "Date format",
+      "octanTitleFormat": "Month title format",
+      "octanFormatHint": "Supports %Y %m %-m %d %-d %a %%",
+      "octanWeekdayLang": "Weekday language",
+      "octanLangZh": "中文",
+      "octanLangEn": "English",
+      "octanLangJa": "日本語",
+      "octanWeekdayHeaders": "Weekday headers",
+      "octanWeekdayHeadersHint": "7 items, comma-separated",
+      "octanLineStyle": "Line style",
+      "octanStyleSolid": "Solid",
+      "octanStyleDashed": "Dashed",
+      "octanStyleDotted": "Dotted",
+      "octanStyleDashDot": "Dash-dot",
+      "octanCenterGap": "Center gap (mm)",
+      "octanDateSize": "Date size (pt)",
+      "octanLineColor": "Divider color",
+      "octanTextColor": "Calendar text color",
+      "octanHighlightColor": "Current week color",
+      "octanPhaseColor": "Moon color",
+      "octanPagesAuto": "Pages follow the week count: 2 per week"
     },
     "decorations": {
       "title": "Header, footer & watermarks",

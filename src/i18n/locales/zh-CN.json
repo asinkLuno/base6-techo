@@ -25,7 +25,8 @@
       "linear": "横线页",
       "dots": "点阵页",
       "grid": "网格页",
-      "hogen": "方眼罫（Midori）"
+      "hogen": "方眼罫（Midori）",
+      "octanWeek": "八分周视图"
     },
     "config": {
       "spacingMm": "行距（mm）",
@@ -40,7 +41,30 @@
       "marginLineHint": "贯穿整页高度，不受页头页脚限制",
       "marginLineX": "距左边缘（mm）",
       "marginLineColor": "竖线颜色",
-      "marginLineWidth": "竖线宽度（pt）"
+      "marginLineWidth": "竖线宽度（pt）",
+      "octanStartDate": "起始日期（周一）",
+      "octanWeeks": "周数",
+      "octanDateFormat": "日期格式",
+      "octanTitleFormat": "月历标题格式",
+      "octanFormatHint": "支持 %Y %m %-m %d %-d %a %%",
+      "octanWeekdayLang": "星期语言",
+      "octanLangZh": "中文",
+      "octanLangEn": "English",
+      "octanLangJa": "日本語",
+      "octanWeekdayHeaders": "星期表头",
+      "octanWeekdayHeadersHint": "7 项，英文逗号分隔",
+      "octanLineStyle": "线型",
+      "octanStyleSolid": "实线",
+      "octanStyleDashed": "虚线",
+      "octanStyleDotted": "点线",
+      "octanStyleDashDot": "点划线",
+      "octanCenterGap": "中心留白（mm）",
+      "octanDateSize": "日期字号（pt）",
+      "octanLineColor": "分隔线颜色",
+      "octanTextColor": "月历文字色",
+      "octanHighlightColor": "本周高亮色",
+      "octanPhaseColor": "月相颜色",
+      "octanPagesAuto": "页数由周数自动计算：每周 2 页"
     },
     "decorations": {
       "title": "页头、页脚与水印",

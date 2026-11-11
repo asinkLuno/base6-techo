@@ -4,6 +4,7 @@ import {
   DEFAULT_DOTS,
   DEFAULT_IMPOSITION,
   DEFAULT_LINEAR,
+  DEFAULT_OCTAN_WEEK,
   DEFAULT_PAGE,
   newDecorations,
 } from "../types/document";
@@ -219,5 +220,35 @@ describe("suggestConfigName", () => {
     expect(suggestConfigName(new Date(2026, 10, 7, 9, 5))).toBe(
       "base6-techo-config-20261107-0905.json",
     );
+  });
+});
+
+describe("octan week round trip", () => {
+  it("导入导出保留八分周视图参数，并按周数校正页数", () => {
+    const before: DocumentSnapshot = {
+      sections: [
+        {
+          id: "octan",
+          name: "周视图",
+          pages: 4,
+          numbered: true,
+          body: {
+            ...DEFAULT_OCTAN_WEEK,
+            startDate: "2026-08-03",
+            endDate: "2026-08-16",
+          },
+          margins: null,
+          decorations: null,
+        },
+      ],
+      page: DEFAULT_PAGE,
+      decorations: newDecorations(),
+      imposition: DEFAULT_IMPOSITION,
+    };
+    const result = parseConfigFile(serializeConfig(before));
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.snapshot.sections[0].pages).toBe(4);
+    expect(result.snapshot.sections[0].body).toEqual(before.sections[0].body);
   });
 });
