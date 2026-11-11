@@ -40,6 +40,7 @@ import {
   MARGIN_LINE_X_MM_MAX,
   MARGIN_LINE_X_MM_MIN,
   mondayOf,
+  newOctanWeek,
   OCTAN_CENTER_GAP_MM_MAX,
   OCTAN_CENTER_GAP_MM_MIN,
   OCTAN_DATE_SIZE_PT_MAX,
@@ -670,7 +671,7 @@ const defaultBodyFor = (kind: string): BodyTemplate => {
     case "hogen":
       return { ...DEFAULT_HOGEN };
     case "octanWeek":
-      return { ...DEFAULT_OCTAN_WEEK };
+      return newOctanWeek();
     default:
       return { kind: "blank" };
   }

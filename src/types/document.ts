@@ -271,6 +271,18 @@ export const DEFAULT_OCTAN_WEEK: OctanWeekPattern = {
   dateSizePt: 10,
 };
 
+/** 新建模板默认落在当前所在周；格式、颜色沿用默认值。 */
+export const newOctanWeek = (today = new Date()): OctanWeekPattern => {
+  const pad = (value: number) => String(value).padStart(2, "0");
+  const iso = `${String(today.getFullYear()).padStart(4, "0")}-${pad(today.getMonth() + 1)}-${pad(today.getDate())}`;
+  const startDate = mondayOf(iso);
+  return {
+    ...DEFAULT_OCTAN_WEEK,
+    startDate,
+    endDate: addDays(startDate, 6),
+  };
+};
+
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
 const isLeapYear = (year: number): boolean =>

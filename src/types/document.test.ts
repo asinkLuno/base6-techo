@@ -12,6 +12,7 @@ import {
   isIsoDate,
   mondayOf,
   newDecorations,
+  newOctanWeek,
   octanWeekPages,
   resolveSectionDecorations,
   resolveSectionMargins,
@@ -363,6 +364,13 @@ describe("octan week", () => {
     expect(weeksBetween("2026-08-03", "2026-08-09")).toBe(1);
     expect(weeksBetween("2026-08-03", "2026-08-16")).toBe(2);
     expect(weeksBetween("2026-08-09", "2026-08-03")).toBe(0);
+  });
+
+  it("新建模板默认当前所在周", () => {
+    expect(newOctanWeek(new Date(2026, 10, 11, 12))).toMatchObject({
+      startDate: "2026-11-09",
+      endDate: "2026-11-15",
+    });
   });
 
   it("每周固定两页", () => {
