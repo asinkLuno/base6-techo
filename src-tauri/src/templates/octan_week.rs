@@ -3,15 +3,15 @@
 //! 移植自 archive 分支的 `backend/octan_week.rs`。当前框架没有农历与节假日
 //! 数据源，因此只保留周视图本身：整周日期、迷你月历、本周高亮与月相。
 
-use std::f64::consts::{FRAC_PI_2, PI, TAU};
-
 use serde::{Deserialize, Serialize};
 
 use super::{
-    calendar::{Date, WeekdayLang, days_from_civil, format_date, validate_format},
+    calendar::{Date, MonthGrid, WeekdayLang, format_date, validate_format},
+    common::{check_text_len, validate_weekday_headers, weekday_headers},
     document::PageContext,
     latex::{Canvas, validate_color},
     layout::{PageLayout, Rect, check_range},
+    moon::{moon_illumination, moon_points},
 };
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -254,12 +254,9 @@ impl OctanWeekPattern {
         week_end: Date,
     ) {
         const MINI_PAD: f64 = 2.0;
-        let next = first.next_month_first();
-        let days = (next.ordinal() - first.ordinal()) as usize;
-        let first_weekday = first.weekday();
-        let rows = (first_weekday + days).div_ceil(7);
+        let grid = MonthGrid::new(first);
         let cell_w = (rect.width - 2.0 * MINI_PAD) / 7.0;
-        let cell_h = (rect.height - 2.0 * MINI_PAD) / (rows + 2) as f64;
+        let cell_h = (rect.height - 2.0 * MINI_PAD) / (grid.rows + 2) as f64;
         if cell_w <= 0.0 || cell_h <= 0.0 {
             return;
         }
@@ -285,12 +282,12 @@ impl OctanWeekPattern {
             0,
             &self.text_color,
         );
-        for (column, header) in self.weekday_headers.split(',').map(str::trim).enumerate() {
+        for (column, header) in weekday_headers(&self.weekday_headers).iter().enumerate() {
             text(canvas, header, column as f64, 1, &self.text_color);
         }
-        for day in 1..=days {
+        for day in 1..=grid.days {
             let date = first.add_days(day as i64 - 1);
-            let position = first_weekday + day - 1;
+            let (column, row) = grid.position(day);
             let color = if date >= week_start && date <= week_end {
                 &self.highlight_color
             } else {
@@ -299,73 +296,12 @@ impl OctanWeekPattern {
             text(
                 canvas,
                 &date.day().to_string(),
-                (position % 7) as f64,
-                position / 7 + 2,
+                column as f64,
+                row + 2,
                 color,
             );
         }
     }
-}
-
-/// 格式串会原样写进 LaTeX 源，限制长度避免异常文件放大编译开销。
-const MAX_TEXT_CHARS: usize = 128;
-/// 单个星期表头是表格列标题，过长的值必然溢出。
-const MAX_WEEKDAY_HEADER_CHARS: usize = 16;
-
-fn check_text_len(label: &str, text: &str) -> Result<(), String> {
-    if text.chars().count() > MAX_TEXT_CHARS {
-        return Err(format!("{label}最多 {MAX_TEXT_CHARS} 个字符"));
-    }
-    Ok(())
-}
-
-fn validate_weekday_headers(headers: &str) -> Result<(), String> {
-    let items = headers.split(',').map(str::trim).collect::<Vec<_>>();
-    if items.len() != 7 || items.iter().any(|item| item.is_empty()) {
-        return Err("星期表头必须是 7 个逗号分隔的非空值".into());
-    }
-    if items
-        .iter()
-        .any(|item| item.chars().count() > MAX_WEEKDAY_HEADER_CHARS)
-    {
-        return Err(format!(
-            "每个星期表头最多 {MAX_WEEKDAY_HEADER_CHARS} 个字符"
-        ));
-    }
-    Ok(())
-}
-
-const SYNODIC_DAYS: f64 = 29.530_588_67;
-const MOON_STEPS: usize = 24;
-
-/// 以 2000-01-06 18:14 UTC 朔为历元的近似月相；`waxing` 表示蛾眉月到满月阶段。
-fn moon_illumination(date: Date) -> (f64, bool) {
-    let epoch = days_from_civil(2000, 1, 6) as f64 + 18.233 / 24.0;
-    let moment = date.ordinal() as f64 + 0.5;
-    let fraction = (moment - epoch).rem_euclid(SYNODIC_DAYS) / SYNODIC_DAYS;
-    ((1.0 - (TAU * fraction).cos()) / 2.0, fraction < 0.5)
-}
-
-/// 生成月相亮面路径的采样点；`k = 1 - 2 * illumination` 控制明暗界线，
-/// 0 时与右半圆重合（新月），1 时与左半圆重合（满月）。
-#[allow(clippy::too_many_arguments)]
-fn moon_points(cx: f64, cy: f64, radius: f64, illumination: f64, waxing: bool) -> Vec<(f64, f64)> {
-    let k = 1.0 - 2.0 * illumination;
-    let mut points = Vec::with_capacity(MOON_STEPS * 2 + 2);
-    for step in 0..=MOON_STEPS {
-        let angle = -FRAC_PI_2 + PI * step as f64 / MOON_STEPS as f64;
-        points.push((cx + radius * angle.cos(), cy + radius * angle.sin()));
-    }
-    for step in (0..=MOON_STEPS).rev() {
-        let angle = -FRAC_PI_2 + PI * step as f64 / MOON_STEPS as f64;
-        points.push((cx + k * radius * angle.cos(), cy + radius * angle.sin()));
-    }
-    if !waxing {
-        for point in &mut points {
-            point.0 = 2.0 * cx - point.0;
-        }
-    }
-    points
 }
 
 #[cfg(test)]
@@ -402,46 +338,5 @@ mod tests {
             "结束日期必须是星期日"
         );
         assert!(pattern("2026-08-03", "2026-08-09").validate().is_ok());
-    }
-
-    #[test]
-    fn rejects_oversized_text_fields() {
-        let mut p = pattern("2026-08-03", "2026-08-09");
-        p.date_format = "%Y".repeat(MAX_TEXT_CHARS);
-        assert_eq!(
-            p.validate().unwrap_err(),
-            format!("八分周视图日期格式最多 {MAX_TEXT_CHARS} 个字符")
-        );
-
-        let mut p = pattern("2026-08-03", "2026-08-09");
-        p.weekday_headers = format!("{},二,三,四,五,六,日", "月".repeat(17));
-        assert_eq!(
-            p.validate().unwrap_err(),
-            format!("每个星期表头最多 {MAX_WEEKDAY_HEADER_CHARS} 个字符")
-        );
-    }
-
-    #[test]
-    fn moon_path_is_empty_at_new_and_full_at_full() {
-        let (new, _) = moon_illumination(Date::parse("2000-01-06").unwrap());
-        assert!(new < 0.05, "new moon illumination {new}");
-        let new_points = moon_points(10.0, 10.0, 2.0, 0.0, true);
-        // 新月：右半圆与明暗界线重合，底线与顶线各自重合。
-        assert_eq!(new_points[MOON_STEPS], new_points[MOON_STEPS + 1]);
-        assert_eq!(new_points[0], new_points[MOON_STEPS * 2 + 1]);
-        let full_points = moon_points(10.0, 10.0, 2.0, 1.0, true);
-        // 满月：右半圆 + 左半圆，横向覆盖整个圆。
-        assert!(full_points.iter().any(|p| (p.0 - 12.0).abs() < 1e-9));
-        assert!(full_points.iter().any(|p| (p.0 - 8.0).abs() < 1e-9));
-    }
-
-    #[test]
-    fn waning_mirrors_the_lit_side() {
-        let waxing = moon_points(10.0, 10.0, 2.0, 0.5, true);
-        let waning = moon_points(10.0, 10.0, 2.0, 0.5, false);
-        for (left, right) in waxing.iter().zip(&waning) {
-            assert!((left.0 + right.0 - 20.0).abs() < 1e-9);
-            assert_eq!(left.1, right.1);
-        }
     }
 }

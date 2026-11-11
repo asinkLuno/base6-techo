@@ -3,6 +3,7 @@ use super::{
     document::PageContext,
     latex::{Canvas, validate_color},
     layout::{PageLayout, Rect, check_range},
+    month::MonthPattern,
     octan_week::OctanWeekPattern,
 };
 use serde::{Deserialize, Serialize};
@@ -19,6 +20,7 @@ pub enum BodyTemplate {
     Hogen(HogenPattern),
     #[serde(rename = "octanWeek")]
     OctanWeek(OctanWeekPattern),
+    Month(MonthPattern),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -213,14 +215,16 @@ impl BodyTemplate {
             Self::Grid(p) => p.validate(),
             Self::Hogen(p) => p.validate(),
             Self::OctanWeek(p) => p.validate(),
+            Self::Month(p) => p.validate(),
             Self::Blank => Ok(()),
         }
     }
 
-    /// 页数由模板自身日期范围决定的模板返回必需页数；其余模板返回 None。
-    pub(crate) fn required_pages(&self) -> Option<usize> {
+    /// 页数由模板自身日期范围决定的模板返回（必需页数, 错误提示）；其余模板返回 None。
+    pub(crate) fn required_pages(&self) -> Option<(usize, &'static str)> {
         match self {
-            Self::OctanWeek(p) => Some(p.required_pages()),
+            Self::OctanWeek(p) => Some((p.required_pages(), "八分周视图每周需要 2 页")),
+            Self::Month(p) => Some((p.required_pages(), "月历每月需要 1 页")),
             _ => None,
         }
     }
@@ -276,6 +280,7 @@ impl BodyTemplate {
                 );
             }
             Self::OctanWeek(p) => p.draw(canvas, layout, context),
+            Self::Month(p) => p.draw(canvas, layout, context),
             Self::Hogen(p) => {
                 // 与其它模板一致：整块格线以页心中心为对称点，四周预留给外伸线与标记点。
                 let Some(lattice) = HogenLattice::fit(body) else {

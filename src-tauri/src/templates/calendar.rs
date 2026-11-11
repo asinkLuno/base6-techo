@@ -138,6 +138,14 @@ impl Date {
         }
     }
 
+    pub(crate) fn year(self) -> i32 {
+        self.year
+    }
+
+    pub(crate) fn month(self) -> u32 {
+        self.month
+    }
+
     pub(crate) fn day(self) -> u32 {
         self.day
     }
@@ -145,6 +153,38 @@ impl Date {
     #[cfg(test)]
     pub(crate) fn to_iso(self) -> String {
         format!("{:04}-{:02}-{:02}", self.year, self.month, self.day)
+    }
+}
+
+/// 单月网格的纯几何：天数、1 号星期偏移与周行数。
+/// 迷你月历与整页月历共用，绘制方式各自决定。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct MonthGrid {
+    pub first: Date,
+    pub days: u32,
+    /// 1 号是周几；周一为 0。
+    pub first_weekday: usize,
+    /// 覆盖整月所需的 7 列行数（4–6）。
+    pub rows: usize,
+}
+
+impl MonthGrid {
+    pub(crate) fn new(first: Date) -> Self {
+        debug_assert_eq!(first.day(), 1, "MonthGrid 必须从当月 1 号开始");
+        let days = days_in_month(first.year, first.month);
+        let first_weekday = first.weekday();
+        Self {
+            first,
+            days,
+            first_weekday,
+            rows: (first_weekday + days as usize).div_ceil(7),
+        }
+    }
+
+    /// 当月 `day` 号在 7 列网格中的（列, 行），均从 0 开始。
+    pub(crate) fn position(&self, day: u32) -> (usize, usize) {
+        let position = self.first_weekday + day as usize - 1;
+        (position % 7, position / 7)
     }
 }
 
@@ -255,6 +295,20 @@ mod tests {
             Date::parse("2024-02-28").unwrap().add_days(1).to_iso(),
             "2024-02-29"
         );
+    }
+
+    #[test]
+    fn month_grid_maps_days_to_columns_and_rows() {
+        let june = MonthGrid::new(Date::parse("2026-06-01").unwrap());
+        assert_eq!((june.days, june.first_weekday, june.rows), (30, 0, 5));
+        assert_eq!(june.position(1), (0, 0));
+        assert_eq!(june.position(7), (6, 0));
+        assert_eq!(june.position(30), (1, 4));
+
+        let feb = MonthGrid::new(Date::parse("2026-02-01").unwrap());
+        assert_eq!((feb.days, feb.first_weekday, feb.rows), (28, 6, 5));
+        assert_eq!(feb.position(1), (6, 0));
+        assert_eq!(feb.position(2), (0, 1));
     }
 
     #[test]
