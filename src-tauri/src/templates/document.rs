@@ -53,6 +53,13 @@ impl Section {
             return Err(format!("全书不能超过 {MAX_PAGES} 页"));
         }
         self.body.validate()?;
+        if let Some(required) = self.body.required_pages()
+            && self.pages != required
+        {
+            return Err(format!(
+                "八分周视图每周需要 2 页，当前日期范围应为 {required} 页"
+            ));
+        }
         if let Some(decorations) = &self.decorations {
             decorations.validate()?;
         }

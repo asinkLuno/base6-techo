@@ -1,7 +1,9 @@
 //! 页心模板扩展点。模板只消费已解析的页面上下文，不推算装订方向。
 use super::{
+    document::PageContext,
     latex::{Canvas, validate_color},
     layout::{PageLayout, Rect, check_range},
+    octan_week::OctanWeekPattern,
 };
 use serde::{Deserialize, Serialize};
 
@@ -15,6 +17,8 @@ pub enum BodyTemplate {
     Dots(DotsPattern),
     Grid(GridPattern),
     Hogen(HogenPattern),
+    #[serde(rename = "octanWeek")]
+    OctanWeek(OctanWeekPattern),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -208,11 +212,20 @@ impl BodyTemplate {
             Self::Dots(p) => p.validate(),
             Self::Grid(p) => p.validate(),
             Self::Hogen(p) => p.validate(),
+            Self::OctanWeek(p) => p.validate(),
             Self::Blank => Ok(()),
         }
     }
 
-    pub(crate) fn draw(&self, canvas: &mut Canvas<'_>, layout: &PageLayout) {
+    /// 页数由模板自身日期范围决定的模板返回必需页数；其余模板返回 None。
+    pub(crate) fn required_pages(&self) -> Option<usize> {
+        match self {
+            Self::OctanWeek(p) => Some(p.required_pages()),
+            _ => None,
+        }
+    }
+
+    pub(crate) fn draw(&self, canvas: &mut Canvas<'_>, layout: &PageLayout, context: &PageContext) {
         let body = layout.body;
         match self {
             Self::Linear(p) => {
@@ -262,6 +275,7 @@ impl BodyTemplate {
                     &p.color,
                 );
             }
+            Self::OctanWeek(p) => p.draw(canvas, layout, context),
             Self::Hogen(p) => {
                 // 与其它模板一致：整块格线以页心中心为对称点，四周预留给外伸线与标记点。
                 let Some(lattice) = HogenLattice::fit(body) else {

@@ -275,20 +275,70 @@ impl<'a> Canvas<'a> {
         );
     }
 
-    /// 单条短线，页面局部坐标；只用于方眼罫外伸的几根格线。
+    /// 单条短线，页面局部坐标；用于方眼罫外伸线与八分周视图的格线。
     pub(crate) fn line(&mut self, x1: f64, y1: f64, x2: f64, y2: f64, width_pt: f64, color: &str) {
+        self.line_styled(x1, y1, x2, y2, width_pt, color, "solid");
+    }
+
+    /// 带 TikZ 线型的单条线；`style` 取 `solid` / `dashed` / `dotted` / `dash dot`。
+    /// 实线省略线型选项，保持既有输出逐字节不变。
+    #[allow(clippy::too_many_arguments)]
+    pub(crate) fn line_styled(
+        &mut self,
+        x1: f64,
+        y1: f64,
+        x2: f64,
+        y2: f64,
+        width_pt: f64,
+        color: &str,
+        style: &str,
+    ) {
         let width = width_pt * 25.4 / 72.27;
+        let style = if style == "solid" {
+            String::new()
+        } else {
+            format!(",{style}")
+        };
         self.define_ink(color);
         writeln!(
             self.source,
-            "\\draw[ink,line width={}mm] ({},{}) -- ({},{});",
+            "\\draw[ink,line width={}mm{}] ({},{}) -- ({},{});",
             number(width),
+            style,
             number(x1),
             number(y1),
             number(x2),
             number(y2)
         )
         .unwrap();
+    }
+
+    /// 空心圆，页面局部坐标；用于月相轮廓。
+    pub(crate) fn circle(&mut self, x: f64, y: f64, radius: f64, width_pt: f64, color: &str) {
+        let width = width_pt * 25.4 / 72.27;
+        self.define_ink(color);
+        writeln!(
+            self.source,
+            "\\draw[ink,line width={}mm] ({},{}) circle ({});",
+            number(width),
+            number(x),
+            number(y),
+            number(radius)
+        )
+        .unwrap();
+    }
+
+    /// 用页面局部坐标填充一个闭合多边形；用于月相亮面。
+    pub(crate) fn filled_path(&mut self, points: &[(f64, f64)], color: &str) {
+        let Some((first_x, first_y)) = points.first() else {
+            return;
+        };
+        self.define_ink(color);
+        let mut path = format!("({},{})", number(*first_x), number(*first_y));
+        for (x, y) in &points[1..] {
+            path.push_str(&format!(" -- ({},{})", number(*x), number(*y)));
+        }
+        writeln!(self.source, "\\fill[ink] {path} -- cycle;").unwrap();
     }
 
     fn pattern_fill_rect(&mut self, name: &str, left: f64, top: f64, right: f64, bottom: f64) {
@@ -451,7 +501,7 @@ fn render_page(
     .unwrap();
     if !page.section.body.is_empty() {
         canvas.begin_region(page.layout.body);
-        page.section.body.draw(canvas, &page.layout);
+        page.section.body.draw(canvas, &page.layout, &page.context);
         canvas.end_region();
     }
     // 左侧竖线等满页元素在页心裁剪之外绘制，但仍受本文阅读页的纸张裁剪。
