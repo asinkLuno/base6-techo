@@ -33,7 +33,7 @@ export function NumberField({
   const commit = () => {
     const next = clamp(Number(text));
     setText(String(next));
-    onCommit(next);
+    if (next !== value) onCommit(next);
   };
 
   return (
@@ -54,7 +54,8 @@ export function NumberField({
             nextText !== "" &&
             Number.isFinite(parsed) &&
             parsed >= min &&
-            parsed <= max
+            parsed <= max &&
+            parsed !== value
           ) {
             onCommit(parsed);
           }

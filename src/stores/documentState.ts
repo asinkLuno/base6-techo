@@ -231,6 +231,16 @@ const patchDecorations = (
 ): SectionDecorationsOverride | null =>
   value === null ? null : (minimalDecorations(value, global) ?? {});
 
+/** 页数：八分周视图由日期范围推导，其余模板用给定值（外部输入先 clamp）。 */
+export const pagesFor = (
+  body: SectionDraft["body"],
+  manual: number | undefined,
+  fallback: number,
+): number =>
+  body.kind === "octanWeek"
+    ? octanWeekPages(body)
+    : clampPages(manual ?? fallback);
+
 /** 把补丁合并进一个 section，写入前 clamp；覆盖项统一收敛成与全书 diff 后的最小集合。 */
 export function applySectionPatch(
   section: SectionDraft,
@@ -240,12 +250,7 @@ export function applySectionPatch(
 ): SectionDraft {
   const body = patch.body !== undefined ? clampBody(patch.body) : section.body;
   // 八分周视图的页数由日期范围推导，手工页数（包括同一补丁里的）一律忽略。
-  const pages =
-    body.kind === "octanWeek"
-      ? octanWeekPages(body)
-      : patch.pages !== undefined
-        ? clampPages(patch.pages)
-        : section.pages;
+  const pages = pagesFor(body, patch.pages, section.pages);
   return {
     ...section,
     ...(patch.name !== undefined && { name: clampSectionName(patch.name) }),
@@ -293,10 +298,7 @@ const migrateSection = (
     id,
     name: typeof raw.name === "string" ? clampSectionName(raw.name) : "",
     // 八分周视图的页数以日期范围为准，旧文件里的页数只是历史值。
-    pages:
-      body.kind === "octanWeek"
-        ? octanWeekPages(body)
-        : clampPages(finiteOr(raw.pages, 1)),
+    pages: pagesFor(body, finiteOr(raw.pages, 1), 1),
     numbered: typeof raw.numbered === "boolean" ? raw.numbered : true,
     body,
     margins: migrateMargins(raw.margins, page),
