@@ -15,9 +15,18 @@ import {
 import { isTauri } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import clsx from "clsx";
-import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
+import {
+  lazy,
+  Suspense,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { useTranslation } from "react-i18next";
 import { CompileLogPanel } from "../components/CompileLogPanel";
+import { ConfigTransferPanel } from "../components/ConfigTransferPanel";
 import { PageSettingsPanel } from "../components/PageSettingsPanel";
 import SectionListItem from "../components/SectionListItem";
 import {
@@ -215,6 +224,14 @@ export default function HomePage() {
     }
   };
 
+  // 导入配置会整体替换文档，旧配置生成的预览、日志与错误随即失效
+  const handleImported = useCallback(() => {
+    setPdfBytes(null);
+    setLog(null);
+    setError(null);
+    setSaveError(null);
+  }, []);
+
   const total = sections.reduce((sum, section) => sum + section.pages, 0);
   const overflow = total > PAGES_MAX;
   // SortableContext 按 items 引用判断，稳定数组避免每次日志/状态更新都重算拖拽上下文
@@ -280,6 +297,10 @@ export default function HomePage() {
 
         <aside className="space-y-3 lg:col-span-2">
           <PageSettingsPanel />
+          <ConfigTransferPanel
+            disabled={generating}
+            onImported={handleImported}
+          />
           <div className="grid grid-cols-2 gap-3">
             <button
               type="button"

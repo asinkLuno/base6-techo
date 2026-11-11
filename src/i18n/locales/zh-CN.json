@@ -118,6 +118,26 @@
       "impositionInfoBooklet": "整本作为一帖拼到纸张正反面，尾部补齐到 4 的倍数；打印后沿中缝对折装订成册。",
       "impositionInfoThread": "每帖纸张数 × 4 为一帖的阅读页数，逐帖叠放后锁线装订；最后一帖自动补齐空白页。",
       "impositionInfoAria": "装订方式说明"
+    },
+    "transfer": {
+      "title": "配置导入导出",
+      "hint": "把当前版式、页面设置与装订方式导出为文件，分享后导入即可还原。",
+      "export": "导出配置",
+      "exporting": "导出中…",
+      "import": "导入配置",
+      "importing": "导入中…",
+      "exportedTo": "配置已导出到 {{target}}",
+      "exportError": "导出失败：{{message}}",
+      "importError": "导入失败：{{message}}",
+      "imported": "已导入 {{sections}} 个 section，共 {{pages}} 页",
+      "invalidJson": "文件不是有效的 JSON。",
+      "notConfig": "这不是 base6-techo 的配置文件。",
+      "unsupportedVersion": "配置文件来自更新的版本，请先升级应用。",
+      "needDesktop": "导入导出需要在桌面应用中运行。",
+      "confirmTitle": "替换当前配置？",
+      "confirmBody": "导入的 {{sections}} 个 section 与页面设置将替换当前配置，且无法撤销。",
+      "confirm": "替换",
+      "cancel": "取消"
     }
   },
   "settings": {

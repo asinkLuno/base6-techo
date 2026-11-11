@@ -118,6 +118,26 @@
       "impositionInfoBooklet": "Imposes the whole book onto front/back sheets, padded to a multiple of 4; fold at the spine after printing.",
       "impositionInfoThread": "Each signature holds sheets × 4 reading pages, stacked and thread-sewn; the last signature is padded with blanks.",
       "impositionInfoAria": "About imposition"
+    },
+    "transfer": {
+      "title": "Import & export",
+      "hint": "Export the current layout, page setup and imposition as a file; import it to restore everything.",
+      "export": "Export config",
+      "exporting": "Exporting…",
+      "import": "Import config",
+      "importing": "Importing…",
+      "exportedTo": "Config exported to {{target}}",
+      "exportError": "Export failed: {{message}}",
+      "importError": "Import failed: {{message}}",
+      "imported": "Imported {{sections}} sections, {{pages}} pages in total",
+      "invalidJson": "The file is not valid JSON.",
+      "notConfig": "This is not a base6-techo config file.",
+      "unsupportedVersion": "This config comes from a newer version. Please update the app first.",
+      "needDesktop": "Import and export require the desktop app.",
+      "confirmTitle": "Replace current config?",
+      "confirmBody": "The imported {{sections}} sections and page setup will replace your current configuration. This cannot be undone.",
+      "confirm": "Replace",
+      "cancel": "Cancel"
     }
   },
   "settings": {
