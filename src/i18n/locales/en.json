@@ -33,7 +33,12 @@
       "dotColor": "Dot color",
       "color": "Line color",
       "centerColor": "Center dot color",
-      "lineWidthPt": "Line width (pt)"
+      "lineWidthPt": "Line width (pt)",
+      "marginLine": "Left margin line",
+      "marginLineHint": "Runs the full page height, ignoring header and footer bands",
+      "marginLineX": "From left edge (mm)",
+      "marginLineColor": "Margin line color",
+      "marginLineWidth": "Margin line width (pt)"
     },
     "decorations": {
       "title": "Header, footer & watermarks",

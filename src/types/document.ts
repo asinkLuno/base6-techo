@@ -8,6 +8,16 @@ export interface BlankPattern {
   kind: "blank";
 }
 
+/** 美式横线本的左侧竖线：贯穿整页高度，不受页头/页脚区域限制。 */
+export interface MarginLine {
+  /** 距纸张左缘，Rust 校验 0–1000mm，默认 25 */
+  xMm: number;
+  /** 竖线颜色，#RRGGBB，默认 #D96A6A */
+  color: string;
+  /** 竖线宽度，Rust 校验 0.01–10pt，默认 0.4 */
+  widthPt: number;
+}
+
 export interface LinearPattern {
   kind: "linear";
   /** 横线间距，Rust 校验 0.1–1000mm，默认 7.0 */
@@ -16,6 +26,8 @@ export interface LinearPattern {
   color: string;
   /** 线宽，Rust 校验 0.01–10pt，默认 0.4 */
   lineWidthPt: number;
+  /** null = 不画左侧竖线；给出对象时画出美式横线本的边线。 */
+  marginLine: MarginLine | null;
 }
 
 export interface DotsPattern {
@@ -141,10 +153,19 @@ export const SPACING_MM_MIN = 0.1;
 export const SPACING_MM_MAX = 1000;
 export const LINE_WIDTH_PT_MIN = 0.01;
 export const LINE_WIDTH_PT_MAX = 10;
+export const MARGIN_LINE_X_MM_MIN = 0;
+export const MARGIN_LINE_X_MM_MAX = 1000;
 export const DOT_RADIUS_MM_MIN = 0.01;
 export const DOT_RADIUS_MM_MAX = 10;
 export const TEXT_SIZE_PT_MIN = 1;
 export const TEXT_SIZE_PT_MAX = 72;
+
+/** 与 Rust MarginLine::default 一致。 */
+export const DEFAULT_MARGIN_LINE: MarginLine = {
+  xMm: 25,
+  color: "#D96A6A",
+  widthPt: 0.4,
+};
 
 /** 与 Rust LinearPattern::default 一致。 */
 export const DEFAULT_LINEAR: LinearPattern = {
@@ -152,6 +173,7 @@ export const DEFAULT_LINEAR: LinearPattern = {
   spacingMm: 7,
   color: "#9E9E9E",
   lineWidthPt: 0.4,
+  marginLine: null,
 };
 
 /** 与 Rust DotsPattern::default 一致。 */
@@ -226,6 +248,18 @@ export const clampLineWidthPt = clampRange(
   DEFAULT_LINEAR.lineWidthPt,
 );
 
+export const clampMarginLineXMm = clampRange(
+  MARGIN_LINE_X_MM_MIN,
+  MARGIN_LINE_X_MM_MAX,
+  DEFAULT_MARGIN_LINE.xMm,
+);
+
+export const clampMarginLineWidthPt = clampRange(
+  LINE_WIDTH_PT_MIN,
+  LINE_WIDTH_PT_MAX,
+  DEFAULT_MARGIN_LINE.widthPt,
+);
+
 export const clampDotsSpacingMm = clampRange(
   SPACING_MM_MIN,
   SPACING_MM_MAX,
@@ -262,6 +296,12 @@ export const clampColor = (
   value: string,
   fallback: string = DEFAULT_LINEAR.color,
 ): string => (HEX_COLOR.test(value) ? value : fallback);
+
+export const clampMarginLine = (line: MarginLine): MarginLine => ({
+  xMm: clampMarginLineXMm(line.xMm),
+  color: clampColor(line.color, DEFAULT_MARGIN_LINE.color),
+  widthPt: clampMarginLineWidthPt(line.widthPt),
+});
 
 export const clampTextStyle = (style: TextStyle): TextStyle => ({
   sizePt: clampNumber(style.sizePt, TEXT_SIZE_PT_MIN, TEXT_SIZE_PT_MAX, 10),
@@ -303,6 +343,7 @@ export const clampBody = (body: BodyTemplate): BodyTemplate => {
         spacingMm: clampSpacingMm(body.spacingMm),
         color: clampColor(body.color),
         lineWidthPt: clampLineWidthPt(body.lineWidthPt),
+        marginLine: body.marginLine ? clampMarginLine(body.marginLine) : null,
       };
     case "dots":
       return {

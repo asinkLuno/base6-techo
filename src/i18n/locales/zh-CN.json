@@ -33,7 +33,12 @@
       "dotColor": "点色",
       "color": "线色",
       "centerColor": "中心点色",
-      "lineWidthPt": "线宽（pt）"
+      "lineWidthPt": "线宽（pt）",
+      "marginLine": "左侧竖线",
+      "marginLineHint": "贯穿整页高度，不受页头页脚限制",
+      "marginLineX": "距左边缘（mm）",
+      "marginLineColor": "竖线颜色",
+      "marginLineWidth": "竖线宽度（pt）"
     },
     "decorations": {
       "title": "页头、页脚与水印",

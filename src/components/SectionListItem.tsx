@@ -12,12 +12,15 @@ import {
   clampGridLineWidthPt,
   clampGridSpacingMm,
   clampLineWidthPt,
+  clampMarginLineWidthPt,
+  clampMarginLineXMm,
   clampPages,
   clampSpacingMm,
   DEFAULT_DOTS,
   DEFAULT_GRID,
   DEFAULT_HOGEN,
   DEFAULT_LINEAR,
+  DEFAULT_MARGIN_LINE,
   DOT_RADIUS_MM_MAX,
   DOT_RADIUS_MM_MIN,
   type DotsPattern,
@@ -27,6 +30,8 @@ import {
   LINE_WIDTH_PT_MAX,
   LINE_WIDTH_PT_MIN,
   type LinearPattern,
+  MARGIN_LINE_X_MM_MAX,
+  MARGIN_LINE_X_MM_MIN,
   PAGES_MAX,
   PAGES_MIN,
   resolveSectionDecorations,
@@ -109,7 +114,7 @@ function useBodyPatch<T extends BodyTemplate>(sectionId: string, body: T) {
     updateSection(sectionId, { body: { ...body, ...patch } });
 }
 
-/** linear 模板配置项：行距 / 线色 / 线宽。 */
+/** linear 模板配置项：行距 / 线色 / 线宽，以及可选的左侧竖线。 */
 function LinearFields({
   sectionId,
   body,
@@ -119,32 +124,92 @@ function LinearFields({
 }) {
   const { t } = useTranslation();
   const setLinear = useBodyPatch(sectionId, body);
+  const marginLine = body.marginLine;
 
   return (
-    <div className="grid gap-4 sm:grid-cols-3">
-      <NumberField
-        label={t("editor.config.spacingMm")}
-        value={body.spacingMm}
-        min={SPACING_MM_MIN}
-        max={SPACING_MM_MAX}
-        step={0.5}
-        clamp={clampSpacingMm}
-        onCommit={(spacingMm) => setLinear({ spacingMm })}
-      />
-      <ColorField
-        label={t("editor.config.color")}
-        value={body.color}
-        onChange={(color) => setLinear({ color })}
-      />
-      <NumberField
-        label={t("editor.config.lineWidthPt")}
-        value={body.lineWidthPt}
-        min={LINE_WIDTH_PT_MIN}
-        max={LINE_WIDTH_PT_MAX}
-        step={0.1}
-        clamp={clampLineWidthPt}
-        onCommit={(lineWidthPt) => setLinear({ lineWidthPt })}
-      />
+    <div className="grid gap-4">
+      <div className="grid gap-4 sm:grid-cols-3">
+        <NumberField
+          label={t("editor.config.spacingMm")}
+          value={body.spacingMm}
+          min={SPACING_MM_MIN}
+          max={SPACING_MM_MAX}
+          step={0.5}
+          clamp={clampSpacingMm}
+          onCommit={(spacingMm) => setLinear({ spacingMm })}
+        />
+        <ColorField
+          label={t("editor.config.color")}
+          value={body.color}
+          onChange={(color) => setLinear({ color })}
+        />
+        <NumberField
+          label={t("editor.config.lineWidthPt")}
+          value={body.lineWidthPt}
+          min={LINE_WIDTH_PT_MIN}
+          max={LINE_WIDTH_PT_MAX}
+          step={0.1}
+          clamp={clampLineWidthPt}
+          onCommit={(lineWidthPt) => setLinear({ lineWidthPt })}
+        />
+      </div>
+
+      <div className="divider my-0" />
+
+      <fieldset className="fieldset">
+        <legend className="fieldset-legend">
+          {t("editor.config.marginLine")}
+        </legend>
+        <label className="label cursor-pointer justify-start gap-3">
+          <input
+            type="checkbox"
+            className="toggle"
+            checked={marginLine !== null}
+            onChange={(e) =>
+              setLinear({
+                marginLine: e.target.checked
+                  ? { ...DEFAULT_MARGIN_LINE }
+                  : null,
+              })
+            }
+          />
+          <span className="text-sm">{t("editor.config.marginLineHint")}</span>
+        </label>
+      </fieldset>
+
+      {marginLine && (
+        <div className="grid gap-4 sm:grid-cols-3">
+          <NumberField
+            label={t("editor.config.marginLineX")}
+            value={marginLine.xMm}
+            min={MARGIN_LINE_X_MM_MIN}
+            max={MARGIN_LINE_X_MM_MAX}
+            step={1}
+            clamp={clampMarginLineXMm}
+            onCommit={(xMm) =>
+              setLinear({ marginLine: { ...marginLine, xMm } })
+            }
+          />
+          <ColorField
+            label={t("editor.config.marginLineColor")}
+            value={marginLine.color}
+            onChange={(color) =>
+              setLinear({ marginLine: { ...marginLine, color } })
+            }
+          />
+          <NumberField
+            label={t("editor.config.marginLineWidth")}
+            value={marginLine.widthPt}
+            min={LINE_WIDTH_PT_MIN}
+            max={LINE_WIDTH_PT_MAX}
+            step={0.1}
+            clamp={clampMarginLineWidthPt}
+            onCommit={(widthPt) =>
+              setLinear({ marginLine: { ...marginLine, widthPt } })
+            }
+          />
+        </div>
+      )}
     </div>
   );
 }

@@ -53,3 +53,11 @@
 5. 前端接入 `hogen` 类型、默认值、clamp、模板下拉、颜色控件与中英词条；顺手抽出 `ColorField` 和 `useBodyPatch`，消掉三组模板配置组件的重复样板。Rust 侧把横线/方格相同的校验合并为 `validate_line_grid`。
 6. 验证：`cargo test` 全部通过（含把方眼罫加入真实 Tectonic 编译的六页 e2e），`cargo clippy --all-targets -- -D warnings` 通过；`yarn test` 116 项通过，`tsc --noEmit` 与 `biome check .` 通过。栅格化 e2e 文档第 6 页目检，格线、断口、外伸与标记点符合复刻目标。
 7. 指标：`crapper --no-coverage` 改动函数 CC 均为 1–较小值；`dryer --threshold 0.8` 仅剩 `LinearPattern`/`GridPattern` 两个结构相同的 7 行 `Default` 实现（不同 serde 类型与默认数值，合并会牺牲类型或改写 JSON 形状），未强行抽象；其余重复已消除。
+
+## 美式横线（linear 左侧竖线）
+
+1. 对照 archive 分支的 `us_ruled.rs` 与 `docs/layouts.md`：美式横线本就是横线版式加一条左侧红竖线，竖线距纸张左缘 `margin_x`（默认 25mm）、0.4pt，原实现横线也通整页宽。按需求改为复用 `linear`，横线仍保持页心宽度，只新增可选左侧竖线。
+2. `LinearPattern` 增加 `marginLine: Option<MarginLine>`（`xMm`/`color`/`widthPt`，默认 25mm/`#D96A6A`/0.4pt）；省略或 `null` 关闭。边界校验位置 0–1000mm、线宽 0.01–10pt、颜色 `#RRGGBB`。
+3. 竖线必须绕过页心裁剪才能贯穿页头页脚，因此 `BodyTemplate` 新增 `draw_page_overlay`，由 `render_page` 在页心 `clip` 结束后、装饰绘制前调用；它仍处于阅读页纸张裁剪和拼版水平平移之内。
+4. 前端新增 `MarginLine` 类型、默认值、clamp、模板配置里的开关与位置/颜色/宽度控件，以及中英词条；旧持久化数据缺少字段时按 `null` 处理。
+5. 验证：Rust 新增满页高度与非法参数测试，全部 `cargo test` 通过（含真实 Tectonic e2e）；`yarn test` 117 项通过，`tsc --noEmit` 与 `biome check .` 通过。

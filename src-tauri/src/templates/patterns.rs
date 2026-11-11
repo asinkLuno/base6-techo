@@ -23,6 +23,8 @@ pub struct LinearPattern {
     pub spacing_mm: f64,
     pub color: String,
     pub line_width_pt: f64,
+    /// 美式横线本的左侧竖线；None 表示不画。
+    pub margin_line: Option<MarginLine>,
 }
 
 impl Default for LinearPattern {
@@ -31,6 +33,26 @@ impl Default for LinearPattern {
             spacing_mm: 7.0,
             color: "#9E9E9E".into(),
             line_width_pt: 0.4,
+            margin_line: None,
+        }
+    }
+}
+
+/// 左侧竖线：距纸张左缘 `x_mm`，贯穿整页高度（不裁剪到页心或页头页脚区域）。
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default, rename_all = "camelCase", deny_unknown_fields)]
+pub struct MarginLine {
+    pub x_mm: f64,
+    pub color: String,
+    pub width_pt: f64,
+}
+
+impl Default for MarginLine {
+    fn default() -> Self {
+        Self {
+            x_mm: 25.0,
+            color: "#D96A6A".into(),
+            width_pt: 0.4,
         }
     }
 }
@@ -108,7 +130,19 @@ fn validate_line_grid(
 
 impl LinearPattern {
     fn validate(&self) -> Result<(), String> {
-        validate_line_grid("横线", self.spacing_mm, self.line_width_pt, &self.color)
+        validate_line_grid("横线", self.spacing_mm, self.line_width_pt, &self.color)?;
+        if let Some(margin_line) = &self.margin_line {
+            margin_line.validate()?;
+        }
+        Ok(())
+    }
+}
+
+impl MarginLine {
+    fn validate(&self) -> Result<(), String> {
+        check_range("左侧竖线位置（mm）", self.x_mm, 0.0, 1000.0)?;
+        check_range("左侧竖线线宽（pt）", self.width_pt, 0.01, 10.0)?;
+        validate_color(&self.color)
     }
 }
 
@@ -244,6 +278,25 @@ impl BodyTemplate {
             }
             Self::Blank => {}
         }
+    }
+
+    /// 绘制超出页心裁剪的模板元素。左侧竖线按美式横线本通到整页高度，
+    /// 因此不能放在 `draw` 的页心 clip 里。
+    pub(crate) fn draw_page_overlay(&self, canvas: &mut Canvas<'_>, layout: &PageLayout) {
+        let Self::Linear(p) = self else {
+            return;
+        };
+        let Some(margin_line) = &p.margin_line else {
+            return;
+        };
+        canvas.line(
+            margin_line.x_mm,
+            0.0,
+            margin_line.x_mm,
+            layout.paper.height,
+            margin_line.width_pt,
+            &margin_line.color,
+        );
     }
 }
 

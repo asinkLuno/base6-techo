@@ -244,7 +244,12 @@ async function startPageRender(
  * 偏好持久化在 settings store；分页模式下用左右方向键或按钮翻页，
  * 另有 PDF 书签（outline）目录侧栏可跳转。
  */
-export function PdfViewer({ pdfBytes }: { pdfBytes: ArrayBuffer | null }) {
+/** memo：父组件（编译日志推流、section 编辑）重渲时，pdfBytes 不变就跳过整个预览树。 */
+export const PdfViewer = memo(function PdfViewer({
+  pdfBytes,
+}: {
+  pdfBytes: ArrayBuffer | null;
+}) {
   const { t } = useTranslation();
   const mode = useSettingsStore((s) => s.pdfViewMode);
   const setMode = useSettingsStore((s) => s.setPdfViewMode);
@@ -774,4 +779,4 @@ export function PdfViewer({ pdfBytes }: { pdfBytes: ArrayBuffer | null }) {
       </div>
     </div>
   );
-}
+});

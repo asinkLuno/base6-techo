@@ -61,6 +61,7 @@ describe("applySectionPatch", () => {
           spacingMm: 0,
           lineWidthPt: 999,
           color: "red",
+          marginLine: null,
         },
       },
       page,
@@ -292,6 +293,7 @@ describe("migrateDocumentState", () => {
             spacingMm: -5,
             lineWidthPt: 100,
             color: "red",
+            marginLine: { xMm: -1, color: "#XYZXYZ", widthPt: 0 },
           },
         },
         {
@@ -315,6 +317,7 @@ describe("migrateDocumentState", () => {
       ...DEFAULT_LINEAR,
       spacingMm: 0.1,
       lineWidthPt: 10,
+      marginLine: { xMm: 0, color: "#D96A6A", widthPt: 0.01 },
     });
     expect(snapshot.sections[1].pages).toBe(999);
     expect(snapshot.sections[1].body).toEqual({

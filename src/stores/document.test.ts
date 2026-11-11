@@ -85,13 +85,20 @@ describe("document store", () => {
     state().addSection();
     const id = state().sections[0].id;
     state().updateSection(id, {
-      body: { kind: "linear", spacingMm: 0, color: "red", lineWidthPt: 100 },
+      body: {
+        kind: "linear",
+        spacingMm: 0,
+        color: "red",
+        lineWidthPt: 100,
+        marginLine: null,
+      },
     });
     expect(state().sections[0].body).toEqual({
       kind: "linear",
       spacingMm: 0.1,
       color: "#9E9E9E",
       lineWidthPt: 10,
+      marginLine: null,
     });
     state().updateSection(id, {
       body: {
@@ -99,6 +106,7 @@ describe("document store", () => {
         spacingMm: 5,
         color: "#112233",
         lineWidthPt: 0.8,
+        marginLine: null,
       },
     });
     expect(state().sections[0].body).toEqual({
@@ -106,6 +114,22 @@ describe("document store", () => {
       spacingMm: 5,
       color: "#112233",
       lineWidthPt: 0.8,
+      marginLine: null,
+    });
+  });
+
+  it("updateSection clamp 左侧竖线参数，非法颜色回落默认值", () => {
+    state().addSection();
+    const id = state().sections[0].id;
+    state().updateSection(id, {
+      body: {
+        ...DEFAULT_LINEAR,
+        marginLine: { xMm: 5000, color: "red", widthPt: 100 },
+      },
+    });
+    expect(state().sections[0].body).toEqual({
+      ...DEFAULT_LINEAR,
+      marginLine: { xMm: 1000, color: "#D96A6A", widthPt: 10 },
     });
   });
 

@@ -454,6 +454,8 @@ fn render_page(
         page.section.body.draw(canvas, &page.layout);
         canvas.end_region();
     }
+    // 左侧竖线等满页元素在页心裁剪之外绘制，但仍受本文阅读页的纸张裁剪。
+    page.section.body.draw_page_overlay(canvas, &page.layout);
     // 节级装饰整体覆盖全书默认；None 表示继承。
     page.section
         .decorations

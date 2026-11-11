@@ -408,6 +408,38 @@ fn linear_stripes_are_centered_with_symmetric_margins() {
 }
 
 #[test]
+fn linear_margin_line_spans_full_page_height() {
+    let doc: Document = serde_json::from_str(
+        r##"{
+        "sections":[{"body":{
+            "kind":"linear",
+            "spacingMm":7,
+            "marginLine":{"xMm":25,"color":"#D96A6A","widthPt":0.4}
+        }}]
+    }"##,
+    )
+    .unwrap();
+    let tex = generate_document_latex(&doc).unwrap();
+    assert!(tex.contains("\\definecolor{ink}{HTML}{D96A6A}"));
+    // A5 纸高 210mm：竖线从纸张上缘通到下缘，不受页头/页脚区域限制。
+    assert!(
+        tex.contains("\\draw[ink,line width=0.140584mm] (25,0) -- (25,210);"),
+        "missing full-height margin line"
+    );
+}
+
+#[test]
+fn invalid_linear_margin_line_is_rejected() {
+    for margin_line in [r#"{"xMm":-1}"#, r#"{"widthPt":0}"#, r##"{"color":"red"}"##] {
+        let json = format!(
+            r#"{{"sections":[{{"body":{{"kind":"linear","marginLine":{margin_line}}}}}]}}"#
+        );
+        let doc: Document = serde_json::from_str(&json).unwrap();
+        assert!(plan_document(&doc).is_err(), "应拒绝 {margin_line}");
+    }
+}
+
+#[test]
 fn dense_linear_output_stays_compact() {
     let doc: Document = serde_json::from_str(
         r#"{"sections":[{"pages":100,"body":{"kind":"linear","spacingMm":0.1}}]}"#,
