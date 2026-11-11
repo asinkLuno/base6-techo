@@ -61,3 +61,13 @@
 3. 竖线必须绕过页心裁剪才能贯穿页头页脚，因此 `BodyTemplate` 新增 `draw_page_overlay`，由 `render_page` 在页心 `clip` 结束后、装饰绘制前调用；它仍处于阅读页纸张裁剪和拼版水平平移之内。
 4. 前端新增 `MarginLine` 类型、默认值、clamp、模板配置里的开关与位置/颜色/宽度控件，以及中英词条；旧持久化数据缺少字段时按 `null` 处理。
 5. 验证：Rust 新增满页高度与非法参数测试，全部 `cargo test` 通过（含真实 Tectonic e2e）；`yarn test` 117 项通过，`tsc --noEmit` 与 `biome check .` 通过。
+
+## 八分周视图（octanWeek）
+
+1. 对照 archive 分支的 `src-tauri/src/backend/octan_week.rs`：一周拆两页、每页四格，第一页左上格放当月与次月迷你月历；archive 还依赖农历、节假日 ICS 与系统时区。当前主线没有这些数据源，本次只移植周视图核心：整周日期、迷你月历、本周高亮、近似月相与可配置线型/颜色。
+2. 先写 `tests/octan_week.rs`：两页覆盖顺序、空白格月历、日期格式与星期语言、点划线/中心留白、非整周拒绝、页数必须等于周数 × 2。首次运行因 `unknown variant 'octanWeek'` 失败，再补实现。
+3. 新增 `calendar.rs`：用 Howard Hinnant 的 `days_from_civil` 做纯整数日期运算，避免引入 chrono；实现模板需要的 strftime 子集 `%Y/%m/%-m/%d/%-d/%a/%%` 与 `zh/en/ja` 星期短名。
+4. 新增 `octan_week.rs`：`OctanWeekPattern` 校验整周范围、格式串、7 项星期表头、颜色与数值范围；`required_pages() = 周数 × 2`，`document.rs` 在计划阶段拒绝页数不符的文档，让非法状态无法进入渲染。
+5. `Canvas` 新增 `line_styled`、`circle`、`filled_path`；实线仍沿用原有输出格式，保证方眼罫与横线测试逐字节不变。`BodyTemplate::draw` 增加 `PageContext`，模板据节内页序选择周与象限。
+6. 前端补齐类型、默认值、clamp、日期助手、模板下拉与配置组；八分周视图的页数由周数自动推导，手工改页数被忽略，切换回其他模板时保留当前页数。持久化迁移与配置导入同样按日期范围重算页数。
+7. 验证：`cargo test` 全部通过（新增 7 项 octan 集成测试与 1 项真实 Tectonic 编译）；`cargo clippy --all-targets -- -D warnings` 通过；`yarn test` 148 项通过，`tsc --noEmit` 与 `biome check .` 通过。栅格化 `build/octan-preview-*.png` 目检两周四页：日期顺序、迷你月历高亮、点划线与月相均正确。
