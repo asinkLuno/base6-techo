@@ -1,0 +1,4 @@
+# rustfmt 唯一来源。只写稳定选项；`imports_granularity` 等 nightly-only
+# 选项会让稳定工具链直接报错。
+edition = "2024"
+max_width = 100

@@ -51,3 +51,17 @@ opt-level = 3
 # 必须保持 unwind：compile::compile 用 catch_unwind 把 tectonic 内部 panic
 # 转成可展示的错误。panic = "abort" 会让 catch_unwind 失效、直接杀掉整个 App。
 strip = true
+
+
+# 静态检查唯一来源：cargo clippy 与 rust-analyzer 都读这里。
+# 源码只设 warn；`-D warnings` 只出现在 `yarn check:rust`（及 CI），
+# 避免工具链升级新增 lint 时把本地 `cargo build` 变成硬失败。
+[lints.rust]
+unsafe_op_in_unsafe_fn = "warn"
+
+[lints.clippy]
+# 组必须给负 priority，否则与下面的单条 deny 冲突
+all = { level = "warn", priority = -1 }
+dbg_macro = "deny"
+todo = "deny"
+unimplemented = "deny"
