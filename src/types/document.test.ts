@@ -1,26 +1,33 @@
 import { describe, expect, it } from "vitest";
 import {
   addDays,
+  addMonths,
   type Band,
   clampBand,
+  clampMonth,
   clampOctanWeek,
+  DEFAULT_MONTH,
   DEFAULT_OCTAN_WEEK,
   DEFAULT_PAGE,
   diffSectionDecorations,
   diffSectionMargins,
   hasSectionOverrides,
   isIsoDate,
+  isIsoMonth,
   mondayOf,
+  monthOf,
+  monthPages,
   newDecorations,
+  newMonth,
   newOctanWeek,
-  OCTAN_TEXT_MAX,
-  OCTAN_WEEKDAY_HEADER_MAX,
   octanWeekPages,
   resolveSectionDecorations,
   resolveSectionMargins,
   type SectionDraft,
   sundayOf,
+  TEXT_MAX,
   toSectionSpecs,
+  WEEKDAY_HEADER_MAX,
   weeksBetween,
 } from "./document";
 
@@ -419,9 +426,9 @@ describe("octan week", () => {
   it("超长格式串与表头回落到默认值", () => {
     const body = clampOctanWeek({
       ...DEFAULT_OCTAN_WEEK,
-      dateFormat: "%Y".repeat(OCTAN_TEXT_MAX),
-      titleFormat: "%m".repeat(OCTAN_TEXT_MAX),
-      weekdayHeaders: `${"月".repeat(OCTAN_WEEKDAY_HEADER_MAX + 1)},二,三,四,五,六,日`,
+      dateFormat: "%Y".repeat(TEXT_MAX),
+      titleFormat: "%m".repeat(TEXT_MAX),
+      weekdayHeaders: `${"月".repeat(WEEKDAY_HEADER_MAX + 1)},二,三,四,五,六,日`,
     });
     expect(body.dateFormat).toBe(DEFAULT_OCTAN_WEEK.dateFormat);
     expect(body.titleFormat).toBe(DEFAULT_OCTAN_WEEK.titleFormat);
@@ -434,5 +441,67 @@ describe("octan week", () => {
       endDate: addDays(DEFAULT_OCTAN_WEEK.startDate, 700 * 7 - 1),
     });
     expect(octanWeekPages(body)).toBe(998);
+  });
+});
+
+describe("month pattern", () => {
+  it("识别月份并按整月跨年偏移", () => {
+    expect(isIsoMonth("2026-08")).toBe(true);
+    expect(isIsoMonth("2026-8")).toBe(false);
+    expect(isIsoMonth("2026-13")).toBe(false);
+    expect(isIsoMonth("0000-01")).toBe(false);
+    expect(addMonths("2026-12", 1)).toBe("2027-01");
+    expect(addMonths("2026-01", -1)).toBe("2025-12");
+    expect(addMonths("9999-12", 1)).toBe("9999-12");
+    expect(addMonths("nope", 1)).toBe("nope");
+    expect(monthOf(new Date(2026, 7, 15))).toBe("2026-08");
+  });
+
+  it("newMonth 从当前月份开始，每月一页", () => {
+    const body = newMonth(new Date(2026, 10, 11));
+    expect(body.startMonth).toBe("2026-11");
+    expect(body.months).toBe(1);
+    expect(monthPages(body)).toBe(1);
+  });
+
+  it("clamp 修复非法月份、月数、格式、颜色与字号", () => {
+    const body = clampMonth({
+      kind: "month",
+      startMonth: "2026-13",
+      months: 0,
+      titleFormat: "%Q",
+      weekdayLang: "xx" as never,
+      weekdayHeaders: "一,二",
+      lineColor: "red",
+      textColor: "#xyz",
+      phaseColor: "",
+      lineWidthPt: 0,
+      dateSizePt: 100,
+      showPhase: "yes" as never,
+    });
+    expect(body.startMonth).toBe(DEFAULT_MONTH.startMonth);
+    expect(body.months).toBe(1);
+    expect(body.titleFormat).toBe(DEFAULT_MONTH.titleFormat);
+    expect(body.weekdayLang).toBe("zh");
+    expect(body.weekdayHeaders).toBe(DEFAULT_MONTH.weekdayHeaders);
+    expect(body.lineColor).toBe(DEFAULT_MONTH.lineColor);
+    expect(body.textColor).toBe(DEFAULT_MONTH.textColor);
+    expect(body.phaseColor).toBe(DEFAULT_MONTH.phaseColor);
+    expect(body.lineWidthPt).toBe(0.01);
+    expect(body.dateSizePt).toBe(72);
+    expect(body.showPhase).toBe(true);
+    expect(clampMonth({ ...DEFAULT_MONTH, showPhase: false }).showPhase).toBe(
+      false,
+    );
+  });
+
+  it("起始月接近 9999 年时月数收敛到年界内", () => {
+    const body = clampMonth({
+      ...DEFAULT_MONTH,
+      startMonth: "9999-12",
+      months: 120,
+    });
+    expect(body.months).toBe(1);
+    expect(monthPages(body)).toBe(1);
   });
 });

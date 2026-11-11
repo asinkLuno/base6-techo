@@ -102,13 +102,44 @@ export interface OctanWeekPattern {
   dateSizePt: number;
 }
 
+/**
+ * 月历：单页横向设计，整页旋转 90°；每月一页，页数由月份数推导。
+ * 只含公历网格与可选月相，农历/节假日/双页/打卡表未移植。
+ */
+export interface MonthPattern {
+  kind: "month";
+  /** 起始月份，YYYY-MM，Rust 侧拒绝非法月份 */
+  startMonth: string;
+  /** 连续月份数，Rust 校验 1–120；页数等于它 */
+  months: number;
+  /** 月份标题格式，支持 %Y/%m/%-m/%d/%-d/%a/%% */
+  titleFormat: string;
+  /** %a 使用的星期短名语言 */
+  weekdayLang: WeekdayLang;
+  /** 星期表头，英文逗号分隔 7 项 */
+  weekdayHeaders: string;
+  /** 网格线颜色 */
+  lineColor: string;
+  /** 日期与标题颜色 */
+  textColor: string;
+  /** 月相颜色 */
+  phaseColor: string;
+  /** 线宽，Rust 校验 0.01–10pt */
+  lineWidthPt: number;
+  /** 日期字号，Rust 校验 1–72pt */
+  dateSizePt: number;
+  /** 是否逐日画近似月相 */
+  showPhase: boolean;
+}
+
 export type BodyTemplate =
   | BlankPattern
   | LinearPattern
   | DotsPattern
   | GridPattern
   | HogenPattern
-  | OctanWeekPattern;
+  | OctanWeekPattern
+  | MonthPattern;
 
 /** 页头/页脚内容，与 Rust BandContent（tag = "kind"）一致。 */
 export type BandContent =
@@ -252,9 +283,9 @@ export const OCTAN_DATE_SIZE_PT_MAX = 72;
 export const OCTAN_CENTER_GAP_MM_MIN = 0;
 export const OCTAN_CENTER_GAP_MM_MAX = 1000;
 /** 格式串与星期表头的总长度上限，与 Rust 校验一致。 */
-export const OCTAN_TEXT_MAX = 128;
+export const TEXT_MAX = 128;
 /** 单个星期表头的长度上限。 */
-export const OCTAN_WEEKDAY_HEADER_MAX = 16;
+export const WEEKDAY_HEADER_MAX = 16;
 
 /** 与 Rust OctanWeekPattern::default 一致。 */
 export const DEFAULT_OCTAN_WEEK: OctanWeekPattern = {
@@ -275,10 +306,11 @@ export const DEFAULT_OCTAN_WEEK: OctanWeekPattern = {
   dateSizePt: 10,
 };
 
+const pad2 = (value: number) => String(value).padStart(2, "0");
+
 /** 新建模板默认落在当前所在周；格式、颜色沿用默认值。 */
 export const newOctanWeek = (today = new Date()): OctanWeekPattern => {
-  const pad = (value: number) => String(value).padStart(2, "0");
-  const iso = `${String(today.getFullYear()).padStart(4, "0")}-${pad(today.getMonth() + 1)}-${pad(today.getDate())}`;
+  const iso = `${String(today.getFullYear()).padStart(4, "0")}-${pad2(today.getMonth() + 1)}-${pad2(today.getDate())}`;
   const startDate = mondayOf(iso);
   return {
     ...DEFAULT_OCTAN_WEEK,
@@ -286,6 +318,33 @@ export const newOctanWeek = (today = new Date()): OctanWeekPattern => {
     endDate: addDays(startDate, 6),
   };
 };
+
+/** 连续月份数上限，与 Rust MONTHS_MAX 一致。 */
+export const MONTHS_MAX = 120;
+export const MONTH_DATE_SIZE_PT_MIN = 1;
+export const MONTH_DATE_SIZE_PT_MAX = 72;
+
+/** 与 Rust MonthPattern::default 一致。 */
+export const DEFAULT_MONTH: MonthPattern = {
+  kind: "month",
+  startMonth: "2026-08",
+  months: 1,
+  titleFormat: "%Y年%-m月",
+  weekdayLang: "zh",
+  weekdayHeaders: "一,二,三,四,五,六,日",
+  lineColor: "#7A7A7A",
+  textColor: "#000000",
+  phaseColor: "#E5B93F",
+  lineWidthPt: 0.4,
+  dateSizePt: 8,
+  showPhase: true,
+};
+
+/** 新建月历默认从当前月份开始。 */
+export const newMonth = (today = new Date()): MonthPattern => ({
+  ...DEFAULT_MONTH,
+  startMonth: `${String(today.getFullYear()).padStart(4, "0")}-${pad2(today.getMonth() + 1)}`,
+});
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -389,6 +448,53 @@ export const weeksBetween = (start: string, end: string): number => {
 export const octanWeekPages = (body: OctanWeekPattern): number =>
   weeksBetween(body.startDate, body.endDate) * 2;
 
+const ISO_MONTH = /^(\d{4})-(\d{2})$/;
+
+const parseIsoMonth = (
+  text: string,
+): { year: number; month: number } | null => {
+  const match = typeof text === "string" ? ISO_MONTH.exec(text) : null;
+  if (!match) return null;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  return year >= 1 && year <= 9999 && month >= 1 && month <= 12
+    ? { year, month }
+    : null;
+};
+
+export const isIsoMonth = (text: string): boolean =>
+  parseIsoMonth(text) !== null;
+
+/** 月份序号：year * 12 + (month - 1)，便于跨年加减。 */
+const monthIndex = (text: string): number | null => {
+  const parsed = parseIsoMonth(text);
+  return parsed ? parsed.year * 12 + parsed.month - 1 : null;
+};
+
+const LAST_MONTH_INDEX = 9999 * 12 + 11;
+
+const isoMonthFromIndex = (index: number): string => {
+  const year = Math.floor(index / 12);
+  const month = (index % 12) + 1;
+  return `${String(year).padStart(4, "0")}-${pad2(month)}`;
+};
+
+/** 按整月偏移；非法输入或越出 1–9999 年时原样返回。 */
+export const addMonths = (month: string, count: number): string => {
+  const index = monthIndex(month);
+  if (index === null) return month;
+  const next = index + Math.trunc(count);
+  return next < 12 || next > LAST_MONTH_INDEX ? month : isoMonthFromIndex(next);
+};
+
+/** 当月所在月份；本地时区，与八分周 newOctanWeek 一致。 */
+export const monthOf = (date: Date): string =>
+  `${String(date.getFullYear()).padStart(4, "0")}-${pad2(date.getMonth() + 1)}`;
+
+/** 月历页数：每月固定一页。 */
+export const monthPages = (body: MonthPattern): number =>
+  Math.round(clampNumber(body.months, 1, MONTHS_MAX, DEFAULT_MONTH.months));
+
 /** 支持的 strftime 子集，与 Rust validate_format 一致。 */
 export const isValidDateFormat = (format: string): boolean => {
   if (typeof format !== "string" || format === "") return false;
@@ -416,15 +522,13 @@ export const isValidDateFormat = (format: string): boolean => {
 };
 
 export const isValidWeekdayHeaders = (headers: string): boolean => {
-  if (typeof headers !== "string" || headers.length > OCTAN_TEXT_MAX) {
+  if (typeof headers !== "string" || headers.length > TEXT_MAX) {
     return false;
   }
   const items = headers.split(",").map((item) => item.trim());
   return (
     items.length === 7 &&
-    items.every(
-      (item) => item !== "" && item.length <= OCTAN_WEEKDAY_HEADER_MAX,
-    )
+    items.every((item) => item !== "" && item.length <= WEEKDAY_HEADER_MAX)
   );
 };
 
@@ -458,7 +562,7 @@ export const clampOctanWeek = (body: OctanWeekPattern): OctanWeekPattern => {
     endDate: isoFromOrdinal(lastSunday),
     dateFormat:
       typeof body.dateFormat === "string" &&
-      body.dateFormat.length <= OCTAN_TEXT_MAX &&
+      body.dateFormat.length <= TEXT_MAX &&
       isValidDateFormat(body.dateFormat)
         ? body.dateFormat
         : DEFAULT_OCTAN_WEEK.dateFormat,
@@ -468,7 +572,7 @@ export const clampOctanWeek = (body: OctanWeekPattern): OctanWeekPattern => {
         : "zh",
     titleFormat:
       typeof body.titleFormat === "string" &&
-      body.titleFormat.length <= OCTAN_TEXT_MAX &&
+      body.titleFormat.length <= TEXT_MAX &&
       isValidDateFormat(body.titleFormat)
         ? body.titleFormat
         : DEFAULT_OCTAN_WEEK.titleFormat,
@@ -503,6 +607,48 @@ export const clampOctanWeek = (body: OctanWeekPattern): OctanWeekPattern => {
       OCTAN_DATE_SIZE_PT_MAX,
       DEFAULT_OCTAN_WEEK.dateSizePt,
     ),
+  };
+};
+
+export const clampMonth = (body: MonthPattern): MonthPattern => {
+  const fallbackIndex = monthIndex(DEFAULT_MONTH.startMonth) as number;
+  const parsed = monthIndex(body.startMonth);
+  const startIndex =
+    parsed === null || parsed < 12 || parsed > LAST_MONTH_INDEX
+      ? fallbackIndex
+      : parsed;
+  // 起始月越靠后，可容纳的连续月份越少，避免标题越过 9999 年。
+  const maxMonths = Math.min(MONTHS_MAX, LAST_MONTH_INDEX - startIndex + 1);
+  return {
+    kind: "month",
+    startMonth: isoMonthFromIndex(startIndex),
+    months: Math.round(clampNumber(body.months, 1, maxMonths, 1)),
+    titleFormat:
+      typeof body.titleFormat === "string" &&
+      body.titleFormat.length <= TEXT_MAX &&
+      isValidDateFormat(body.titleFormat)
+        ? body.titleFormat
+        : DEFAULT_MONTH.titleFormat,
+    weekdayLang:
+      body.weekdayLang === "en" || body.weekdayLang === "ja"
+        ? body.weekdayLang
+        : "zh",
+    weekdayHeaders:
+      typeof body.weekdayHeaders === "string" &&
+      isValidWeekdayHeaders(body.weekdayHeaders)
+        ? body.weekdayHeaders
+        : DEFAULT_MONTH.weekdayHeaders,
+    lineColor: clampColor(body.lineColor, DEFAULT_MONTH.lineColor),
+    textColor: clampColor(body.textColor, DEFAULT_MONTH.textColor),
+    phaseColor: clampColor(body.phaseColor, DEFAULT_MONTH.phaseColor),
+    lineWidthPt: clampLineWidthPt(body.lineWidthPt),
+    dateSizePt: clampNumber(
+      body.dateSizePt,
+      MONTH_DATE_SIZE_PT_MIN,
+      MONTH_DATE_SIZE_PT_MAX,
+      DEFAULT_MONTH.dateSizePt,
+    ),
+    showPhase: body.showPhase !== false,
   };
 };
 
@@ -678,6 +824,8 @@ export const clampBody = (body: BodyTemplate): BodyTemplate => {
       };
     case "octanWeek":
       return clampOctanWeek(body);
+    case "month":
+      return clampMonth(body);
     default:
       return { kind: "blank" };
   }

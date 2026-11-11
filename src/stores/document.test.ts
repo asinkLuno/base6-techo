@@ -5,6 +5,7 @@ import {
   DEFAULT_HOGEN,
   DEFAULT_IMPOSITION,
   DEFAULT_LINEAR,
+  DEFAULT_MONTH,
   DEFAULT_OCTAN_WEEK,
   DEFAULT_PAGE,
   newDecorations,
@@ -659,5 +660,22 @@ describe("octan week pages", () => {
     });
     state().updateSection(id, { body: { ...DEFAULT_LINEAR } });
     expect(state().sections[0].pages).toBe(4);
+  });
+});
+
+describe("month calendar pages", () => {
+  it("切换月份数时页数自动跟随，且不能被手工改走", () => {
+    state().addSection();
+    const id = state().sections[0].id;
+    state().updateSection(id, {
+      body: { ...DEFAULT_MONTH, months: 12 },
+    });
+    expect(state().sections[0].pages).toBe(12);
+    state().updateSection(id, { pages: 99 });
+    expect(state().sections[0].pages).toBe(12);
+    state().updateSection(id, {
+      body: { ...DEFAULT_MONTH, months: 3 },
+    });
+    expect(state().sections[0].pages).toBe(3);
   });
 });

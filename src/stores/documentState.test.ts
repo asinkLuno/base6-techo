@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   DEFAULT_DOTS,
   DEFAULT_LINEAR,
+  DEFAULT_MONTH,
   DEFAULT_OCTAN_WEEK,
   DEFAULT_PAGE,
   newDecorations,
@@ -528,5 +529,46 @@ describe("octan week migration", () => {
     expect(body.startDate).toBe(DEFAULT_OCTAN_WEEK.startDate);
     expect(body.endDate).toBe(DEFAULT_OCTAN_WEEK.endDate);
     expect(snapshot.sections[0].pages).toBe(2);
+  });
+});
+
+describe("month calendar migration", () => {
+  it("导入时收敛非法月份与月数，并按月份数重算页数", () => {
+    const snapshot = migrateDocumentState({
+      sections: [
+        {
+          pages: 1,
+          body: {
+            kind: "month",
+            startMonth: "2026-13",
+            months: 0,
+            titleFormat: "%Q",
+            lineWidthPt: 0,
+          },
+        },
+      ],
+    });
+    const body = snapshot.sections[0].body;
+    if (body.kind !== "month") throw new Error("expected month");
+    expect(body.startMonth).toBe(DEFAULT_MONTH.startMonth);
+    expect(body.months).toBe(1);
+    expect(body.titleFormat).toBe(DEFAULT_MONTH.titleFormat);
+    expect(body.lineWidthPt).toBe(0.01);
+    expect(snapshot.sections[0].pages).toBe(1);
+  });
+
+  it("合法月份保留并同步页数", () => {
+    const snapshot = migrateDocumentState({
+      sections: [
+        {
+          pages: 99,
+          body: { kind: "month", startMonth: "2027-01", months: 6 },
+        },
+      ],
+    });
+    const body = snapshot.sections[0].body;
+    if (body.kind !== "month") throw new Error("expected month");
+    expect(body.startMonth).toBe("2027-01");
+    expect(snapshot.sections[0].pages).toBe(6);
   });
 });

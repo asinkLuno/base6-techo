@@ -33,6 +33,7 @@ import {
   type LinearPattern,
   MARGIN_LINE_X_MM_MAX,
   MARGIN_LINE_X_MM_MIN,
+  newMonth,
   newOctanWeek,
   PAGES_MAX,
   PAGES_MIN,
@@ -44,6 +45,7 @@ import {
   SPACING_MM_MIN,
 } from "../types/document";
 import { DecorationsPanel } from "./DecorationsPanel";
+import { MonthFields } from "./MonthFields";
 import { NumberField } from "./NumberField";
 import { OctanWeekFields } from "./OctanWeekFields";
 import { ColorField, useBodyPatch } from "./PatternControls";
@@ -376,6 +378,8 @@ const defaultBodyFor = (kind: string): BodyTemplate => {
       return { ...DEFAULT_HOGEN };
     case "octanWeek":
       return newOctanWeek();
+    case "month":
+      return newMonth();
     default:
       return { kind: "blank" };
   }
@@ -428,10 +432,11 @@ const SectionEditor = memo(function SectionEditor({
             <option value="grid">{t("editor.template.grid")}</option>
             <option value="hogen">{t("editor.template.hogen")}</option>
             <option value="octanWeek">{t("editor.template.octanWeek")}</option>
+            <option value="month">{t("editor.template.month")}</option>
           </select>
         </fieldset>
 
-        {body.kind === "octanWeek" ? (
+        {body.kind === "octanWeek" || body.kind === "month" ? (
           <fieldset className="fieldset">
             <legend className="fieldset-legend">
               {t("editor.section.pages")}
@@ -442,7 +447,11 @@ const SectionEditor = memo(function SectionEditor({
               value={section.pages}
               readOnly
             />
-            <p className="label">{t("editor.config.octanPagesAuto")}</p>
+            <p className="label">
+              {body.kind === "octanWeek"
+                ? t("editor.config.octanPagesAuto")
+                : t("editor.config.monthPagesAuto")}
+            </p>
           </fieldset>
         ) : (
           <NumberField
@@ -485,6 +494,9 @@ const SectionEditor = memo(function SectionEditor({
       )}
       {body.kind === "octanWeek" && (
         <OctanWeekFields sectionId={section.id} body={body} />
+      )}
+      {body.kind === "month" && (
+        <MonthFields sectionId={section.id} body={body} />
       )}
 
       <div className="divider my-0" />

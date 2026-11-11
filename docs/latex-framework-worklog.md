@@ -71,3 +71,12 @@
 5. `Canvas` 新增 `line_styled`、`circle`、`filled_path`；实线仍沿用原有输出格式，保证方眼罫与横线测试逐字节不变。`BodyTemplate::draw` 增加 `PageContext`，模板据节内页序选择周与象限。
 6. 前端补齐类型、默认值、clamp、日期助手、模板下拉与配置组；八分周视图的页数由周数自动推导，手工改页数被忽略，切换回其他模板时保留当前页数。持久化迁移与配置导入同样按日期范围重算页数。
 7. 验证：`cargo test` 全部通过（新增 7 项 octan 集成测试与 1 项真实 Tectonic 编译）；`cargo clippy --all-targets -- -D warnings` 通过；`yarn test` 148 项通过，`tsc --noEmit` 与 `biome check .` 通过。栅格化 `build/octan-preview-*.png` 目检两周四页：日期顺序、迷你月历高亮、点划线与月相均正确。
+
+## 月历（month）
+
+1. 对照 archive 分支 `backend/month.rs`：月历模板还包含农历、节假日 ICS、单/双页拆列与打卡表。主线没有农历与节假日数据源，这次只移植单页核心：月份网格、日期、标题与可选逐日月相；双页、农历、节假日、Tracker/MonthTracker 明确不搬。
+2. 先抽共享领域层，行为不变：月相数学从 `octan_week.rs` 移到 `moon.rs`；星期表头校验与文本长度限制移到 `common.rs`；`calendar.rs` 新增 `MonthGrid`（天数、1 号星期偏移、周行数、日号→行列），八分周迷你月历改用同一套网格。
+3. 新增 `tests/month.rs`：月份逐页推进、6 月 1 日网格坐标、表头/标题数量、月相开关、页数必须等于月数、非法月份/月数/格式/表头/颜色。先运行确认 `unknown variant 'month'`，再补实现。
+4. `month.rs` 采用 archive 的单页版式：页心内容横放后逆时针旋转 90°，左侧留 1/8 页宽标题带；竖线按行、横线按列分段，交叉处留 0.2mm 缺口；每天右上角按月相数学画圆盘与亮面路径。`required_pages() = months`，`document.rs` 通用化为（必需页数, 提示）在计划阶段拒绝页数不符。
+5. 前端新增 `MonthPattern`、默认值、`isIsoMonth`/`addMonths`/`monthOf`/`monthPages`/`clampMonth`；`startMonth` 用月份输入框，`months` 1–120，接近 9999 年时自动收敛月数。页数由月份数推导，手工改页数被忽略；写入、迁移与配置导入共用 `pagesFor`。
+6. 验证：`cargo test` 全部通过（新增 6 项 month 集成测试与 1 项真实 Tectonic 编译）；`cargo clippy --all-targets -- -D warnings` 通过；`yarn test` 157 项通过，`tsc --noEmit` 与 `biome check .` 通过。栅格化 `build/month-sample.pdf` 目检 2026 年 6–8 月：日期列位置、标题竖排、网格缺口与月相均正确。

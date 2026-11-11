@@ -26,7 +26,8 @@
       "dots": "点阵页",
       "grid": "网格页",
       "hogen": "方眼罫（Midori）",
-      "octanWeek": "八分周视图"
+      "octanWeek": "八分周视图",
+      "month": "月历"
     },
     "config": {
       "spacingMm": "行距（mm）",
@@ -64,7 +65,20 @@
       "octanTextColor": "月历文字色",
       "octanHighlightColor": "本周高亮色",
       "octanPhaseColor": "月相颜色",
-      "octanPagesAuto": "页数由周数自动计算：每周 2 页"
+      "octanPagesAuto": "页数由周数自动计算：每周 2 页",
+      "monthStart": "起始月份",
+      "monthCount": "连续月数",
+      "monthTitleFormat": "月份标题格式",
+      "monthWeekdayLang": "星期语言",
+      "monthWeekdayHeaders": "星期表头",
+      "monthDateSize": "日期字号（pt）",
+      "monthLineColor": "网格线颜色",
+      "monthTextColor": "日期与标题颜色",
+      "monthPhaseColor": "月相颜色",
+      "monthShowPhase": "显示月相",
+      "monthShowPhaseHint": "每天右上角画近似月相",
+      "monthPagesAuto": "页数由月份数自动计算：每月 1 页",
+      "monthClamped": "起始月接近 9999 年，月数已收敛为 {{months}}"
     },
     "decorations": {
       "title": "页头、页脚与水印",

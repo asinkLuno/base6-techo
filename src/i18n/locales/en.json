@@ -26,7 +26,8 @@
       "dots": "Dot grid",
       "grid": "Grid page",
       "hogen": "Hōgan grid (Midori)",
-      "octanWeek": "Eight-part week"
+      "octanWeek": "Eight-part week",
+      "month": "Monthly calendar"
     },
     "config": {
       "spacingMm": "Line spacing (mm)",
@@ -64,7 +65,20 @@
       "octanTextColor": "Calendar text color",
       "octanHighlightColor": "Current week color",
       "octanPhaseColor": "Moon color",
-      "octanPagesAuto": "Pages follow the week count: 2 per week"
+      "octanPagesAuto": "Pages follow the week count: 2 per week",
+      "monthStart": "Start month",
+      "monthCount": "Months",
+      "monthTitleFormat": "Month title format",
+      "monthWeekdayLang": "Weekday language",
+      "monthWeekdayHeaders": "Weekday headers",
+      "monthDateSize": "Date size (pt)",
+      "monthLineColor": "Grid color",
+      "monthTextColor": "Date and title color",
+      "monthPhaseColor": "Moon color",
+      "monthShowPhase": "Show moon phase",
+      "monthShowPhaseHint": "Approximate phase in each day's top-right corner",
+      "monthPagesAuto": "Pages follow the month count: 1 per month",
+      "monthClamped": "Start month is near year 9999; months clamped to {{months}}"
     },
     "decorations": {
       "title": "Header, footer & watermarks",

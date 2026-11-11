@@ -29,6 +29,7 @@ import {
   type Imposition,
   isPaperPresetKind,
   type Margins,
+  monthPages,
   newDecorations,
   octanWeekPages,
   type PageSettings,
@@ -231,15 +232,16 @@ const patchDecorations = (
 ): SectionDecorationsOverride | null =>
   value === null ? null : (minimalDecorations(value, global) ?? {});
 
-/** 页数：八分周视图由日期范围推导，其余模板用给定值（外部输入先 clamp）。 */
+/** 页数：八分周视图与月历由模板参数推导，其余模板用给定值（外部输入先 clamp）。 */
 export const pagesFor = (
   body: SectionDraft["body"],
   manual: number | undefined,
   fallback: number,
-): number =>
-  body.kind === "octanWeek"
-    ? octanWeekPages(body)
-    : clampPages(manual ?? fallback);
+): number => {
+  if (body.kind === "octanWeek") return octanWeekPages(body);
+  if (body.kind === "month") return monthPages(body);
+  return clampPages(manual ?? fallback);
+};
 
 /** 把补丁合并进一个 section，写入前 clamp；覆盖项统一收敛成与全书 diff 后的最小集合。 */
 export function applySectionPatch(

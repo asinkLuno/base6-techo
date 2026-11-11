@@ -15,9 +15,9 @@ import {
   OCTAN_CENTER_GAP_MM_MIN,
   OCTAN_DATE_SIZE_PT_MAX,
   OCTAN_DATE_SIZE_PT_MIN,
-  OCTAN_TEXT_MAX,
   OCTAN_WEEKS_MAX,
   type OctanWeekPattern,
+  TEXT_MAX,
   weeksBetween,
 } from "../types/document";
 import { NumberField } from "./NumberField";
@@ -78,7 +78,7 @@ export const OctanWeekFields = memo(function OctanWeekFields({
           label={t("editor.config.octanDateFormat")}
           value={body.dateFormat}
           hint={t("editor.config.octanFormatHint")}
-          maxLength={OCTAN_TEXT_MAX}
+          maxLength={TEXT_MAX}
           clamp={(text) =>
             isValidDateFormat(text) ? text : DEFAULT_OCTAN_WEEK.dateFormat
           }
@@ -109,7 +109,7 @@ export const OctanWeekFields = memo(function OctanWeekFields({
           label={t("editor.config.octanTitleFormat")}
           value={body.titleFormat}
           hint={t("editor.config.octanFormatHint")}
-          maxLength={OCTAN_TEXT_MAX}
+          maxLength={TEXT_MAX}
           clamp={(text) =>
             isValidDateFormat(text) ? text : DEFAULT_OCTAN_WEEK.titleFormat
           }
@@ -119,7 +119,7 @@ export const OctanWeekFields = memo(function OctanWeekFields({
           label={t("editor.config.octanWeekdayHeaders")}
           value={body.weekdayHeaders}
           hint={t("editor.config.octanWeekdayHeadersHint")}
-          maxLength={OCTAN_TEXT_MAX}
+          maxLength={TEXT_MAX}
           clamp={(text) =>
             isValidWeekdayHeaders(text)
               ? text
