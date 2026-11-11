@@ -2,6 +2,7 @@ mod cache;
 pub mod compile;
 pub mod templates;
 
+use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -9,6 +10,8 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use serde::Serialize;
 use tauri::{Emitter, Manager};
+use tauri_plugin_dialog::DialogExt;
+use tauri_plugin_fs::{FilePath, FsExt, OpenOptions};
 
 /// 实时编译日志事件：编译期间逐条推给前端（`compile-log`）。
 #[derive(Clone, Serialize)]
@@ -82,51 +85,101 @@ fn encode_response(log: &str, tex: &str, pdf: &[u8]) -> Result<Vec<u8>, String> 
     Ok(payload)
 }
 
-/// 把预览的 PDF 字节写到用户在「另存为」对话框选定的路径（桌面端）。
-/// Android 的 content:// URI 由 fs 插件的 writeFile 处理，不走本命令。
-/// 字节走原始 IPC body，路径放 header（前端 encodeURIComponent，非 ASCII 进不了 header）。
+/// 「另存为」：保存对话框和落盘都在后端完成，目标路径不经过 webview。
+/// 字节走原始 IPC body；建议文件名放 header（前端 encodeURIComponent，
+/// 非 ASCII 进不了 header）。返回用户选定的目标，取消时返回 `None`。
 #[tauri::command]
-async fn write_pdf_file(request: tauri::ipc::Request<'_>) -> Result<(), String> {
-    let raw_path = request
-        .headers()
-        .get("path")
-        .and_then(|v| v.to_str().ok())
-        .ok_or("缺少保存路径")?;
-    let path = percent_encoding::percent_decode_str(raw_path)
-        .decode_utf8()
-        .map_err(|e| format!("保存路径无效：{e}"))?
-        .into_owned();
+async fn save_pdf_file(
+    app: tauri::AppHandle,
+    request: tauri::ipc::Request<'_>,
+) -> Result<Option<String>, String> {
     let tauri::ipc::InvokeBody::Raw(bytes) = request.body() else {
         return Err("请求体应为原始字节".to_string());
     };
-    // 自定义命令不受 fs 插件 scope 约束，路径又来自 webview：只接受另存为
-    // 对话框会返回的绝对 .pdf 路径，并确认内容确实是 PDF。
-    let path = validate_pdf_target(&path, bytes)?;
+    if !bytes.starts_with(b"%PDF") {
+        return Err("写入内容不是 PDF".to_string());
+    }
+    let name = suggested_name(decode_header(request.headers(), "name")?);
     // spawn_blocking 要求 'static，把字节复制出来再移进闭包
     let bytes = bytes.to_vec();
-    tauri::async_runtime::spawn_blocking(move || {
-        std::fs::write(&path, bytes).map_err(|e| format!("写入文件失败：{e}"))
-    })
-    .await
-    .map_err(|e| format!("写入任务异常终止：{e}"))?
+    tauri::async_runtime::spawn_blocking(move || save_via_dialog(&app, &name, &bytes))
+        .await
+        .map_err(|e| format!("保存任务异常终止：{e}"))?
 }
 
-fn validate_pdf_target(path: &str, bytes: &[u8]) -> Result<PathBuf, String> {
-    let path = PathBuf::from(path);
-    if !path.is_absolute() {
-        return Err("保存路径必须是绝对路径".into());
+/// 解码 header 里的百分号编码文本；header 缺失或不是 UTF-8 时按缺省处理。
+fn decode_header(headers: &tauri::http::HeaderMap, name: &str) -> Result<Option<String>, String> {
+    let Some(raw) = headers.get(name) else {
+        return Ok(None);
+    };
+    let raw = raw.to_str().map_err(|_| "建议文件名无效".to_string())?;
+    let decoded = percent_encoding::percent_decode_str(raw)
+        .decode_utf8()
+        .map_err(|e| format!("建议文件名无效：{e}"))?;
+    Ok(Some(decoded.into_owned()))
+}
+
+const DEFAULT_PDF_NAME: &str = "base6-techo.pdf";
+
+/// 对话框默认文件名：只取文件名部分，缺失扩展名时补 `.pdf`。
+fn suggested_name(raw: Option<String>) -> String {
+    let name = raw
+        .as_deref()
+        .and_then(|value| Path::new(value).file_name())
+        .and_then(|name| name.to_str())
+        .filter(|name| !name.is_empty())
+        .unwrap_or(DEFAULT_PDF_NAME);
+    if has_pdf_extension(Path::new(name)) {
+        name.to_owned()
+    } else {
+        format!("{name}.pdf")
     }
-    let is_pdf = path
-        .extension()
+}
+
+fn has_pdf_extension(path: &Path) -> bool {
+    path.extension()
         .and_then(|extension| extension.to_str())
-        .is_some_and(|extension| extension.eq_ignore_ascii_case("pdf"));
-    if !is_pdf {
-        return Err("保存路径必须以 .pdf 结尾".into());
+        .is_some_and(|extension| extension.eq_ignore_ascii_case("pdf"))
+}
+
+/// Linux 等平台的对话框不强制补扩展名；补在末尾而不是替换用户输入。
+fn ensure_pdf_extension(target: FilePath) -> FilePath {
+    match target {
+        FilePath::Path(path) if !has_pdf_extension(&path) => {
+            let mut name = path.into_os_string();
+            name.push(".pdf");
+            FilePath::Path(PathBuf::from(name))
+        }
+        other => other,
     }
-    if !bytes.starts_with(b"%PDF") {
-        return Err("写入内容不是 PDF".into());
-    }
-    Ok(path)
+}
+
+/// 在阻塞线程里弹对话框并写盘：桌面写普通路径，Android 由 fs 插件经
+/// ContentResolver 写 SAF 的 content:// URI。
+fn save_via_dialog(
+    app: &tauri::AppHandle,
+    name: &str,
+    bytes: &[u8],
+) -> Result<Option<String>, String> {
+    let Some(target) = app
+        .dialog()
+        .file()
+        .add_filter("PDF", &["pdf"])
+        .set_file_name(name)
+        .blocking_save_file()
+    else {
+        return Ok(None);
+    };
+    let target = ensure_pdf_extension(target);
+    let mut options = OpenOptions::new();
+    options.write(true).create(true).truncate(true);
+    let mut file = app
+        .fs()
+        .open(target.clone(), options)
+        .map_err(|e| format!("打开保存目标失败：{e}"))?;
+    file.write_all(bytes)
+        .map_err(|e| format!("写入文件失败：{e}"))?;
+    Ok(Some(target.to_string()))
 }
 
 fn compile_document(
@@ -215,7 +268,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             generate_lined_pdf,
             generate_document_pdf,
-            write_pdf_file
+            save_pdf_file
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application")
@@ -274,12 +327,36 @@ mod tests {
     }
 
     #[test]
-    fn pdf_target_requires_absolute_pdf_path_and_pdf_bytes() {
-        assert!(validate_pdf_target("/tmp/out.pdf", b"%PDF-1.7").is_ok());
-        assert!(validate_pdf_target("/tmp/out.PDF", b"%PDF").is_ok());
-        assert!(validate_pdf_target("out.pdf", b"%PDF").is_err());
-        assert!(validate_pdf_target("/tmp/out.txt", b"%PDF").is_err());
-        assert!(validate_pdf_target("/tmp/out.pdf", b"not a pdf").is_err());
+    fn header_name_is_percent_decoded() {
+        let mut headers = tauri::http::HeaderMap::new();
+        headers.insert("name", "base6-%E6%97%A5.pdf".parse().unwrap());
+        assert_eq!(
+            decode_header(&headers, "name").unwrap().as_deref(),
+            Some("base6-日.pdf")
+        );
+        assert_eq!(decode_header(&headers, "missing").unwrap(), None);
+        headers.insert("name", "bad%E2%28".parse().unwrap());
+        assert!(decode_header(&headers, "name").is_err());
+    }
+
+    #[test]
+    fn suggested_name_keeps_pdf_and_drops_directories() {
+        assert_eq!(suggested_name(None), "base6-techo.pdf");
+        assert_eq!(suggested_name(Some(String::new())), "base6-techo.pdf");
+        assert_eq!(
+            suggested_name(Some("base6-techo-20261111-0905.pdf".into())),
+            "base6-techo-20261111-0905.pdf"
+        );
+        assert_eq!(suggested_name(Some("notes".into())), "notes.pdf");
+        assert_eq!(suggested_name(Some("../../etc/x".into())), "x.pdf");
+    }
+
+    #[test]
+    fn chosen_target_gets_pdf_appended_but_never_replaced() {
+        let name = |path: &str| ensure_pdf_extension(FilePath::Path(path.into())).to_string();
+        assert_eq!(name("/tmp/notes"), "/tmp/notes.pdf");
+        assert_eq!(name("/tmp/notes.PDF"), "/tmp/notes.PDF");
+        assert_eq!(name("/tmp/notes.txt"), "/tmp/notes.txt.pdf");
     }
 
     #[test]

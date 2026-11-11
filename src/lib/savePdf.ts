@@ -1,18 +1,12 @@
 /**
- * 「另存为」保存 PDF：dialog 插件选位置，fs 插件或自定义命令写盘。
- * - 桌面：save() 返回文件路径 → write_pdf_file 命令收原始字节落盘（不放宽 fs scope）。
- * - Android：save() 走 SAF ACTION_CREATE_DOCUMENT 返回 content:// URI →
- *   writeFile(uri) 由 fs 插件经 ContentResolver 写入（移动端对 URI 不做 scope 校验）。
+ * 「另存为」保存 PDF：对话框和写盘都在 Rust 侧（`save_pdf_file`）完成，
+ * 目标路径不经过 webview；桌面写普通路径，Android 由 fs 插件写 SAF URI。
  */
 import { invoke } from "@tauri-apps/api/core";
-import { save } from "@tauri-apps/plugin-dialog";
-import { writeFile } from "@tauri-apps/plugin-fs";
 
 export type SavePdfResult =
   | { ok: true; target: string }
   | { ok: false; cancelled: true };
-
-const PDF_EXT = /\.pdf$/i;
 
 /** 默认文件名：base6-techo-YYYYMMDD-HHmm.pdf（Document 无标题字段，用时间戳区分）。 */
 export function suggestPdfName(now = new Date()): string {
@@ -39,22 +33,16 @@ export function describeTarget(target: string): string {
   return id || target;
 }
 
-/** 弹出另存为对话框并把 PDF 字节写到选定位置；用户取消时静默返回 cancelled。 */
+/** 由后端弹出另存为对话框并写盘；用户取消时静默返回 cancelled。 */
 export async function savePdfFile(pdf: ArrayBuffer): Promise<SavePdfResult> {
-  const target = await save({
-    defaultPath: suggestPdfName(),
-    filters: [{ name: "PDF", extensions: ["pdf"] }],
-  });
+  // 建议文件名走 header：非 ASCII 不适合放 header 原文，先 percent-encode
+  const target = await invoke<string | null>(
+    "save_pdf_file",
+    new Uint8Array(pdf),
+    {
+      headers: { name: encodeURIComponent(suggestPdfName()) },
+    },
+  );
   if (!target) return { ok: false, cancelled: true };
-  const bytes = new Uint8Array(pdf);
-  if (target.startsWith("content://")) {
-    await writeFile(target, bytes);
-    return { ok: true, target };
-  }
-  // Linux 对话框不强制补扩展名，缺了就补上再落盘
-  const path = PDF_EXT.test(target) ? target : `${target}.pdf`;
-  await invoke("write_pdf_file", bytes, {
-    headers: { path: encodeURIComponent(path) },
-  });
-  return { ok: true, target: path };
+  return { ok: true, target };
 }

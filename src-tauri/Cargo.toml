@@ -29,7 +29,7 @@ tauri-plugin-dialog = "2"
 tauri-plugin-fs = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-# 解码 write_pdf_file 的 path header（前端 encodeURIComponent）
+# 解码 save_pdf_file 的建议文件名 header（前端 encodeURIComponent）
 percent-encoding = "2"
 # 实时编译日志：编译期间把 fd1 重定向到管道逐行捕获引擎转写（linux/android）
 libc = "0.2"
