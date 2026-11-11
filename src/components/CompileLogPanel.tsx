@@ -14,6 +14,23 @@ interface CompileLogPanelProps {
   defaultOpen?: boolean;
 }
 
+/** 单行：实时追加只新建新行对象，旧行引用稳定，memo 让整行跳过重渲。 */
+const LogLine = memo(function LogLine({ line }: { line: CompileLogLine }) {
+  return (
+    <span
+      className={
+        line.kind === "error"
+          ? "text-error block"
+          : line.kind === "warning"
+            ? "text-warning block"
+            : "block"
+      }
+    >
+      {line.text || " "}
+    </span>
+  );
+});
+
 /** 实时/最终统一按行渲染，kind 决定行颜色；空行渲染空格撑住行高。
  *  memo：展开/复制等面板自身状态变化时不重复渲染几百行日志。 */
 const LogLines = memo(function LogLines({
@@ -24,18 +41,7 @@ const LogLines = memo(function LogLines({
   return (
     <>
       {lines.map((line, i) => (
-        <span
-          key={line.id ?? `f${i}`}
-          className={
-            line.kind === "error"
-              ? "text-error block"
-              : line.kind === "warning"
-                ? "text-warning block"
-                : "block"
-          }
-        >
-          {line.text || " "}
-        </span>
+        <LogLine key={line.id ?? `f${i}`} line={line} />
       ))}
     </>
   );

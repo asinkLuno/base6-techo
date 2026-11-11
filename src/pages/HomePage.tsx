@@ -1,26 +1,10 @@
-import {
-  closestCenter,
-  DndContext,
-  type DragEndEvent,
-  KeyboardSensor,
-  PointerSensor,
-  useSensor,
-  useSensors,
-} from "@dnd-kit/core";
-import {
-  SortableContext,
-  sortableKeyboardCoordinates,
-  verticalListSortingStrategy,
-} from "@dnd-kit/sortable";
 import { isTauri } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
-import clsx from "clsx";
 import {
   lazy,
   Suspense,
   useCallback,
   useEffect,
-  useMemo,
   useRef,
   useState,
 } from "react";
@@ -28,7 +12,7 @@ import { useTranslation } from "react-i18next";
 import { CompileLogPanel } from "../components/CompileLogPanel";
 import { ConfigTransferPanel } from "../components/ConfigTransferPanel";
 import { PageSettingsPanel } from "../components/PageSettingsPanel";
-import SectionListItem from "../components/SectionListItem";
+import { SectionList } from "../components/SectionList";
 import {
   appendLiveLine,
   type CompileLogLine,
@@ -40,40 +24,20 @@ import { describeTarget, savePdfFile } from "../lib/savePdf";
 import { useDocumentStore } from "../stores/document";
 import { PAGES_MAX, toSectionSpecs } from "../types/document";
 
-function PlusIcon() {
-  return (
-    <svg
-      aria-hidden="true"
-      className="size-5"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-    >
-      <path d="M5 12h14" />
-      <path d="M12 5v14" />
-    </svg>
-  );
-}
-
 // pdfjs-dist 体积大且只在生成预览后才需要，懒加载避免进首屏 chunk。
 const PdfViewer = lazy(() =>
   import("../components/PdfViewer").then((m) => ({ default: m.PdfViewer })),
 );
 
-// dnd-kit 的 useSensor 按 options 引用做 memo：字面量放组件内会每次渲染重建传感器实例。
-const POINTER_SENSOR_OPTIONS = { activationConstraint: { distance: 6 } };
-const KEYBOARD_SENSOR_OPTIONS = {
-  coordinateGetter: sortableKeyboardCoordinates,
-};
-
 /** 主界面：左栏版式组合（section 列表：拖拽排序、增删、逐项配置模板），右栏页面设置与生成。 */
 export default function HomePage() {
   const { t } = useTranslation();
-  const sections = useDocumentStore((s) => s.sections);
-  const addSection = useDocumentStore((s) => s.addSection);
-  const moveSection = useDocumentStore((s) => s.moveSection);
+  // 只订阅派生标量：section 内容变化但总页数不变时，主界面不重渲。
+  // 列表本身在 <SectionList> 内订阅 sections。
+  const totalPages = useDocumentStore((s) =>
+    s.sections.reduce((sum, section) => sum + section.pages, 0),
+  );
+  const hasSections = useDocumentStore((s) => s.sections.length > 0);
 
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -131,17 +95,6 @@ export default function HomePage() {
       pendingLines.current = [];
     };
   }, []);
-
-  // distance 约束让卡内输入框/下拉的单击不触发拖拽，拖动需移动 6px。
-  const sensors = useSensors(
-    useSensor(PointerSensor, POINTER_SENSOR_OPTIONS),
-    useSensor(KeyboardSensor, KEYBOARD_SENSOR_OPTIONS),
-  );
-
-  const handleDragEnd = ({ active, over }: DragEndEvent) => {
-    if (over && active.id !== over.id)
-      moveSection(String(active.id), String(over.id));
-  };
 
   const handleGenerate = async () => {
     if (!isTauri()) {
@@ -232,68 +185,13 @@ export default function HomePage() {
     setSaveError(null);
   }, []);
 
-  const total = sections.reduce((sum, section) => sum + section.pages, 0);
-  const overflow = total > PAGES_MAX;
-  // SortableContext 按 items 引用判断，稳定数组避免每次日志/状态更新都重算拖拽上下文
-  const sortableIds = useMemo(
-    () => sections.map((section) => section.id),
-    [sections],
-  );
+  const overflow = totalPages > PAGES_MAX;
 
   return (
     <>
       {/* 宽屏 6:4 双栏：左列表留足模板参数的位置，右栏设置不至于被拉成细条 */}
       <div className="grid items-start gap-4 sm:gap-6 lg:grid-cols-5">
-        <div className="min-w-0 space-y-3 lg:col-span-3">
-          <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
-            <h2 className="card-title">{t("editor.sectionsTitle")}</h2>
-            {sections.length > 0 && (
-              <span
-                className={clsx(
-                  "badge",
-                  overflow ? "badge-error" : "badge-outline",
-                )}
-              >
-                {overflow
-                  ? t("editor.totalPagesOverflow", { max: PAGES_MAX })
-                  : t("editor.totalPages", { total })}
-              </span>
-            )}
-          </div>
-
-          <DndContext
-            sensors={sensors}
-            collisionDetection={closestCenter}
-            onDragEnd={handleDragEnd}
-          >
-            <SortableContext
-              items={sortableIds}
-              strategy={verticalListSortingStrategy}
-            >
-              {sections.map((section, index) => (
-                <SectionListItem
-                  key={section.id}
-                  section={section}
-                  index={index}
-                />
-              ))}
-            </SortableContext>
-          </DndContext>
-
-          {sections.length === 0 && (
-            <div className="card border-base-300 bg-base-200/50 border border-dashed">
-              <div className="card-body items-center text-center">
-                <p className="font-medium">{t("editor.empty.title")}</p>
-                <p className="text-sm opacity-70">{t("editor.empty.hint")}</p>
-              </div>
-            </div>
-          )}
-
-          <button type="button" className="btn btn-block" onClick={addSection}>
-            <PlusIcon />
-            {t("editor.addSection")}
-          </button>
-        </div>
+        <SectionList />
 
         <aside className="space-y-3 lg:col-span-2">
           <PageSettingsPanel />
@@ -305,9 +203,7 @@ export default function HomePage() {
             <button
               type="button"
               className="btn btn-primary"
-              disabled={
-                sections.length === 0 || overflow || generating || saving
-              }
+              disabled={!hasSections || overflow || generating || saving}
               onClick={handleGenerate}
             >
               {generating && (
