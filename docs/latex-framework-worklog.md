@@ -80,3 +80,13 @@
 4. `month.rs` 采用 archive 的单页版式：页心内容横放后逆时针旋转 90°，左侧留 1/8 页宽标题带；竖线按行、横线按列分段，交叉处留 0.2mm 缺口；每天右上角按月相数学画圆盘与亮面路径。`required_pages() = months`，`document.rs` 通用化为（必需页数, 提示）在计划阶段拒绝页数不符。
 5. 前端新增 `MonthPattern`、默认值、`isIsoMonth`/`addMonths`/`monthOf`/`monthPages`/`clampMonth`；`startMonth` 用月份输入框，`months` 1–120，接近 9999 年时自动收敛月数。页数由月份数推导，手工改页数被忽略；写入、迁移与配置导入共用 `pagesFor`。
 6. 验证：`cargo test` 全部通过（新增 6 项 month 集成测试与 1 项真实 Tectonic 编译）；`cargo clippy --all-targets -- -D warnings` 通过；`yarn test` 157 项通过，`tsc --noEmit` 与 `biome check .` 通过。栅格化 `build/month-sample.pdf` 目检 2026 年 6–8 月：日期列位置、标题竖排、网格缺口与月相均正确。
+
+## 月打卡（tracker）
+
+1. 对照 archive 分支 `backend/month.rs` 的 `TrackerPattern` 与 `draw_tracker`：单月两段式打卡表，上表 1–14 日带打卡项列，下表 15–月末，两表左缘用折线箭头按打卡项连接；整页横放后逆时针旋转 90°。年度追踪（`month-tracker`）是另一套跨月网格，未纳入本次范围。
+2. 先回答复用问题：打卡表与月历共享的是**格线画法与旋转映射**，不是月历的 7 列周网格。抽出 `templates/table.rs`：`Landscape` 负责设计坐标到页面坐标的 90° 映射，`TableGrid` 负责「竖线不过表头、横线不封顶、交叉处留 0.2mm 缺口」的开口表格；月历改用同一原语，输出逐字节不变。
+3. `calendar.rs` 新增 `MonthSpan`（`YYYY-MM` 解析、1–120 月数、跨 9999 年边界）与 `parse_month`，月历与月打卡共用同一套月份边界；`MonthGrid` 继续提供当月天数。
+4. 新增 `tests/tracker.rs`：月份逐页推进、8 月两表格线 296 条与 4 条箭头、1 号旋转后坐标、打卡项数控制箭头数、页数必须等于月数、非法月份/月数/项数/颜色。运行通过后再补前端。
+5. `tracker.rs` 采用 archive 的版式常量：打卡项列宽 5 格、两表间距 2mm、整体上移 3mm、左侧箭头泳道 6mm；`Canvas` 新增 `arrow_path`，箭头沿用 TikZ 默认 0.4pt 线宽。`required_pages() = months`，文档计划阶段拒绝页数不符。
+6. 前端新增 `TrackerPattern`、默认值、`newTracker`、`trackerPages`、`clampTracker`，与月历共用 `clampMonthSpan`/`monthSpanPages`；模板下拉、页数只读与 `TrackerFields` 配置组接入，中英词条同步。
+7. 验证：`cargo test` 全部通过（新增 5 项 tracker 集成测试与 1 项真实 Tectonic 编译）；`cargo clippy --all-targets -- -D warnings` 通过；`yarn test` 163 项通过，`tsc --noEmit` 与 `biome check .` 通过。栅格化 `build/tracker-sample.pdf` 目检 2026 年 7–8 月：两表行数、日期位置、箭头方向与旋转方向均正确。
