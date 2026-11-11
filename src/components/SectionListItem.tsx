@@ -1,7 +1,7 @@
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import clsx from "clsx";
-import { memo, useState } from "react";
+import { memo, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useDocumentStore } from "../stores/document";
 import {
@@ -110,55 +110,61 @@ function ColorField({
 }
 
 /**
- * section 名称：打字时只更新本地文本，失焦或回车时 trim 后提交，
- * 避免边输入边清洗把词间空格吃掉。
+ * 就地重命名：挂载即聚焦全选，失焦或回车提交，Esc 取消。
+ * 输入法确认候选词也会触发 Enter，组合过程中不提交。
  */
-function NameField({
+function SectionNameInput({
   sectionId,
   name,
   index,
+  onDone,
 }: {
   sectionId: string;
   name: string;
   index: number;
+  onDone: () => void;
 }) {
   const { t } = useTranslation();
   const updateSection = useDocumentStore((s) => s.updateSection);
+  const inputRef = useRef<HTMLInputElement>(null);
   const [text, setText] = useState(name);
-  const [prevName, setPrevName] = useState(name);
-  // 外部名称被改写时在渲染期同步本地文本（与 NumberField 相同的受控写法）。
-  if (prevName !== name) {
-    setPrevName(name);
-    setText(name);
-  }
+  const cancelled = useRef(false);
+
+  useEffect(() => {
+    inputRef.current?.focus();
+    inputRef.current?.select();
+  }, []);
 
   const commit = () => {
+    // 卸载与失焦谁先发生不确定；Esc 已标记取消时不再写入。
+    if (cancelled.current) return;
     const next = clampSectionName(text);
-    setText(next);
     if (next !== name) updateSection(sectionId, { name: next });
+    onDone();
   };
 
   return (
-    <fieldset className="fieldset">
-      <legend className="fieldset-legend">{t("editor.section.name")}</legend>
-      <input
-        type="text"
-        className="input w-full"
-        value={text}
-        maxLength={SECTION_NAME_MAX}
-        placeholder={t("editor.section.namePlaceholder", {
-          index: index + 1,
-        })}
-        onChange={(e) => setText(e.target.value)}
-        onBlur={commit}
-        onKeyDown={(e) => {
-          // 输入法确认候选词也会触发 Enter，不能打断组合过程。
-          if (e.key === "Enter" && !e.nativeEvent.isComposing) {
-            e.currentTarget.blur();
-          }
-        }}
-      />
-    </fieldset>
+    <input
+      ref={inputRef}
+      type="text"
+      className="input input-sm min-w-0 flex-1 font-semibold"
+      value={text}
+      maxLength={SECTION_NAME_MAX}
+      placeholder={t("editor.section.namePlaceholder", { index: index + 1 })}
+      onChange={(e) => setText(e.target.value)}
+      // 输入框在 summary 里：拦掉 click 的默认行为，点它不展开/折叠
+      onClick={(e) => e.preventDefault()}
+      onBlur={commit}
+      onKeyDown={(e) => {
+        if (e.nativeEvent.isComposing) return;
+        if (e.key === "Enter") {
+          e.currentTarget.blur();
+        } else if (e.key === "Escape") {
+          cancelled.current = true;
+          onDone();
+        }
+      }}
+    />
   );
 }
 
@@ -416,6 +422,8 @@ export default memo(function SectionListItem({
   // 折叠时编辑器子树不挂载：长文档里大多数 section 从未展开，避免上百个控件常驻 DOM。
   // 首次展开后保持挂载，让折叠/展开动画与输入框本地状态不被中断；数据本身都在 store 里。
   const [expandedOnce, setExpandedOnce] = useState(false);
+  // 双击标题就地重命名；输入框仍在 summary 内，折叠与否都能编辑。
+  const [renaming, setRenaming] = useState(false);
   const paper = useDocumentStore((s) => s.page.paper);
   const globalMargins = useDocumentStore((s) => s.page.margins);
   const globalDecorations = useDocumentStore((s) => s.decorations);
@@ -452,7 +460,23 @@ export default memo(function SectionListItem({
         if (e.currentTarget.open) setExpandedOnce(true);
       }}
     >
-      <summary className="collapse-title flex items-center gap-2">
+      {/* biome-ignore lint/a11y/noStaticElementInteractions: summary 本身是原生可交互元素（disclosure），双击/F2 是额外的重命名入口 */}
+      <summary
+        className="collapse-title flex items-center gap-2"
+        // 双击标题进入重命名；拖拽手柄与删除按钮的连点除外。
+        onDoubleClick={(e) => {
+          if (renaming || (e.target as HTMLElement).closest("button")) return;
+          setRenaming(true);
+        }}
+        // 键盘用 F2（同文件管理器），Enter/空格继续保留原生的展开/折叠。
+        onKeyDown={(e) => {
+          if (e.target !== e.currentTarget) return;
+          if (e.key === "F2") {
+            e.preventDefault();
+            setRenaming(true);
+          }
+        }}
+      >
         <button
           type="button"
           ref={setActivatorNodeRef}
@@ -467,12 +491,21 @@ export default memo(function SectionListItem({
         </button>
         {/* 标签与徽标单独成组换行：窄屏时它们换行撑高标题行，删除按钮仍留在右侧 */}
         <span className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-1">
-          <span
-            className="min-w-0 truncate font-semibold"
-            title={section.name || undefined}
-          >
-            {section.name || t("editor.section.label", { index: index + 1 })}
-          </span>
+          {renaming ? (
+            <SectionNameInput
+              sectionId={section.id}
+              name={section.name}
+              index={index}
+              onDone={() => setRenaming(false)}
+            />
+          ) : (
+            <span
+              className="min-w-0 cursor-text truncate font-semibold select-none"
+              title={t("editor.section.renameHint")}
+            >
+              {section.name || t("editor.section.label", { index: index + 1 })}
+            </span>
+          )}
           <span className="badge badge-outline">
             {t(`editor.template.${body.kind}`)}
           </span>
@@ -499,12 +532,6 @@ export default memo(function SectionListItem({
       <div className="collapse-content">
         {expandedOnce && (
           <div className="grid gap-4">
-            <NameField
-              sectionId={section.id}
-              name={section.name}
-              index={index}
-            />
-
             <div className="grid gap-4 sm:grid-cols-2">
               <fieldset className="fieldset">
                 <legend className="fieldset-legend">

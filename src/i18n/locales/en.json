@@ -11,7 +11,7 @@
     "totalPagesOverflow": "Over {{max}} pages in the book",
     "section": {
       "label": "Section {{index}}",
-      "name": "Name",
+      "renameHint": "Double-click to rename (or press F2)",
       "namePlaceholder": "Leave empty to use Section {{index}}",
       "pages": "Pages",
       "numbered": "Count in page numbers",
