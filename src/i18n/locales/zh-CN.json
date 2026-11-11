@@ -28,7 +28,8 @@
       "hogen": "方眼罫（Midori）",
       "octanWeek": "八分周视图",
       "month": "月历",
-      "tracker": "月打卡"
+      "tracker": "月打卡",
+      "daily": "一日时间轴"
     },
     "config": {
       "spacingMm": "行距（mm）",
@@ -87,7 +88,25 @@
       "trackerDateSize": "日期字号（pt）",
       "trackerLineColor": "网格线颜色",
       "trackerPagesAuto": "页数由月份数自动计算：每月 1 页",
-      "trackerClamped": "起始月接近 9999 年，月数已收敛为 {{months}}"
+      "trackerClamped": "起始月接近 9999 年，月数已收敛为 {{months}}",
+      "dailyStartDate": "起始日期",
+      "dailyDays": "天数",
+      "dailyPagesPerDay": "每天页数",
+      "dailyOnePage": "一天 1 页",
+      "dailyTwoPages": "一天 2 页（前/后半天）",
+      "dailyStartHour": "起始整点",
+      "dailyEndHour": "结束整点",
+      "dailyLabelSize": "小时号字号（pt）",
+      "dailyLineColor": "时间轴线色",
+      "dailyTitleFormat": "日期标题格式",
+      "dailySun": "昼夜着色",
+      "dailySunHint": "按经纬度与 UTC 偏移计算太阳高度角，白天与夜间使用不同颜色",
+      "dailyLatitude": "纬度",
+      "dailyLongitude": "经度",
+      "dailyUtcOffset": "UTC 偏移（小时）",
+      "dailyDaylightColor": "白天颜色",
+      "dailyNightColor": "夜间颜色",
+      "dailyPagesAuto": "页数由天数与每日页数自动计算"
     },
     "decorations": {
       "title": "页头、页脚与水印",

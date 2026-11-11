@@ -23,6 +23,7 @@ import {
   DEFAULT_PAGE,
   DEFAULT_SHEETS_PER_SIGNATURE,
   type Decorations,
+  dailyPages,
   diffSectionDecorations,
   diffSectionMargins,
   hasSectionOverrides,
@@ -231,7 +232,7 @@ const patchDecorations = (
 ): SectionDecorationsOverride | null =>
   value === null ? null : (minimalDecorations(value, global) ?? {});
 
-/** 页数：八分周视图、月历与月打卡由模板参数推导，其余模板用给定值（外部输入先 clamp）。 */
+/** 页数：周视图、月历、月打卡与一日时间轴由模板参数推导，其余模板用给定值（外部输入先 clamp）。 */
 export const pagesFor = (
   body: SectionDraft["body"],
   manual: number | undefined,
@@ -241,6 +242,7 @@ export const pagesFor = (
   if (body.kind === "month" || body.kind === "tracker") {
     return monthSpanPages(body);
   }
+  if (body.kind === "daily") return dailyPages(body);
   return clampPages(manual ?? fallback);
 };
 
@@ -252,7 +254,7 @@ export function applySectionPatch(
   globalDecorations: Decorations,
 ): SectionDraft {
   const body = patch.body !== undefined ? clampBody(patch.body) : section.body;
-  // 八分周视图的页数由日期范围推导，手工页数（包括同一补丁里的）一律忽略。
+  // 周视图与一日时间轴的页数由日期范围推导，手工页数（包括同一补丁里的）一律忽略。
   const pages = pagesFor(body, patch.pages, section.pages);
   return {
     ...section,
@@ -300,7 +302,7 @@ const migrateSection = (
   return {
     id,
     name: typeof raw.name === "string" ? clampSectionName(raw.name) : "",
-    // 八分周视图的页数以日期范围为准，旧文件里的页数只是历史值。
+    // 周视图与一日时间轴的页数以日期范围为准，旧文件里的页数只是历史值。
     pages: pagesFor(body, finiteOr(raw.pages, 1), 1),
     numbered: typeof raw.numbered === "boolean" ? raw.numbered : true,
     body,

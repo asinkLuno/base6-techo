@@ -28,7 +28,8 @@
       "hogen": "Hōgan grid (Midori)",
       "octanWeek": "Eight-part week",
       "month": "Monthly calendar",
-      "tracker": "Monthly tracker"
+      "tracker": "Monthly tracker",
+      "daily": "Daily timeline"
     },
     "config": {
       "spacingMm": "Line spacing (mm)",
@@ -87,7 +88,25 @@
       "trackerDateSize": "Date size (pt)",
       "trackerLineColor": "Grid color",
       "trackerPagesAuto": "Pages follow the month count: 1 per month",
-      "trackerClamped": "Start month is near year 9999; months clamped to {{months}}"
+      "trackerClamped": "Start month is near year 9999; months clamped to {{months}}",
+      "dailyStartDate": "Start date",
+      "dailyDays": "Days",
+      "dailyPagesPerDay": "Pages per day",
+      "dailyOnePage": "1 page per day",
+      "dailyTwoPages": "2 pages per day (first/second half)",
+      "dailyStartHour": "Start hour",
+      "dailyEndHour": "End hour",
+      "dailyLabelSize": "Hour label size (pt)",
+      "dailyLineColor": "Timeline color",
+      "dailyTitleFormat": "Date title format",
+      "dailySun": "Day/night coloring",
+      "dailySunHint": "Uses latitude, longitude and UTC offset to switch colors at sunrise and sunset",
+      "dailyLatitude": "Latitude",
+      "dailyLongitude": "Longitude",
+      "dailyUtcOffset": "UTC offset (hours)",
+      "dailyDaylightColor": "Daylight color",
+      "dailyNightColor": "Night color",
+      "dailyPagesAuto": "Pages follow the day count and pages per day"
     },
     "decorations": {
       "title": "Header, footer & watermarks",

@@ -1,4 +1,4 @@
-//! 真实编译一个含空白节、带左侧竖线的横线节、方眼罫节、两侧水印与特殊字符的六页文档。
+//! 真实编译一个含空白节、带左侧竖线的横线节、方眼罫节、两页一日时间轴、两侧水印与特殊字符的八页文档。
 use base6_techo_lib::{
     compile,
     templates::document::{Document, generate_document_latex},
@@ -30,7 +30,16 @@ fn mixed_sections_compile_to_real_pdf() {
                 "spacingMm": 7.5,
                 "marginLine": {"xMm": 25, "color": "#D96A6A", "widthPt": 0.4}
             }},
-            {"pages": 1, "body": {"kind": "hogen", "color": "#A9D1AE"}}
+            {"pages": 1, "body": {"kind": "hogen", "color": "#A9D1AE"}},
+            {"pages": 2, "body": {
+                "kind": "daily",
+                "startDate": "2026-08-31",
+                "endDate": "2026-08-31",
+                "pagesPerDay": 2,
+                "startHour": 6,
+                "endHour": 26,
+                "sun": {"latitude": 31.23, "longitude": 121.47, "utcOffsetHours": 8}
+            }}
         ]
     }"##).unwrap();
     let tex = generate_document_latex(&doc).unwrap();

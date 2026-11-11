@@ -2,6 +2,7 @@
 pub mod calendar;
 mod common;
 pub mod components;
+pub mod daily;
 pub mod document;
 pub mod imposition;
 mod latex;

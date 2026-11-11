@@ -33,6 +33,7 @@ import {
   type LinearPattern,
   MARGIN_LINE_X_MM_MAX,
   MARGIN_LINE_X_MM_MIN,
+  newDaily,
   newMonth,
   newOctanWeek,
   newTracker,
@@ -45,6 +46,7 @@ import {
   SPACING_MM_MAX,
   SPACING_MM_MIN,
 } from "../types/document";
+import { DailyFields } from "./DailyFields";
 import { DecorationsPanel } from "./DecorationsPanel";
 import { MonthFields } from "./MonthFields";
 import { NumberField } from "./NumberField";
@@ -384,6 +386,8 @@ const defaultBodyFor = (kind: string): BodyTemplate => {
       return newMonth();
     case "tracker":
       return newTracker();
+    case "daily":
+      return newDaily();
     default:
       return { kind: "blank" };
   }
@@ -438,12 +442,14 @@ const SectionEditor = memo(function SectionEditor({
             <option value="octanWeek">{t("editor.template.octanWeek")}</option>
             <option value="month">{t("editor.template.month")}</option>
             <option value="tracker">{t("editor.template.tracker")}</option>
+            <option value="daily">{t("editor.template.daily")}</option>
           </select>
         </fieldset>
 
         {body.kind === "octanWeek" ||
         body.kind === "month" ||
-        body.kind === "tracker" ? (
+        body.kind === "tracker" ||
+        body.kind === "daily" ? (
           <fieldset className="fieldset">
             <legend className="fieldset-legend">
               {t("editor.section.pages")}
@@ -459,7 +465,9 @@ const SectionEditor = memo(function SectionEditor({
                 ? t("editor.config.octanPagesAuto")
                 : body.kind === "month"
                   ? t("editor.config.monthPagesAuto")
-                  : t("editor.config.trackerPagesAuto")}
+                  : body.kind === "tracker"
+                    ? t("editor.config.trackerPagesAuto")
+                    : t("editor.config.dailyPagesAuto")}
             </p>
           </fieldset>
         ) : (
@@ -509,6 +517,9 @@ const SectionEditor = memo(function SectionEditor({
       )}
       {body.kind === "tracker" && (
         <TrackerFields sectionId={section.id} body={body} />
+      )}
+      {body.kind === "daily" && (
+        <DailyFields sectionId={section.id} body={body} />
       )}
 
       <div className="divider my-0" />

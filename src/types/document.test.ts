@@ -4,13 +4,19 @@ import {
   addMonths,
   type Band,
   clampBand,
+  clampDaily,
   clampMonth,
   clampOctanWeek,
   clampTracker,
+  DAILY_LABEL_SIZE_PT_MAX,
+  DEFAULT_DAILY,
+  DEFAULT_DAILY_SUN,
   DEFAULT_MONTH,
   DEFAULT_OCTAN_WEEK,
   DEFAULT_PAGE,
   DEFAULT_TRACKER,
+  dailyPages,
+  daysBetween,
   defaultMarginsForPaper,
   diffSectionDecorations,
   diffSectionMargins,
@@ -20,6 +26,7 @@ import {
   mondayOf,
   monthOf,
   monthPages,
+  newDaily,
   newDecorations,
   newMonth,
   newOctanWeek,
@@ -580,5 +587,110 @@ describe("tracker pattern", () => {
     });
     expect(body.months).toBe(1);
     expect(trackerPages(body)).toBe(1);
+  });
+});
+
+describe("daily pattern", () => {
+  it("newDaily 默认今天一天，一天一页", () => {
+    const body = newDaily(new Date(2026, 10, 11, 12));
+    expect(body.startDate).toBe("2026-11-11");
+    expect(body.endDate).toBe("2026-11-11");
+    expect(dailyPages(body)).toBe(1);
+  });
+
+  it("页数 = 天数 × 每日页数", () => {
+    const body = { ...DEFAULT_DAILY, endDate: "2026-09-06" };
+    expect(daysBetween(body.startDate, body.endDate)).toBe(7);
+    expect(dailyPages(body)).toBe(7);
+    expect(dailyPages({ ...body, pagesPerDay: 2 })).toBe(14);
+  });
+
+  it("clamp 修复非法日期、整点、每日页数、格式与颜色", () => {
+    const body = clampDaily({
+      kind: "daily",
+      startDate: "2026-02-30",
+      endDate: "2026-01-01",
+      startHour: -1,
+      endHour: 99,
+      pagesPerDay: 3 as never,
+      lineColor: "red",
+      lineWidthPt: 0,
+      labelSizePt: 100,
+      titleFormat: "%Q",
+      weekdayLang: "xx" as never,
+      sun: {
+        latitude: 999,
+        longitude: 999,
+        utcOffsetHours: 99,
+        daylightColor: "red",
+        nightColor: "#xyz",
+      },
+    });
+    expect(body.startDate).toBe(DEFAULT_DAILY.startDate);
+    expect(body.endDate).toBe(DEFAULT_DAILY.startDate);
+    expect(body.startHour).toBe(0);
+    expect(body.endHour).toBe(30);
+    expect(body.pagesPerDay).toBe(1);
+    expect(body.lineColor).toBe(DEFAULT_DAILY.lineColor);
+    expect(body.lineWidthPt).toBe(0.01);
+    expect(body.labelSizePt).toBe(DAILY_LABEL_SIZE_PT_MAX);
+    expect(body.titleFormat).toBe(DEFAULT_DAILY.titleFormat);
+    expect(body.weekdayLang).toBe("zh");
+    expect(body.sun).toEqual({
+      latitude: 90,
+      longitude: 180,
+      utcOffsetHours: 14,
+      daylightColor: DEFAULT_DAILY_SUN.daylightColor,
+      nightColor: DEFAULT_DAILY_SUN.nightColor,
+    });
+  });
+
+  it("一天两页时自动补足两个非空半日", () => {
+    const body = clampDaily({
+      ...DEFAULT_DAILY,
+      startHour: 0,
+      endHour: 1,
+      pagesPerDay: 2,
+    });
+    expect(body.startHour).toBe(0);
+    expect(body.endHour).toBe(2);
+
+    const late = clampDaily({
+      ...DEFAULT_DAILY,
+      startHour: 30,
+      endHour: 30,
+      pagesPerDay: 2,
+    });
+    expect(late.startHour).toBe(28);
+    expect(late.endHour).toBe(30);
+  });
+
+  it("页数上限 999：一天一页最多 999 天，一天两页最多 499 天", () => {
+    const one = clampDaily({
+      ...DEFAULT_DAILY,
+      startDate: "2026-01-01",
+      endDate: "2030-01-01",
+    });
+    expect(one.endDate).toBe(addDays("2026-01-01", 998));
+    expect(dailyPages(one)).toBe(999);
+
+    const two = clampDaily({
+      ...DEFAULT_DAILY,
+      startDate: "2026-01-01",
+      endDate: "2030-01-01",
+      pagesPerDay: 2,
+    });
+    expect(two.endDate).toBe(addDays("2026-01-01", 498));
+    expect(dailyPages(two)).toBe(998);
+  });
+
+  it("起点接近 9999 年时天数收敛到年界内", () => {
+    const body = clampDaily({
+      ...DEFAULT_DAILY,
+      startDate: "9999-12-31",
+      endDate: "9999-12-31",
+    });
+    expect(body.startDate).toBe("9999-12-31");
+    expect(body.endDate).toBe("9999-12-31");
   });
 });

@@ -102,6 +102,50 @@ export interface OctanWeekPattern {
   dateSizePt: number;
 }
 
+/** 一日时间轴的昼夜着色设置；null 表示只使用线色。 */
+export interface SunWindow {
+  /** 纬度 -90–90，默认 31.23（上海） */
+  latitude: number;
+  /** 经度 -180–180，默认 121.47 */
+  longitude: number;
+  /** 本地时间相对 UTC 的偏移（小时），-14–14，默认 8；不处理夏令时 */
+  utcOffsetHours: number;
+  /** 白天刻线颜色，#RRGGBB，默认 #E5B93F */
+  daylightColor: string;
+  /** 夜间刻线颜色，#RRGGBB，默认 #496A9F */
+  nightColor: string;
+}
+
+/**
+ * 一日时间轴：时间沿页心纵向排布，小时号贴装订侧，整点刻线向外侧延伸成点线。
+ * 每天一页或两页，页数由日期范围推导。
+ */
+export interface DailyPattern {
+  kind: "daily";
+  /** 起始日期，YYYY-MM-DD，Rust 侧拒绝非法日期 */
+  startDate: string;
+  /** 结束日期（含当天），必须晚于或等于起始日期 */
+  endDate: string;
+  /** 起始整点 0–30，大于 24 表示延续到次日；Rust 侧要求 0 ≤ 起始 < 结束 ≤ 30 */
+  startHour: number;
+  /** 结束整点 0–30 */
+  endHour: number;
+  /** 每天页数：1 = 全天一页，2 = 前半天 / 后半天各一页 */
+  pagesPerDay: 1 | 2;
+  /** 未开启昼夜着色时的线色 */
+  lineColor: string;
+  /** 线宽，Rust 校验 0.01–10pt */
+  lineWidthPt: number;
+  /** 小时号字号，Rust 校验 1–72pt；标题取其 1.5 倍 */
+  labelSizePt: number;
+  /** 日期标题格式，支持 %Y/%m/%-m/%d/%-d/%a/%% */
+  titleFormat: string;
+  /** %a 使用的星期短名语言 */
+  weekdayLang: WeekdayLang;
+  /** null = 不按昼夜着色 */
+  sun: SunWindow | null;
+}
+
 /**
  * 月历：单页横向设计，整页旋转 90°；每月一页，页数由月份数推导。
  * 只含公历网格与可选月相，农历/节假日/双页/打卡表未移植。
@@ -161,7 +205,8 @@ export type BodyTemplate =
   | HogenPattern
   | OctanWeekPattern
   | MonthPattern
-  | TrackerPattern;
+  | TrackerPattern
+  | DailyPattern;
 
 /** 页头/页脚内容，与 Rust BandContent（tag = "kind"）一致。 */
 export type BandContent =
@@ -341,6 +386,49 @@ export const newOctanWeek = (today = new Date()): OctanWeekPattern => {
   };
 };
 
+/** 一日时间轴：一天最多 30 个整点；全书页数上限与 Rust 一致。 */
+export const DAILY_HOUR_MAX = 30;
+export const DAILY_PAGES_MAX = 999;
+export const DAILY_LABEL_SIZE_PT_MIN = 1;
+export const DAILY_LABEL_SIZE_PT_MAX = 72;
+export const DAILY_UTC_OFFSET_HOURS_MIN = -14;
+export const DAILY_UTC_OFFSET_HOURS_MAX = 14;
+export const DAILY_LATITUDE_MIN = -90;
+export const DAILY_LATITUDE_MAX = 90;
+export const DAILY_LONGITUDE_MIN = -180;
+export const DAILY_LONGITUDE_MAX = 180;
+
+/** 与 Rust SunWindow::default 一致。 */
+export const DEFAULT_DAILY_SUN: SunWindow = {
+  latitude: 31.23,
+  longitude: 121.47,
+  utcOffsetHours: 8,
+  daylightColor: "#E5B93F",
+  nightColor: "#496A9F",
+};
+
+/** 与 Rust DailyPattern::default 一致。 */
+export const DEFAULT_DAILY: DailyPattern = {
+  kind: "daily",
+  startDate: "2026-08-31",
+  endDate: "2026-08-31",
+  startHour: 0,
+  endHour: 24,
+  pagesPerDay: 1,
+  lineColor: "#7A7A7A",
+  lineWidthPt: 0.4,
+  labelSizePt: 10.2,
+  titleFormat: "%Y年%-m月%-d日",
+  weekdayLang: "zh",
+  sun: null,
+};
+
+/** 新建一日时间轴默认今天一天，日期与其它模板一样取本地时区。 */
+export const newDaily = (today = new Date()): DailyPattern => {
+  const iso = `${String(today.getFullYear()).padStart(4, "0")}-${pad2(today.getMonth() + 1)}-${pad2(today.getDate())}`;
+  return { ...DEFAULT_DAILY, startDate: iso, endDate: iso };
+};
+
 /** 连续月份数上限，与 Rust MONTHS_MAX 一致。 */
 export const MONTHS_MAX = 120;
 export const MONTH_DATE_SIZE_PT_MIN = 1;
@@ -490,6 +578,17 @@ export const weeksBetween = (start: string, end: string): number => {
 /** 八分周视图页数：每周固定两页。 */
 export const octanWeekPages = (body: OctanWeekPattern): number =>
   weeksBetween(body.startDate, body.endDate) * 2;
+
+/** 含首尾的天数；非法、倒置返回 0。 */
+export const daysBetween = (start: string, end: string): number => {
+  const from = parseIsoOrdinal(start);
+  const to = parseIsoOrdinal(end);
+  return from === null || to === null || to < from ? 0 : to - from + 1;
+};
+
+/** 一日时间轴页数：天数 × 每日页数。 */
+export const dailyPages = (body: DailyPattern): number =>
+  daysBetween(body.startDate, body.endDate) * (body.pagesPerDay === 2 ? 2 : 1);
 
 const ISO_MONTH = /^(\d{4})-(\d{2})$/;
 
@@ -655,6 +754,107 @@ export const clampOctanWeek = (body: OctanWeekPattern): OctanWeekPattern => {
       OCTAN_DATE_SIZE_PT_MAX,
       DEFAULT_OCTAN_WEEK.dateSizePt,
     ),
+  };
+};
+
+/** 9999-12-31 是 4 位年份可取到的最后一天。 */
+const LAST_CIVIL_ORDINAL = daysFromCivil(9999, 12, 31);
+
+/** 一日时间轴：日期范围、整点、每日页数与昼夜参数全部收敛到 Rust 可接受的形状。 */
+export const clampDaily = (body: DailyPattern): DailyPattern => {
+  const pagesPerDay = body.pagesPerDay === 2 ? 2 : 1;
+  const defaultStart = parseIsoOrdinal(DEFAULT_DAILY.startDate) as number;
+  const parsedStart = parseIsoOrdinal(body.startDate);
+  const startOrdinal =
+    parsedStart === null || parsedStart > LAST_CIVIL_ORDINAL
+      ? defaultStart
+      : parsedStart;
+  // 页数上限与年份上限共同决定可容纳的天数。
+  const maxDays = Math.min(
+    Math.floor(DAILY_PAGES_MAX / pagesPerDay),
+    LAST_CIVIL_ORDINAL - startOrdinal + 1,
+  );
+  const days = Math.min(
+    Math.max(1, daysBetween(body.startDate, body.endDate) || 1),
+    maxDays,
+  );
+
+  let startHour = Math.round(
+    clampNumber(body.startHour, 0, DAILY_HOUR_MAX, DEFAULT_DAILY.startHour),
+  );
+  let endHour = Math.round(
+    clampNumber(body.endHour, 0, DAILY_HOUR_MAX, DEFAULT_DAILY.endHour),
+  );
+  if (endHour <= startHour) {
+    if (startHour < DAILY_HOUR_MAX) {
+      endHour = startHour + 1;
+    } else {
+      startHour = DAILY_HOUR_MAX - 1;
+      endHour = DAILY_HOUR_MAX;
+    }
+  }
+  // 一天两页需要能拆出两个非空半日。
+  if (pagesPerDay === 2 && endHour - startHour < 2) {
+    if (endHour < DAILY_HOUR_MAX) {
+      endHour = Math.min(DAILY_HOUR_MAX, startHour + 2);
+    } else {
+      startHour = Math.max(0, endHour - 2);
+    }
+  }
+
+  const sun = body.sun;
+  return {
+    kind: "daily",
+    startDate: isoFromOrdinal(startOrdinal),
+    endDate: isoFromOrdinal(startOrdinal + days - 1),
+    startHour,
+    endHour,
+    pagesPerDay,
+    lineColor: clampColor(body.lineColor, DEFAULT_DAILY.lineColor),
+    lineWidthPt: clampLineWidthPt(body.lineWidthPt),
+    labelSizePt: clampNumber(
+      body.labelSizePt,
+      DAILY_LABEL_SIZE_PT_MIN,
+      DAILY_LABEL_SIZE_PT_MAX,
+      DEFAULT_DAILY.labelSizePt,
+    ),
+    titleFormat:
+      typeof body.titleFormat === "string" &&
+      body.titleFormat.length <= TEXT_MAX &&
+      isValidDateFormat(body.titleFormat)
+        ? body.titleFormat
+        : DEFAULT_DAILY.titleFormat,
+    weekdayLang:
+      body.weekdayLang === "en" || body.weekdayLang === "ja"
+        ? body.weekdayLang
+        : "zh",
+    sun: sun
+      ? {
+          latitude: clampNumber(
+            sun.latitude,
+            DAILY_LATITUDE_MIN,
+            DAILY_LATITUDE_MAX,
+            DEFAULT_DAILY_SUN.latitude,
+          ),
+          longitude: clampNumber(
+            sun.longitude,
+            DAILY_LONGITUDE_MIN,
+            DAILY_LONGITUDE_MAX,
+            DEFAULT_DAILY_SUN.longitude,
+          ),
+          utcOffsetHours: clampNumber(
+            sun.utcOffsetHours,
+            DAILY_UTC_OFFSET_HOURS_MIN,
+            DAILY_UTC_OFFSET_HOURS_MAX,
+            DEFAULT_DAILY_SUN.utcOffsetHours,
+          ),
+          daylightColor: clampColor(
+            sun.daylightColor,
+            DEFAULT_DAILY_SUN.daylightColor,
+          ),
+          nightColor: clampColor(sun.nightColor, DEFAULT_DAILY_SUN.nightColor),
+        }
+      : null,
   };
 };
 
@@ -910,6 +1110,8 @@ export const clampBody = (body: BodyTemplate): BodyTemplate => {
       return clampMonth(body);
     case "tracker":
       return clampTracker(body);
+    case "daily":
+      return clampDaily(body);
     default:
       return { kind: "blank" };
   }

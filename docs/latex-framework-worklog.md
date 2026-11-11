@@ -90,3 +90,13 @@
 5. `tracker.rs` 采用 archive 的版式常量：打卡项列宽 5 格、两表间距 2mm、整体上移 3mm、左侧箭头泳道 6mm；`Canvas` 新增 `arrow_path`，箭头沿用 TikZ 默认 0.4pt 线宽。`required_pages() = months`，文档计划阶段拒绝页数不符。
 6. 前端新增 `TrackerPattern`、默认值、`newTracker`、`trackerPages`、`clampTracker`，与月历共用 `clampMonthSpan`/`monthSpanPages`；模板下拉、页数只读与 `TrackerFields` 配置组接入，中英词条同步。
 7. 验证：`cargo test` 全部通过（新增 5 项 tracker 集成测试与 1 项真实 Tectonic 编译）；`cargo clippy --all-targets -- -D warnings` 通过；`yarn test` 163 项通过，`tsc --noEmit` 与 `biome check .` 通过。栅格化 `build/tracker-sample.pdf` 目检 2026 年 7–8 月：两表行数、日期位置、箭头方向与旋转方向均正确。
+
+## 一日时间轴（daily）
+
+1. 对照 archive 分支 `backend/daily_timeline.rs` 与 `docs/layouts.md`：纵向时间轴排在装订侧，整点号与日期标题在外侧，15/30/60 分钟三档刻度，刻度向外画点线到页缘；可选按经纬度、时区与太阳高度角昼夜着色。旧实现按页高缩放并取整字号、两页拆分随左右装订页序反转、超过 24 点的整点号直接印成 25–30，点线逐点输出。
+2. 新增 `templates/daily.rs`：`DailyPattern`（日期范围、起止整点、每日页数、线色/线宽、整点号字号、标题格式、星期语言、可选 `SunWindow`）与校验；`required_pages() = 天数 × 每日页数`，页数上限 999，一天两页时要求时间跨度至少 2 小时。
+3. 修正旧实现的三处问题：字号改为显式 pt（标题固定为整点号的 1.5 倍），不再随页高缩放取整；两页拆分按节内页序的前/后半天推进，与左右装订无关；整点号超过 24 时减去 24 显示（25→01、30→06）。点线新增 `Canvas::line_dotted_batch`，用 TikZ `dash pattern` 画到页缘，替代逐点输出；同色点线共用一个 scope，线宽与点距只声明一次，每条线仍单独 `\draw` 以保证点列从行首重新起算。
+4. 太阳高度角按 NOAA 公式用纯 `f64` 实现，时区改为数值 `utcOffsetHours`，与项目不引入 chrono/chrono-tz 的既有决定一致；只有昼夜两色，不做晨昏渐变。
+5. 先写 `tests/daily.rs`：日期逐页推进、整点号 00–24、两页拆分阅读顺序、跨午夜整点号回绕、昼夜两色同时出现、页数必须等于天数 × 每日页数、非法输入。运行确认缺少实现后补齐。
+6. 前端新增 `DailyPattern`、`DEFAULT_DAILY`/`DEFAULT_DAILY_SUN`、`newDaily`、`daysBetween`、`dailyPages`、`clampDaily`；`pagesFor` 对 `daily` 自动推导页数，手工改页数被忽略。`DailyFields` 提供日期范围（起点 + 天数）、每日页数、整点范围、字号/线宽/线色、标题格式与星期语言，以及昼夜着色开关和经纬度/UTC 偏移/两色控件；中英词条同步。
+7. 验证：`cargo test` 全部通过（新增 7 项 daily 集成测试，并把两页一日时间轴加入真实 Tectonic e2e，八页混合文档编译通过且无缺字）；`cargo clippy --all-targets -- -D warnings` 通过；`yarn test` 通过，`tsc --noEmit` 与 Biome 通过。

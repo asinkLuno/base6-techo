@@ -354,6 +354,42 @@ impl<'a> Canvas<'a> {
         .unwrap();
     }
 
+    /// 一组同色的等距点线，`spacing` 为相邻点的间距（mm）。线宽、点距与
+    /// 圆头线帽只声明一次，各线仍各自 `\draw`，让 dash pattern 在每条线
+    /// 起点重新开始，点列才能逐行对齐。用于一日时间轴的整点线。
+    pub(crate) fn line_dotted_batch(
+        &mut self,
+        segments: &[(f64, f64, f64, f64)],
+        width_pt: f64,
+        color: &str,
+        spacing: f64,
+    ) {
+        if segments.is_empty() || spacing <= 0.0 {
+            return;
+        }
+        let width = width_pt * 25.4 / 72.27;
+        self.define_ink(color);
+        writeln!(
+            self.source,
+            "\\begin{{scope}}[ink,line width={}mm,dash pattern=on 0.01mm off {}mm,line cap=round]",
+            number(width),
+            number(spacing)
+        )
+        .unwrap();
+        for &(x1, y1, x2, y2) in segments {
+            writeln!(
+                self.source,
+                "\\draw ({},{}) -- ({},{});",
+                number(x1),
+                number(y1),
+                number(x2),
+                number(y2)
+            )
+            .unwrap();
+        }
+        self.source.push_str("\\end{scope}\n");
+    }
+
     /// 一组同色、同线宽的实线段合成为一条 TikZ 路径。
     /// TikZ 允许一条 `\draw` 包含多个互不连接的子路径，线宽与颜色只解析一次；
     /// 表格格线这类成百上千条短线在长文档里收益最明显。
@@ -645,6 +681,23 @@ mod tests {
         assert_eq!(number(0.1), "0.1");
         assert_eq!(number(210.0), "210");
         assert_eq!(number(7.123456), "7.123456");
+    }
+
+    #[test]
+    fn dotted_batch_shares_options_but_keeps_one_draw_per_line() {
+        let mut declared = HashSet::new();
+        let mut canvas = Canvas::new(&mut declared);
+        canvas.line_dotted_batch(
+            &[(0.0, 0.0, 10.0, 0.0), (0.0, 1.0, 10.0, 1.0)],
+            0.4,
+            "#7A7A7A",
+            2.0,
+        );
+        // 线宽与 dash pattern 只声明一次；每条线仍单独 \draw，避免相位串到下一行。
+        assert_eq!(canvas.source.matches("dash pattern=").count(), 1);
+        assert_eq!(canvas.source.matches("\\begin{scope}[").count(), 1);
+        assert_eq!(canvas.source.matches("\\draw (").count(), 2);
+        assert_eq!(canvas.source.matches("\\definecolor{ink}").count(), 1);
     }
 
     #[test]

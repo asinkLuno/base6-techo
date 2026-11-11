@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  DEFAULT_DAILY,
   DEFAULT_DOTS,
   DEFAULT_GRID,
   DEFAULT_HOGEN,
@@ -716,5 +717,31 @@ describe("tracker pages", () => {
       body: { ...DEFAULT_TRACKER, months: 2 },
     });
     expect(state().sections[0].pages).toBe(2);
+  });
+});
+
+describe("daily pages", () => {
+  const dailyBody = (endDate: string, pagesPerDay: 1 | 2 = 1) => ({
+    ...DEFAULT_DAILY,
+    startDate: "2026-08-31",
+    endDate,
+    pagesPerDay,
+  });
+
+  it("切换日期范围与每日页数时页数自动跟随", () => {
+    state().addSection();
+    const id = state().sections[0].id;
+    state().updateSection(id, { body: dailyBody("2026-09-06") });
+    expect(state().sections[0].pages).toBe(7);
+    state().updateSection(id, { body: dailyBody("2026-09-06", 2) });
+    expect(state().sections[0].pages).toBe(14);
+  });
+
+  it("一日时间轴的页数不能被手工改走", () => {
+    state().addSection();
+    const id = state().sections[0].id;
+    state().updateSection(id, { body: dailyBody("2026-09-06") });
+    state().updateSection(id, { pages: 99 });
+    expect(state().sections[0].pages).toBe(7);
   });
 });
