@@ -39,7 +39,7 @@ anyhow = "1"
 # apply deterministically. native-tls-vendored = static OpenSSL built from source by
 # the NDK (no system OpenSSL needed when cross-compiling).
 tectonic = { version = "=0.16.9", features = ["native-tls-vendored"] }
-# unpacks the prewarmed offline cache (src-tauri/assets/tectonic-cache.zip) on first run
+# unpacks the prewarmed offline cache (public/tectonic-cache.zip -> dist/) on first run
 zip = { version = "2", default-features = false, features = ["deflate"] }
 
 
@@ -48,5 +48,6 @@ zip = { version = "2", default-features = false, features = ["deflate"] }
 codegen-units = 1
 lto = true
 opt-level = 3
-panic = "abort"
+# 必须保持 unwind：compile::compile 用 catch_unwind 把 tectonic 内部 panic
+# 转成可展示的错误。panic = "abort" 会让 catch_unwind 失效、直接杀掉整个 App。
 strip = true
