@@ -30,6 +30,8 @@ const ARROW_LANE: f64 = 6.0;
 const ARROW_WIDTH_PT: f64 = 0.4;
 /// 日期距格边留白（mm）。
 const DATE_PAD: f64 = 0.2;
+/// 上表固定覆盖 1–14 日；下表从 15 日到月末（每月至少 28 天，下表恒非空）。
+const UPPER_DAYS: usize = 14;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default, rename_all = "camelCase", deny_unknown_fields)]
@@ -86,36 +88,27 @@ impl TrackerPattern {
 
     fn draw_page(&self, canvas: &mut Canvas<'_>, body: Rect, first: Date) {
         let days = MonthGrid::new(first).days as usize;
+        debug_assert!(days > UPPER_DAYS, "公历月份至少 28 天，下表必须非空");
         let items = self.items;
         let rows = items + 1; // 表头行 + 打卡项行
-        let count1 = days.min(14);
-        let count2 = days - count1;
+        let lower_days = days - UPPER_DAYS;
         let land = Rect {
             x: 0.0,
             y: 0.0,
             width: body.height,
             height: body.width,
         };
-        let cols = (ITEM_W + count1 as f64).max(count2 as f64);
-        let lane = if count2 > 0 { ARROW_LANE } else { 0.0 };
-        let cell = ((land.width - lane) / cols)
-            .min(if count2 > 0 {
-                (land.height - TABLE_GAP) / (2.0 * rows as f64)
-            } else {
-                land.height / rows as f64
-            })
+        let cols = (ITEM_W + UPPER_DAYS as f64).max(lower_days as f64);
+        let cell = ((land.width - ARROW_LANE) / cols)
+            .min((land.height - TABLE_GAP) / (2.0 * rows as f64))
             .max(0.8);
-        let w1 = (ITEM_W + count1 as f64) * cell;
-        let w2 = count2 as f64 * cell;
+        let w1 = (ITEM_W + UPPER_DAYS as f64) * cell;
+        let w2 = lower_days as f64 * cell;
         let max_w = w1.max(w2);
         // 表在箭头泳道右侧的剩余宽度内居中。
-        let left = land.x + lane + (land.width - lane - max_w) / 2.0;
+        let left = land.x + ARROW_LANE + (land.width - ARROW_LANE - max_w) / 2.0;
         let table_h = rows as f64 * cell;
-        let total = if count2 > 0 {
-            2.0 * table_h + TABLE_GAP
-        } else {
-            table_h
-        };
+        let total = 2.0 * table_h + TABLE_GAP;
         let top1 = (land.y + (land.height - total) / 2.0 - TABLE_UP).max(land.y + 0.5);
         let top2 = top1 + table_h + TABLE_GAP;
         let land_map = Landscape::new(body);
@@ -127,33 +120,31 @@ impl TrackerPattern {
                 left,
                 top: top1,
                 first_day: 1,
-                days: count1,
+                days: UPPER_DAYS,
                 with_items: true,
                 cell,
             },
         );
-        if count2 > 0 {
-            self.draw_table(
-                canvas,
-                land_map,
-                TableSpec {
-                    left,
-                    top: top2,
-                    first_day: 1 + count1 as u32,
-                    days: count2,
-                    with_items: false,
-                    cell,
-                },
-            );
-            // 打卡第 i 行：上表左缘 → 泳道左侧错开 → 下表左缘；表头行不连。
-            for row in 1..rows {
-                let yc1 = top1 + (row as f64 + 0.5) * cell;
-                let yc2 = top2 + (row as f64 + 0.5) * cell;
-                let xm = (left - 1.5 - row as f64 * 1.5).max(land.x + 0.8);
-                let points = [(left - 0.4, yc1), (xm, yc1), (xm, yc2), (left - 0.4, yc2)]
-                    .map(|(x, y)| land_map.point(x, y));
-                canvas.arrow_path(&points, ARROW_WIDTH_PT, &self.line_color);
-            }
+        self.draw_table(
+            canvas,
+            land_map,
+            TableSpec {
+                left,
+                top: top2,
+                first_day: 1 + UPPER_DAYS as u32,
+                days: lower_days,
+                with_items: false,
+                cell,
+            },
+        );
+        // 打卡第 i 行：上表左缘 → 泳道左侧错开 → 下表左缘；表头行不连。
+        for row in 1..rows {
+            let yc1 = top1 + (row as f64 + 0.5) * cell;
+            let yc2 = top2 + (row as f64 + 0.5) * cell;
+            let xm = (left - 1.5 - row as f64 * 1.5).max(land.x + 0.8);
+            let points = [(left - 0.4, yc1), (xm, yc1), (xm, yc2), (left - 0.4, yc2)]
+                .map(|(x, y)| land_map.point(x, y));
+            canvas.arrow_path(&points, ARROW_WIDTH_PT, &self.line_color);
         }
     }
 
