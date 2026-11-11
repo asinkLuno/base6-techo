@@ -11,6 +11,8 @@
     "totalPagesOverflow": "全书已超过 {{max}} 页",
     "section": {
       "label": "Section {{index}}",
+      "name": "名称",
+      "namePlaceholder": "留空则显示 Section {{index}}",
       "pages": "页数",
       "numbered": "计入页码",
       "inheritDecorations": "继承全书页边距与装饰",

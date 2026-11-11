@@ -11,6 +11,8 @@
     "totalPagesOverflow": "Over {{max}} pages in the book",
     "section": {
       "label": "Section {{index}}",
+      "name": "Name",
+      "namePlaceholder": "Leave empty to use Section {{index}}",
       "pages": "Pages",
       "numbered": "Count in page numbers",
       "inheritDecorations": "Inherit book margins & decorations",

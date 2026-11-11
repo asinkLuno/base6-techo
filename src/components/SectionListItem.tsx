@@ -15,6 +15,7 @@ import {
   clampMarginLineWidthPt,
   clampMarginLineXMm,
   clampPages,
+  clampSectionName,
   clampSpacingMm,
   DEFAULT_DOTS,
   DEFAULT_GRID,
@@ -36,6 +37,7 @@ import {
   PAGES_MIN,
   resolveSectionDecorations,
   resolveSectionMargins,
+  SECTION_NAME_MAX,
   type SectionDraft,
   SPACING_MM_MAX,
   SPACING_MM_MIN,
@@ -102,6 +104,59 @@ function ColorField({
         className="input h-12 w-full cursor-pointer p-1"
         value={value}
         onChange={(e) => onChange(e.target.value)}
+      />
+    </fieldset>
+  );
+}
+
+/**
+ * section 名称：打字时只更新本地文本，失焦或回车时 trim 后提交，
+ * 避免边输入边清洗把词间空格吃掉。
+ */
+function NameField({
+  sectionId,
+  name,
+  index,
+}: {
+  sectionId: string;
+  name: string;
+  index: number;
+}) {
+  const { t } = useTranslation();
+  const updateSection = useDocumentStore((s) => s.updateSection);
+  const [text, setText] = useState(name);
+  const [prevName, setPrevName] = useState(name);
+  // 外部名称被改写时在渲染期同步本地文本（与 NumberField 相同的受控写法）。
+  if (prevName !== name) {
+    setPrevName(name);
+    setText(name);
+  }
+
+  const commit = () => {
+    const next = clampSectionName(text);
+    setText(next);
+    if (next !== name) updateSection(sectionId, { name: next });
+  };
+
+  return (
+    <fieldset className="fieldset">
+      <legend className="fieldset-legend">{t("editor.section.name")}</legend>
+      <input
+        type="text"
+        className="input w-full"
+        value={text}
+        maxLength={SECTION_NAME_MAX}
+        placeholder={t("editor.section.namePlaceholder", {
+          index: index + 1,
+        })}
+        onChange={(e) => setText(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          // 输入法确认候选词也会触发 Enter，不能打断组合过程。
+          if (e.key === "Enter" && !e.nativeEvent.isComposing) {
+            e.currentTarget.blur();
+          }
+        }}
       />
     </fieldset>
   );
@@ -412,8 +467,11 @@ export default memo(function SectionListItem({
         </button>
         {/* 标签与徽标单独成组换行：窄屏时它们换行撑高标题行，删除按钮仍留在右侧 */}
         <span className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-1">
-          <span className="font-semibold">
-            {t("editor.section.label", { index: index + 1 })}
+          <span
+            className="min-w-0 truncate font-semibold"
+            title={section.name || undefined}
+          >
+            {section.name || t("editor.section.label", { index: index + 1 })}
           </span>
           <span className="badge badge-outline">
             {t(`editor.template.${body.kind}`)}
@@ -441,6 +499,12 @@ export default memo(function SectionListItem({
       <div className="collapse-content">
         {expandedOnce && (
           <div className="grid gap-4">
+            <NameField
+              sectionId={section.id}
+              name={section.name}
+              index={index}
+            />
+
             <div className="grid gap-4 sm:grid-cols-2">
               <fieldset className="fieldset">
                 <legend className="fieldset-legend">
