@@ -1,4 +1,5 @@
 use base6_techo_lib::templates::{
+    components::{Band, BandContent, Decorations, Watermark},
     document::{Document, Section, generate_document_latex, plan_document},
     layout::{Binding, Side},
     patterns::{BodyTemplate, DotsPattern, GridPattern, HogenPattern, LinearPattern},
@@ -519,6 +520,37 @@ fn invalid_section_margins_are_rejected() {
         let doc: Document = serde_json::from_str(&json).unwrap();
         assert!(plan_document(&doc).is_err(), "应拒绝 {margins}");
     }
+}
+
+#[test]
+fn decoration_text_is_capped_at_the_shared_text_limit() {
+    let max = "x".repeat(128);
+    let over = "x".repeat(129);
+
+    let mut doc = document();
+    doc.decorations.header.content = BandContent::Text { text: max };
+    assert!(plan_document(&doc).is_ok());
+
+    doc.decorations.header.content = BandContent::Text { text: over.clone() };
+    assert!(plan_document(&doc).is_err());
+
+    let mut doc = document();
+    doc.decorations.outer_watermark = Some(Watermark {
+        text: over.clone(),
+        ..Default::default()
+    });
+    assert!(plan_document(&doc).is_err());
+
+    // 节级覆盖走同一条校验路径。
+    let mut doc = document();
+    doc.sections[0].decorations = Some(Decorations {
+        footer: Band {
+            content: BandContent::Text { text: over },
+            ..Default::default()
+        },
+        ..Default::default()
+    });
+    assert!(plan_document(&doc).is_err());
 }
 
 #[test]

@@ -1,5 +1,6 @@
 //! 页头、页脚与两侧水印：共享布局结果，各自负责绘制。
 use super::{
+    common::check_text_len,
     document::PlannedPage,
     latex::{Canvas, validate_color},
     layout::{Rect, Side, check_range},
@@ -33,6 +34,14 @@ impl BandContent {
             Self::Empty => false,
             Self::Text { text } => !text.is_empty(),
             Self::Date => true,
+        }
+    }
+
+    /// 用户文字最终会逐字符进 LaTeX，长度必须在边界层收口。
+    fn validate(&self, label: &str) -> Result<(), String> {
+        match self {
+            Self::Text { text } => check_text_len(label, text),
+            Self::Empty | Self::Date => Ok(()),
         }
     }
 }
@@ -89,11 +98,16 @@ impl Decorations {
     pub(crate) fn validate(&self) -> Result<(), String> {
         self.header.style.validate()?;
         self.footer.style.validate()?;
-        for watermark in [&self.inner_watermark, &self.outer_watermark]
-            .into_iter()
-            .flatten()
-        {
-            watermark.style.validate()?;
+        self.header.content.validate("页头文字")?;
+        self.footer.content.validate("页脚文字")?;
+        for (label, watermark) in [
+            ("内侧水印文字", &self.inner_watermark),
+            ("外侧水印文字", &self.outer_watermark),
+        ] {
+            if let Some(watermark) = watermark {
+                watermark.style.validate()?;
+                check_text_len(label, &watermark.text)?;
+            }
         }
         Ok(())
     }

@@ -4,6 +4,7 @@ import {
   clampNumber,
   clampTextStyle,
   type Decorations,
+  TEXT_MAX,
   TEXT_SIZE_PT_MAX,
   TEXT_SIZE_PT_MIN,
   type TextStyle,
@@ -107,6 +108,7 @@ function BandFields({
             <input
               type="text"
               className="input w-full"
+              maxLength={TEXT_MAX}
               value={band.content.text}
               onChange={(e) =>
                 set({ content: { kind: "text", text: e.target.value } })
@@ -200,6 +202,7 @@ function WatermarkFields({
             <input
               type="text"
               className="input w-full"
+              maxLength={TEXT_MAX}
               value={watermark.text}
               onChange={(e) => onChange({ ...watermark, text: e.target.value })}
             />
