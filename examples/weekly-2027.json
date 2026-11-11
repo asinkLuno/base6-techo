@@ -1,0 +1,587 @@
+{
+  "format": "base6-techo/config",
+  "version": 1,
+  "exportedAt": "2026-11-11T00:00:00.000Z",
+  "sections": [
+    {
+      "name": "2027年1月 月历",
+      "pages": 1,
+      "numbered": true,
+      "body": {
+        "kind": "month",
+        "startMonth": "2027-01",
+        "months": 1,
+        "titleFormat": "%Y年%-m月",
+        "weekdayLang": "zh",
+        "weekdayHeaders": "一,二,三,四,五,六,日",
+        "lineColor": "#7A7A7A",
+        "textColor": "#000000",
+        "phaseColor": "#E5B93F",
+        "lineWidthPt": 0.4,
+        "dateSizePt": 8,
+        "showPhase": true
+      },
+      "margins": null,
+      "decorations": null
+    },
+    {
+      "name": "2027年1月 周视图",
+      "pages": 10,
+      "numbered": true,
+      "body": {
+        "kind": "octanWeek",
+        "startDate": "2026-12-28",
+        "endDate": "2027-01-31",
+        "dateFormat": "%-d",
+        "weekdayLang": "zh",
+        "titleFormat": "%Y年%-m月",
+        "weekdayHeaders": "一,二,三,四,五,六,日",
+        "lineColor": "#7A7A7A",
+        "textColor": "#000000",
+        "highlightColor": "#8B0000",
+        "phaseColor": "#E5B93F",
+        "lineWidthPt": 0.4,
+        "lineStyle": "solid",
+        "centerGapMm": 2,
+        "dateSizePt": 10
+      },
+      "margins": null,
+      "decorations": null
+    },
+    {
+      "name": "2027年2月 月历",
+      "pages": 1,
+      "numbered": true,
+      "body": {
+        "kind": "month",
+        "startMonth": "2027-02",
+        "months": 1,
+        "titleFormat": "%Y年%-m月",
+        "weekdayLang": "zh",
+        "weekdayHeaders": "一,二,三,四,五,六,日",
+        "lineColor": "#7A7A7A",
+        "textColor": "#000000",
+        "phaseColor": "#E5B93F",
+        "lineWidthPt": 0.4,
+        "dateSizePt": 8,
+        "showPhase": true
+      },
+      "margins": null,
+      "decorations": null
+    },
+    {
+      "name": "2027年2月 周视图",
+      "pages": 8,
+      "numbered": true,
+      "body": {
+        "kind": "octanWeek",
+        "startDate": "2027-02-01",
+        "endDate": "2027-02-28",
+        "dateFormat": "%-d",
+        "weekdayLang": "zh",
+        "titleFormat": "%Y年%-m月",
+        "weekdayHeaders": "一,二,三,四,五,六,日",
+        "lineColor": "#7A7A7A",
+        "textColor": "#000000",
+        "highlightColor": "#8B0000",
+        "phaseColor": "#E5B93F",
+        "lineWidthPt": 0.4,
+        "lineStyle": "solid",
+        "centerGapMm": 2,
+        "dateSizePt": 10
+      },
+      "margins": null,
+      "decorations": null
+    },
+    {
+      "name": "2027年3月 月历",
+      "pages": 1,
+      "numbered": true,
+      "body": {
+        "kind": "month",
+        "startMonth": "2027-03",
+        "months": 1,
+        "titleFormat": "%Y年%-m月",
+        "weekdayLang": "zh",
+        "weekdayHeaders": "一,二,三,四,五,六,日",
+        "lineColor": "#7A7A7A",
+        "textColor": "#000000",
+        "phaseColor": "#E5B93F",
+        "lineWidthPt": 0.4,
+        "dateSizePt": 8,
+        "showPhase": true
+      },
+      "margins": null,
+      "decorations": null
+    },
+    {
+      "name": "2027年3月 周视图",
+      "pages": 8,
+      "numbered": true,
+      "body": {
+        "kind": "octanWeek",
+        "startDate": "2027-03-01",
+        "endDate": "2027-03-28",
+        "dateFormat": "%-d",
+        "weekdayLang": "zh",
+        "titleFormat": "%Y年%-m月",
+        "weekdayHeaders": "一,二,三,四,五,六,日",
+        "lineColor": "#7A7A7A",
+        "textColor": "#000000",
+        "highlightColor": "#8B0000",
+        "phaseColor": "#E5B93F",
+        "lineWidthPt": 0.4,
+        "lineStyle": "solid",
+        "centerGapMm": 2,
+        "dateSizePt": 10
+      },
+      "margins": null,
+      "decorations": null
+    },
+    {
+      "name": "2027年4月 月历",
+      "pages": 1,
+      "numbered": true,
+      "body": {
+        "kind": "month",
+        "startMonth": "2027-04",
+        "months": 1,
+        "titleFormat": "%Y年%-m月",
+        "weekdayLang": "zh",
+        "weekdayHeaders": "一,二,三,四,五,六,日",
+        "lineColor": "#7A7A7A",
+        "textColor": "#000000",
+        "phaseColor": "#E5B93F",
+        "lineWidthPt": 0.4,
+        "dateSizePt": 8,
+        "showPhase": true
+      },
+      "margins": null,
+      "decorations": null
+    },
+    {
+      "name": "2027年4月 周视图",
+      "pages": 10,
+      "numbered": true,
+      "body": {
+        "kind": "octanWeek",
+        "startDate": "2027-03-29",
+        "endDate": "2027-05-02",
+        "dateFormat": "%-d",
+        "weekdayLang": "zh",
+        "titleFormat": "%Y年%-m月",
+        "weekdayHeaders": "一,二,三,四,五,六,日",
+        "lineColor": "#7A7A7A",
+        "textColor": "#000000",
+        "highlightColor": "#8B0000",
+        "phaseColor": "#E5B93F",
+        "lineWidthPt": 0.4,
+        "lineStyle": "solid",
+        "centerGapMm": 2,
+        "dateSizePt": 10
+      },
+      "margins": null,
+      "decorations": null
+    },
+    {
+      "name": "2027年5月 月历",
+      "pages": 1,
+      "numbered": true,
+      "body": {
+        "kind": "month",
+        "startMonth": "2027-05",
+        "months": 1,
+        "titleFormat": "%Y年%-m月",
+        "weekdayLang": "zh",
+        "weekdayHeaders": "一,二,三,四,五,六,日",
+        "lineColor": "#7A7A7A",
+        "textColor": "#000000",
+        "phaseColor": "#E5B93F",
+        "lineWidthPt": 0.4,
+        "dateSizePt": 8,
+        "showPhase": true
+      },
+      "margins": null,
+      "decorations": null
+    },
+    {
+      "name": "2027年5月 周视图",
+      "pages": 8,
+      "numbered": true,
+      "body": {
+        "kind": "octanWeek",
+        "startDate": "2027-05-03",
+        "endDate": "2027-05-30",
+        "dateFormat": "%-d",
+        "weekdayLang": "zh",
+        "titleFormat": "%Y年%-m月",
+        "weekdayHeaders": "一,二,三,四,五,六,日",
+        "lineColor": "#7A7A7A",
+        "textColor": "#000000",
+        "highlightColor": "#8B0000",
+        "phaseColor": "#E5B93F",
+        "lineWidthPt": 0.4,
+        "lineStyle": "solid",
+        "centerGapMm": 2,
+        "dateSizePt": 10
+      },
+      "margins": null,
+      "decorations": null
+    },
+    {
+      "name": "2027年6月 月历",
+      "pages": 1,
+      "numbered": true,
+      "body": {
+        "kind": "month",
+        "startMonth": "2027-06",
+        "months": 1,
+        "titleFormat": "%Y年%-m月",
+        "weekdayLang": "zh",
+        "weekdayHeaders": "一,二,三,四,五,六,日",
+        "lineColor": "#7A7A7A",
+        "textColor": "#000000",
+        "phaseColor": "#E5B93F",
+        "lineWidthPt": 0.4,
+        "dateSizePt": 8,
+        "showPhase": true
+      },
+      "margins": null,
+      "decorations": null
+    },
+    {
+      "name": "2027年6月 周视图",
+      "pages": 8,
+      "numbered": true,
+      "body": {
+        "kind": "octanWeek",
+        "startDate": "2027-05-31",
+        "endDate": "2027-06-27",
+        "dateFormat": "%-d",
+        "weekdayLang": "zh",
+        "titleFormat": "%Y年%-m月",
+        "weekdayHeaders": "一,二,三,四,五,六,日",
+        "lineColor": "#7A7A7A",
+        "textColor": "#000000",
+        "highlightColor": "#8B0000",
+        "phaseColor": "#E5B93F",
+        "lineWidthPt": 0.4,
+        "lineStyle": "solid",
+        "centerGapMm": 2,
+        "dateSizePt": 10
+      },
+      "margins": null,
+      "decorations": null
+    },
+    {
+      "name": "2027年7月 月历",
+      "pages": 1,
+      "numbered": true,
+      "body": {
+        "kind": "month",
+        "startMonth": "2027-07",
+        "months": 1,
+        "titleFormat": "%Y年%-m月",
+        "weekdayLang": "zh",
+        "weekdayHeaders": "一,二,三,四,五,六,日",
+        "lineColor": "#7A7A7A",
+        "textColor": "#000000",
+        "phaseColor": "#E5B93F",
+        "lineWidthPt": 0.4,
+        "dateSizePt": 8,
+        "showPhase": true
+      },
+      "margins": null,
+      "decorations": null
+    },
+    {
+      "name": "2027年7月 周视图",
+      "pages": 10,
+      "numbered": true,
+      "body": {
+        "kind": "octanWeek",
+        "startDate": "2027-06-28",
+        "endDate": "2027-08-01",
+        "dateFormat": "%-d",
+        "weekdayLang": "zh",
+        "titleFormat": "%Y年%-m月",
+        "weekdayHeaders": "一,二,三,四,五,六,日",
+        "lineColor": "#7A7A7A",
+        "textColor": "#000000",
+        "highlightColor": "#8B0000",
+        "phaseColor": "#E5B93F",
+        "lineWidthPt": 0.4,
+        "lineStyle": "solid",
+        "centerGapMm": 2,
+        "dateSizePt": 10
+      },
+      "margins": null,
+      "decorations": null
+    },
+    {
+      "name": "2027年8月 月历",
+      "pages": 1,
+      "numbered": true,
+      "body": {
+        "kind": "month",
+        "startMonth": "2027-08",
+        "months": 1,
+        "titleFormat": "%Y年%-m月",
+        "weekdayLang": "zh",
+        "weekdayHeaders": "一,二,三,四,五,六,日",
+        "lineColor": "#7A7A7A",
+        "textColor": "#000000",
+        "phaseColor": "#E5B93F",
+        "lineWidthPt": 0.4,
+        "dateSizePt": 8,
+        "showPhase": true
+      },
+      "margins": null,
+      "decorations": null
+    },
+    {
+      "name": "2027年8月 周视图",
+      "pages": 8,
+      "numbered": true,
+      "body": {
+        "kind": "octanWeek",
+        "startDate": "2027-08-02",
+        "endDate": "2027-08-29",
+        "dateFormat": "%-d",
+        "weekdayLang": "zh",
+        "titleFormat": "%Y年%-m月",
+        "weekdayHeaders": "一,二,三,四,五,六,日",
+        "lineColor": "#7A7A7A",
+        "textColor": "#000000",
+        "highlightColor": "#8B0000",
+        "phaseColor": "#E5B93F",
+        "lineWidthPt": 0.4,
+        "lineStyle": "solid",
+        "centerGapMm": 2,
+        "dateSizePt": 10
+      },
+      "margins": null,
+      "decorations": null
+    },
+    {
+      "name": "2027年9月 月历",
+      "pages": 1,
+      "numbered": true,
+      "body": {
+        "kind": "month",
+        "startMonth": "2027-09",
+        "months": 1,
+        "titleFormat": "%Y年%-m月",
+        "weekdayLang": "zh",
+        "weekdayHeaders": "一,二,三,四,五,六,日",
+        "lineColor": "#7A7A7A",
+        "textColor": "#000000",
+        "phaseColor": "#E5B93F",
+        "lineWidthPt": 0.4,
+        "dateSizePt": 8,
+        "showPhase": true
+      },
+      "margins": null,
+      "decorations": null
+    },
+    {
+      "name": "2027年9月 周视图",
+      "pages": 10,
+      "numbered": true,
+      "body": {
+        "kind": "octanWeek",
+        "startDate": "2027-08-30",
+        "endDate": "2027-10-03",
+        "dateFormat": "%-d",
+        "weekdayLang": "zh",
+        "titleFormat": "%Y年%-m月",
+        "weekdayHeaders": "一,二,三,四,五,六,日",
+        "lineColor": "#7A7A7A",
+        "textColor": "#000000",
+        "highlightColor": "#8B0000",
+        "phaseColor": "#E5B93F",
+        "lineWidthPt": 0.4,
+        "lineStyle": "solid",
+        "centerGapMm": 2,
+        "dateSizePt": 10
+      },
+      "margins": null,
+      "decorations": null
+    },
+    {
+      "name": "2027年10月 月历",
+      "pages": 1,
+      "numbered": true,
+      "body": {
+        "kind": "month",
+        "startMonth": "2027-10",
+        "months": 1,
+        "titleFormat": "%Y年%-m月",
+        "weekdayLang": "zh",
+        "weekdayHeaders": "一,二,三,四,五,六,日",
+        "lineColor": "#7A7A7A",
+        "textColor": "#000000",
+        "phaseColor": "#E5B93F",
+        "lineWidthPt": 0.4,
+        "dateSizePt": 8,
+        "showPhase": true
+      },
+      "margins": null,
+      "decorations": null
+    },
+    {
+      "name": "2027年10月 周视图",
+      "pages": 8,
+      "numbered": true,
+      "body": {
+        "kind": "octanWeek",
+        "startDate": "2027-10-04",
+        "endDate": "2027-10-31",
+        "dateFormat": "%-d",
+        "weekdayLang": "zh",
+        "titleFormat": "%Y年%-m月",
+        "weekdayHeaders": "一,二,三,四,五,六,日",
+        "lineColor": "#7A7A7A",
+        "textColor": "#000000",
+        "highlightColor": "#8B0000",
+        "phaseColor": "#E5B93F",
+        "lineWidthPt": 0.4,
+        "lineStyle": "solid",
+        "centerGapMm": 2,
+        "dateSizePt": 10
+      },
+      "margins": null,
+      "decorations": null
+    },
+    {
+      "name": "2027年11月 月历",
+      "pages": 1,
+      "numbered": true,
+      "body": {
+        "kind": "month",
+        "startMonth": "2027-11",
+        "months": 1,
+        "titleFormat": "%Y年%-m月",
+        "weekdayLang": "zh",
+        "weekdayHeaders": "一,二,三,四,五,六,日",
+        "lineColor": "#7A7A7A",
+        "textColor": "#000000",
+        "phaseColor": "#E5B93F",
+        "lineWidthPt": 0.4,
+        "dateSizePt": 8,
+        "showPhase": true
+      },
+      "margins": null,
+      "decorations": null
+    },
+    {
+      "name": "2027年11月 周视图",
+      "pages": 8,
+      "numbered": true,
+      "body": {
+        "kind": "octanWeek",
+        "startDate": "2027-11-01",
+        "endDate": "2027-11-28",
+        "dateFormat": "%-d",
+        "weekdayLang": "zh",
+        "titleFormat": "%Y年%-m月",
+        "weekdayHeaders": "一,二,三,四,五,六,日",
+        "lineColor": "#7A7A7A",
+        "textColor": "#000000",
+        "highlightColor": "#8B0000",
+        "phaseColor": "#E5B93F",
+        "lineWidthPt": 0.4,
+        "lineStyle": "solid",
+        "centerGapMm": 2,
+        "dateSizePt": 10
+      },
+      "margins": null,
+      "decorations": null
+    },
+    {
+      "name": "2027年12月 月历",
+      "pages": 1,
+      "numbered": true,
+      "body": {
+        "kind": "month",
+        "startMonth": "2027-12",
+        "months": 1,
+        "titleFormat": "%Y年%-m月",
+        "weekdayLang": "zh",
+        "weekdayHeaders": "一,二,三,四,五,六,日",
+        "lineColor": "#7A7A7A",
+        "textColor": "#000000",
+        "phaseColor": "#E5B93F",
+        "lineWidthPt": 0.4,
+        "dateSizePt": 8,
+        "showPhase": true
+      },
+      "margins": null,
+      "decorations": null
+    },
+    {
+      "name": "2027年12月 周视图",
+      "pages": 10,
+      "numbered": true,
+      "body": {
+        "kind": "octanWeek",
+        "startDate": "2027-11-29",
+        "endDate": "2028-01-02",
+        "dateFormat": "%-d",
+        "weekdayLang": "zh",
+        "titleFormat": "%Y年%-m月",
+        "weekdayHeaders": "一,二,三,四,五,六,日",
+        "lineColor": "#7A7A7A",
+        "textColor": "#000000",
+        "highlightColor": "#8B0000",
+        "phaseColor": "#E5B93F",
+        "lineWidthPt": 0.4,
+        "lineStyle": "solid",
+        "centerGapMm": 2,
+        "dateSizePt": 10
+      },
+      "margins": null,
+      "decorations": null
+    }
+  ],
+  "page": {
+    "paper": {
+      "kind": "a5"
+    },
+    "margins": {
+      "headerMm": 16,
+      "footerMm": 16,
+      "innerMm": 18,
+      "outerMm": 18
+    }
+  },
+  "decorations": {
+    "header": {
+      "content": {
+        "kind": "empty"
+      },
+      "pageNumber": false,
+      "align": "center",
+      "style": {
+        "sizePt": 10,
+        "color": "#000000"
+      }
+    },
+    "footer": {
+      "content": {
+        "kind": "empty"
+      },
+      "pageNumber": false,
+      "align": "center",
+      "style": {
+        "sizePt": 10,
+        "color": "#000000"
+      }
+    },
+    "innerWatermark": null,
+    "outerWatermark": null
+  },
+  "imposition": {
+    "mode": "none"
+  }
+}

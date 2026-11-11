@@ -86,3 +86,5 @@ scripts/build-android.sh --release    # 自动裁剪 + 自动重链 + 出 APK
 ## LaTeX 排版框架
 
 后端整本编排、布局与模板扩展说明见 [LaTeX 框架](docs/latex-framework.md)，实施与验证记录见 [工作日志](docs/latex-framework-worklog.md)。
+
+可直接导入的整本手账案例见 [examples/](examples/README.md)。
