@@ -258,6 +258,8 @@ jobs:
         run: yarn tauri build --bundles "${{ matrix.bundles }}"
 
       - name: Collect bundles and checksums
+        # bash on every runner: the line continuation below is not PowerShell.
+        shell: bash
         run: |
           node scripts/collect-bundle.mjs --platform ${{ matrix.platform }} --arch ${{ matrix.arch }} \
             --version "$(node -p 'require("./package.json").version')" --out artifacts/ci
