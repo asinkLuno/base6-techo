@@ -46,6 +46,22 @@ jobs:
       - name: Verify version consistency
         run: node scripts/check-version.mjs
 
+      # Signing material is the one thing only a human can fix; validate it here
+      # (seconds) instead of discovering it after the full desktop/Android build.
+      - name: Setup JDK
+        uses: actions/setup-java@v6.2.0
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Verify Android signing secrets
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: scripts/android-signing.sh --check-only --out-dir "$RUNNER_TEMP/signing"
+
   prepare:
     needs: guard
     runs-on: ubuntu-24.04
@@ -199,6 +215,10 @@ jobs:
             echo "TECTONIC_DEP_BACKEND=vcpkg"
           } >> "$GITHUB_ENV"
 
+      - name: Install macOS build dependencies
+        if: matrix.platform == 'macos'
+        run: brew install autoconf autoconf-archive automake libtool
+
       - name: Install vcpkg dependencies (macOS)
         if: matrix.platform == 'macos'
         shell: bash
@@ -233,7 +253,9 @@ jobs:
           path: public
 
       - name: Build desktop bundles
-        run: yarn tauri build --bundles ${{ matrix.bundles }}
+        # Quote the list: PowerShell turns an unquoted `nsis,msi` into the two
+        # arguments `nsis msi`, which the Tauri CLI rejects.
+        run: yarn tauri build --bundles "${{ matrix.bundles }}"
 
       - name: Collect bundles and checksums
         run: |
@@ -341,28 +363,11 @@ jobs:
       # 签名材料只从 Secrets 读取；缺失时直接失败，绝不生成替代证书。
       - name: Restore release signing from Secrets
         env:
-          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
-          KS_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
-          KS_STORE_PASS: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-          KS_KEY_PASS: ${{ secrets.ANDROID_KEY_PASSWORD }}
-        run: |
-          set -euo pipefail
-          for variable in KEYSTORE_BASE64 KS_ALIAS KS_STORE_PASS KS_KEY_PASS; do
-            if [ -z "${!variable}" ]; then
-              echo "::error::Missing signing secret: $variable. Use the existing keystore; never generate a replacement."
-              exit 1
-            fi
-          done
-          umask 077
-          app="src-tauri/gen/android/app"
-          printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$app/release.jks"
-          keytool -list -keystore "$app/release.jks" -alias "$KS_ALIAS" -storepass:env KS_STORE_PASS > /dev/null
-          {
-            printf '%s\n' "storeFile=release.jks"
-            printf '%s\n' "storePassword=$KS_STORE_PASS"
-            printf '%s\n' "keyAlias=$KS_ALIAS"
-            printf '%s\n' "keyPassword=$KS_KEY_PASS"
-          } > "$app/keystore.properties"
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: scripts/android-signing.sh
 
       - name: Patch tectonic for Android
         run: |
