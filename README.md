@@ -108,12 +108,13 @@ base6-techo_<version>_<platform>_<arch>.<ext>
 ### 一次性配置
 
 1. 在 GitHub 仓库 **Settings → Pages → Build and deployment → Source** 选择 **GitHub Actions**。
-2. 在 **Settings → Secrets and variables → Actions** 添加 Android 签名材料（必须是现有证书，不要重新生成）：
+2. 在 **Settings → Environments → github-pages → Deployment branches and tags** 里把 `release` 加进允许部署的分支（默认只允许 `master`，否则 `deploy` 任务会以 “Branch `release` is not allowed to deploy” 失败）。
+3. 在 **Settings → Secrets and variables → Actions** 添加 Android 签名材料（必须是现有证书，不要重新生成）：
    - `ANDROID_KEYSTORE_BASE64`：keystore 的 base64
    - `ANDROID_KEY_ALIAS`
    - `ANDROID_KEYSTORE_PASSWORD`
    - `ANDROID_KEY_PASSWORD`
-3. 确认 `release` 分支只包含已经合入 `master` 的提交。workflow 会拒绝其它提交。
+4. 确认 `release` 分支只包含已经合入 `master` 的提交。workflow 会拒绝其它提交。
 
 `GITHUB_TOKEN` 由 Actions 自动提供，用于创建 Release 与读取发布元数据。macOS / Windows 当前没有代码签名证书，产物为未签名安装包。
 
