@@ -7,8 +7,9 @@
 #
 # Run this after `cargo fetch` and BEFORE the first cargo build.
 set -euo pipefail
-cd "$(dirname "$0")"
-source ./env.sh
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+cd "$ROOT"
+source scripts/env.sh
 
 REG="${CARGO_HOME:-$HOME/.cargo}/registry/src"
 

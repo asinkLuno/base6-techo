@@ -76,6 +76,53 @@ scripts/build-android.sh --release    # 自动裁剪 + 自动重链 + 出 APK
 
 如果绕过脚本直接 `yarn tauri android build` 或 `cargo build --target aarch64-linux-android`，需要自己清一次对应的包（或 `cargo clean`）才能拿到裁剪后的体积。`vcpkg upgrade` / 重装 ICU 会恢复全量数据，下次跑 `build-android.sh` 会重新裁剪并重链。
 
+## 发布页与自动发布
+
+发布页在 `website/`，是独立的 Vite + React + daisyUI 静态站点；产物通过 GitHub Pages 发布。发布流程只在 `release` 分支触发：
+
+```text
+master ──(快进)──> release
+                     │
+                     ├─ guard：提交必须已在 master，版本号三处一致
+                     ├─ prepare：Biome + tsc + clippy + 离线 TeX 缓存（共享 artifact）
+                     ├─ desktop：Linux / Windows / macOS(arm64 + x86_64) 打包
+                     ├─ android：签名 arm64 APK
+                     ├─ publish：创建 v<version> Release，上传所有包与 .sha256
+                     ├─ pages：构建 website/，生成 latest.json / releases.json
+                     └─ deploy：发布到 GitHub Pages
+```
+
+本地预览发布页：
+
+```bash
+yarn site:dev       # http://127.0.0.1:5173
+yarn site:build     # 类型检查 + 静态构建到 website/dist
+```
+
+`website/dist/latest.json` 与 `releases.json` 由 `scripts/pages-release.mjs` 在发布时从 GitHub Releases 生成，不要手写或提交到仓库。安装包命名统一为：
+
+```text
+base6-techo_<version>_<platform>_<arch>.<ext>
+```
+
+### 一次性配置
+
+1. 在 GitHub 仓库 **Settings → Pages → Build and deployment → Source** 选择 **GitHub Actions**。
+2. 在 **Settings → Secrets and variables → Actions** 添加 Android 签名材料（必须是现有证书，不要重新生成）：
+   - `ANDROID_KEYSTORE_BASE64`：keystore 的 base64
+   - `ANDROID_KEY_ALIAS`
+   - `ANDROID_KEYSTORE_PASSWORD`
+   - `ANDROID_KEY_PASSWORD`
+3. 确认 `release` 分支只包含已经合入 `master` 的提交。workflow 会拒绝其它提交。
+
+`GITHUB_TOKEN` 由 Actions 自动提供，用于创建 Release 与读取发布元数据。macOS / Windows 当前没有代码签名证书，产物为未签名安装包。
+
+### 桌面构建依赖
+
+- **Linux**：`libwebkit2gtk-4.1-dev`、GTK3、AppIndicator、librsvg、patchelf，以及 Tectonic 的 `fontconfig / freetype / harfbuzz / graphite2 / icu / libpng` 开发包（pkg-config 后端）。
+- **Windows / macOS**：vcpkg 静态依赖，triplet 为 `x64-windows-static-release`、`arm64-osx` 或 `x64-osx`；Windows 的 overlay triplet 在 `scripts/vcpkg-triplets/`。
+- 桌面与 Android 共用 `public/tectonic-cache.zip`，由 `scripts/make-offline-cache.sh` 在 CI 里生成一次。
+
 ## 常见问题
 
 - **改了 Rust 代码后 Android 构建很慢**：交叉编译无热更，`tauri android dev` 会重编整条链路；UI 改动有 Vite HMR。

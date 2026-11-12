@@ -1,0 +1,29 @@
+@import "tailwindcss";
+
+/* 与桌面应用同一套 daisyUI 主题：素纸基底 + 群青蓝单强调。
+   主题列表须与应用 src/index.css 保持一致。 */
+@plugin "daisyui" {
+  themes:
+    light --default,
+    dark --prefersdark;
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-base-100 text-base-content antialiased;
+  }
+
+  ::selection {
+    @apply bg-primary text-primary-content;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+  }
+}

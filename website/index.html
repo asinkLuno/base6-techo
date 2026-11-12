@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="light">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="base6-techo 是离线手帐 PDF 生成器：用图形界面组合页心模板、纸张与装订方式，本地生成毫米级精确、可直接打印装订的 PDF。支持 Linux、Windows、macOS 与 Android。"
+    />
+    <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#1d232a" media="(prefers-color-scheme: dark)" />
+    <meta property="og:type" content="website" />
+    <meta property="og:locale" content="zh_CN" />
+    <meta property="og:title" content="base6-techo — 离线手帐 PDF 生成器" />
+    <meta
+      property="og:description"
+      content="不写一行 LaTeX，组合页心、纸张与装订，本地生成印刷级手帐 PDF。"
+    />
+    <meta property="og:url" content="https://asinkluno.github.io/base6-techo/" />
+    <meta property="og:image" content="https://asinkluno.github.io/base6-techo/previews/monthly.webp" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="canonical" href="https://asinkluno.github.io/base6-techo/" />
+    <link rel="icon" type="image/svg+xml" href="%BASE_URL%brand/favicon.svg" />
+    <link rel="preload" as="image" href="%BASE_URL%previews/daily.webp" fetchpriority="high" />
+    <title>base6-techo — 离线手帐 PDF 生成器</title>
+    <script>
+      // 首帧前恢复主题，避免浅色纸面闪一下再变深色。
+      (() => {
+        try {
+          const saved = localStorage.getItem("base6-techo:site-theme");
+          document.documentElement.dataset.theme = saved === "dark" ? "dark" : "light";
+        } catch {}
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

@@ -1,0 +1,566 @@
+name: Release desktop, Android and landing page
+
+# Push to `release` (only commits already on master) → build every platform →
+# publish one GitHub Release → regenerate the static site metadata → GitHub Pages.
+on:
+  push:
+    branches:
+      - release
+  workflow_dispatch:
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  NODE_VERSION: "24.22.1"
+
+jobs:
+  guard:
+    if: github.ref == 'refs/heads/release'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Verify the build commit came from master
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin master:refs/remotes/origin/master
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" refs/remotes/origin/master; then
+            echo "::error::release 只能构建 master 上已有的提交；请先把改动合入 master，再把 release 快进到 master。"
+            exit 1
+          fi
+
+      - name: Setup Node
+        uses: actions/setup-node@v7.1.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Verify version consistency
+        run: node scripts/check-version.mjs
+
+  prepare:
+    needs: guard
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7.0.1
+
+      - name: Setup Node
+        uses: actions/setup-node@v7.1.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: yarn
+          cache-dependency-path: |
+            yarn.lock
+            website/yarn.lock
+
+      - name: Pin Yarn Classic
+        run: corepack enable && corepack prepare yarn@1.22.22 --activate
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@1.99.1
+
+      - name: Cache Rust build
+        uses: Swatinem/rust-cache@v2.9.3
+        with:
+          workspaces: src-tauri
+          key: prepare-linux
+
+      - name: Install Linux build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev libxdo-dev \
+            libssl-dev patchelf pkg-config zip \
+            libfontconfig1-dev libfreetype-dev libharfbuzz-dev libgraphite2-dev libicu-dev libpng-dev
+
+      - name: Install frontend dependencies
+        run: yarn install --frozen-lockfile
+
+      - name: Install landing page dependencies
+        run: yarn --cwd website install --frozen-lockfile
+
+      - name: Quality gate
+        run: yarn verify
+
+      - name: Build landing page
+        run: yarn --cwd website build
+
+      - name: Build the shared offline TeX cache
+        run: scripts/make-offline-cache.sh
+
+      - name: Upload the shared offline TeX cache
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: tectonic-cache
+          path: public/tectonic-cache.zip
+          if-no-files-found: error
+          compression-level: 0
+
+  desktop:
+    needs: prepare
+    timeout-minutes: 180
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-24.04
+            platform: linux
+            arch: x86_64
+            bundles: deb,appimage
+          - os: windows-2025
+            platform: windows
+            arch: x64
+            bundles: nsis,msi
+          - os: macos-15
+            platform: macos
+            arch: arm64
+            bundles: dmg
+          - os: macos-15-intel
+            platform: macos
+            arch: x86_64
+            bundles: dmg
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7.0.1
+
+      - name: Setup Node
+        uses: actions/setup-node@v7.1.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: yarn
+          cache-dependency-path: |
+            yarn.lock
+            website/yarn.lock
+
+      - name: Pin Yarn Classic
+        run: corepack enable && corepack prepare yarn@1.22.22 --activate
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@1.99.1
+
+      - name: Cache Rust build
+        uses: Swatinem/rust-cache@v2.9.3
+        with:
+          workspaces: src-tauri
+          key: ${{ matrix.platform }}-${{ matrix.arch }}
+
+      - name: Cache vcpkg binary packages
+        if: matrix.platform != 'linux'
+        uses: actions/cache@v6.1.0
+        with:
+          path: vcpkg-cache
+          key: vcpkg-${{ runner.os }}-${{ matrix.arch }}-${{ hashFiles('scripts/vcpkg-triplets/*.cmake') }}
+          restore-keys: |
+            vcpkg-${{ runner.os }}-${{ matrix.arch }}-
+
+      - name: Install Linux build dependencies
+        if: matrix.platform == 'linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev libxdo-dev \
+            libssl-dev patchelf pkg-config \
+            libfontconfig1-dev libfreetype-dev libharfbuzz-dev libgraphite2-dev libicu-dev libpng-dev
+          sudo apt-get install -y libfuse2t64 || sudo apt-get install -y libfuse2
+
+      - name: Install vcpkg dependencies (Windows)
+        if: matrix.platform == 'windows'
+        shell: bash
+        run: |
+          set -euo pipefail
+          root="${VCPKG_INSTALLATION_ROOT:-C:/vcpkg}"
+          root_bash="$root"
+          if command -v cygpath >/dev/null 2>&1; then root_bash="$(cygpath -u "$root")"; fi
+          if [ ! -x "$root_bash/vcpkg.exe" ]; then
+            root="$GITHUB_WORKSPACE/.vcpkg"
+            root_bash="$root"
+            git clone --depth 1 https://github.com/microsoft/vcpkg.git "$root_bash"
+            (cd "$root_bash" && cmd //c bootstrap-vcpkg.bat -disableMetrics)
+          fi
+          export VCPKG_DEFAULT_BINARY_CACHE="$GITHUB_WORKSPACE/vcpkg-cache"
+          mkdir -p "$VCPKG_DEFAULT_BINARY_CACHE"
+          "$root_bash/vcpkg.exe" install fontconfig freetype "harfbuzz[graphite2]" icu \
+            --triplet x64-windows-static-release \
+            --overlay-triplets="$GITHUB_WORKSPACE/scripts/vcpkg-triplets"
+          {
+            echo "VCPKG_ROOT=$root"
+            echo "VCPKGRS_TRIPLET=x64-windows-static-release"
+            echo "TECTONIC_DEP_BACKEND=vcpkg"
+          } >> "$GITHUB_ENV"
+
+      - name: Install vcpkg dependencies (macOS)
+        if: matrix.platform == 'macos'
+        shell: bash
+        run: |
+          set -euo pipefail
+          root="${VCPKG_INSTALLATION_ROOT:-/usr/local/share/vcpkg}"
+          if [ ! -x "$root/vcpkg" ] || [ ! -w "$root" ]; then
+            root="$GITHUB_WORKSPACE/.vcpkg"
+            if [ ! -x "$root/vcpkg" ]; then
+              git clone --depth 1 https://github.com/microsoft/vcpkg.git "$root"
+              "$root/bootstrap-vcpkg.sh" -disableMetrics
+            fi
+          fi
+          triplet=arm64-osx
+          [ "$(uname -m)" = x86_64 ] && triplet=x64-osx
+          export VCPKG_DEFAULT_BINARY_CACHE="$GITHUB_WORKSPACE/vcpkg-cache"
+          mkdir -p "$VCPKG_DEFAULT_BINARY_CACHE"
+          "$root/vcpkg" install fontconfig freetype "harfbuzz[graphite2]" icu --triplet "$triplet"
+          {
+            echo "VCPKG_ROOT=$root"
+            echo "VCPKGRS_TRIPLET=$triplet"
+            echo "TECTONIC_DEP_BACKEND=vcpkg"
+          } >> "$GITHUB_ENV"
+
+      - name: Install frontend dependencies
+        run: yarn install --frozen-lockfile
+
+      - name: Download the shared offline TeX cache
+        uses: actions/download-artifact@v8.0.2
+        with:
+          name: tectonic-cache
+          path: public
+
+      - name: Build desktop bundles
+        run: yarn tauri build --bundles ${{ matrix.bundles }}
+
+      - name: Collect bundles and checksums
+        run: |
+          node scripts/collect-bundle.mjs --platform ${{ matrix.platform }} --arch ${{ matrix.arch }} \
+            --version "$(node -p 'require("./package.json").version')" --out artifacts/ci
+          node scripts/checksum-artifacts.mjs artifacts/ci
+
+      - name: Upload desktop artifacts
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: base6-techo-${{ matrix.platform }}-${{ matrix.arch }}
+          path: artifacts/ci/*
+          if-no-files-found: error
+
+  android:
+    needs: prepare
+    runs-on: ubuntu-24.04
+    timeout-minutes: 360
+    permissions:
+      contents: read
+    env:
+      ANDROID_NDK_VERSION: "29.0.13846066"
+      ANDROID_BUILD_TOOLS_VERSION: "37.0.0"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7.0.1
+
+      - name: Setup Node
+        uses: actions/setup-node@v7.1.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: yarn
+          cache-dependency-path: |
+            yarn.lock
+            website/yarn.lock
+
+      - name: Pin Yarn Classic
+        run: corepack enable && corepack prepare yarn@1.22.22 --activate
+
+      - name: Setup JDK
+        uses: actions/setup-java@v6.2.0
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@1.99.1
+        with:
+          targets: aarch64-linux-android
+
+      - name: Cache Rust build
+        uses: Swatinem/rust-cache@v2.9.3
+        with:
+          workspaces: src-tauri
+          key: android-${{ env.ANDROID_NDK_VERSION }}
+
+      - name: Cache vcpkg binary packages
+        uses: actions/cache@v6.1.0
+        with:
+          path: vcpkg-cache
+          key: vcpkg-android-${{ env.ANDROID_NDK_VERSION }}-${{ hashFiles('scripts/vcpkg-triplets/*.cmake') }}
+          restore-keys: |
+            vcpkg-android-${{ env.ANDROID_NDK_VERSION }}-
+
+      - name: Install Android SDK and NDK
+        run: |
+          sdkmanager="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          yes | "$sdkmanager" --licenses >/dev/null || true
+          "$sdkmanager" --install "platforms;android-37.0" "build-tools;$ANDROID_BUILD_TOOLS_VERSION" "ndk;$ANDROID_NDK_VERSION"
+          echo "NDK_HOME=$ANDROID_HOME/ndk/$ANDROID_NDK_VERSION" >> "$GITHUB_ENV"
+          echo "ANDROID_NDK_HOME=$ANDROID_HOME/ndk/$ANDROID_NDK_VERSION" >> "$GITHUB_ENV"
+
+      - name: Install vcpkg dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends gperf autoconf autoconf-archive automake libtool pkg-config bison flex
+          root="${VCPKG_ROOT:-${VCPKG_INSTALLATION_ROOT:-/usr/local/share/vcpkg}}"
+          if [ ! -x "$root/vcpkg" ] || [ ! -w "$root" ]; then
+            root="$GITHUB_WORKSPACE/.vcpkg"
+            if [ ! -x "$root/vcpkg" ]; then
+              git clone --depth 1 https://github.com/microsoft/vcpkg.git "$root"
+              "$root/bootstrap-vcpkg.sh" -disableMetrics
+            fi
+          fi
+          export VCPKG_ROOT="$root"
+          export VCPKG_DEFAULT_BINARY_CACHE="$GITHUB_WORKSPACE/vcpkg-cache"
+          mkdir -p "$VCPKG_DEFAULT_BINARY_CACHE"
+          export ANDROID_NDK_HOME="$ANDROID_HOME/ndk/$ANDROID_NDK_VERSION"
+          "$root/vcpkg" install --triplet arm64-android \
+            "harfbuzz[core,freetype,graphite2,icu,png]" freetype graphite2 icu libpng fontconfig
+          # Host icupkg/genccode for scripts/trim-icu-data.sh. No binary cache:
+          # the tools live in buildtrees/, which a binary-cache install skips.
+          "$root/vcpkg" install --triplet x64-linux --no-binarycaching icu
+          echo "VCPKG_ROOT=$root" >> "$GITHUB_ENV"
+
+      - name: Install frontend dependencies
+        run: yarn install --frozen-lockfile
+
+      - name: Download the shared offline TeX cache
+        uses: actions/download-artifact@v8.0.2
+        with:
+          name: tectonic-cache
+          path: public
+
+      # 签名材料只从 Secrets 读取；缺失时直接失败，绝不生成替代证书。
+      - name: Restore release signing from Secrets
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KS_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KS_STORE_PASS: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KS_KEY_PASS: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          for variable in KEYSTORE_BASE64 KS_ALIAS KS_STORE_PASS KS_KEY_PASS; do
+            if [ -z "${!variable}" ]; then
+              echo "::error::Missing signing secret: $variable. Use the existing keystore; never generate a replacement."
+              exit 1
+            fi
+          done
+          umask 077
+          app="src-tauri/gen/android/app"
+          printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$app/release.jks"
+          keytool -list -keystore "$app/release.jks" -alias "$KS_ALIAS" -storepass:env KS_STORE_PASS > /dev/null
+          {
+            printf '%s\n' "storeFile=release.jks"
+            printf '%s\n' "storePassword=$KS_STORE_PASS"
+            printf '%s\n' "keyAlias=$KS_ALIAS"
+            printf '%s\n' "keyPassword=$KS_KEY_PASS"
+          } > "$app/keystore.properties"
+
+      - name: Patch tectonic for Android
+        run: |
+          cargo fetch --manifest-path src-tauri/Cargo.toml
+          scripts/patch-tectonic.sh
+
+      - name: Build signed arm64 APK
+        run: scripts/build-android.sh --release
+
+      - name: Verify APK and write checksum
+        run: |
+          set -euo pipefail
+          tools="$ANDROID_HOME/build-tools/$ANDROID_BUILD_TOOLS_VERSION"
+          shopt -s globstar nullglob
+          apks=(src-tauri/gen/android/app/build/outputs/apk/**/release/*.apk)
+          if [ "${#apks[@]}" -ne 1 ]; then
+            echo "::error::Expected exactly one release APK, found ${#apks[@]}"
+            printf '%s\n' "${apks[@]}"
+            exit 1
+          fi
+          apk="${apks[0]}"
+          "$tools/apksigner" verify --print-certs "$apk"
+          metadata=$("$tools/aapt" dump badging "$apk")
+          version=$(node -p 'require("./package.json").version')
+          if [[ "$metadata" != *"package: name='ink.syncmoon.base6techo'"* ]]; then
+            echo "::error::Unexpected application id"
+            printf '%s\n' "$metadata"
+            exit 1
+          fi
+          if [[ "$metadata" != *"versionName='$version'"* ]]; then
+            echo "::error::Unexpected versionName (expected $version)"
+            printf '%s\n' "$metadata"
+            exit 1
+          fi
+          if [[ "$metadata" != *"native-code: 'arm64-v8a'"* ]]; then
+            echo "::error::APK does not contain arm64-v8a"
+            printf '%s\n' "$metadata"
+            exit 1
+          fi
+          mkdir -p artifacts/ci
+          name="base6-techo_${version}_android_arm64.apk"
+          cp "$apk" "artifacts/ci/$name"
+          node scripts/checksum-artifacts.mjs artifacts/ci
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: base6-techo-android-arm64
+          path: artifacts/ci/*
+          if-no-files-found: error
+
+      - name: Remove signing material
+        if: always()
+        run: rm -f src-tauri/gen/android/app/release.jks src-tauri/gen/android/app/keystore.properties
+
+  publish:
+    needs: [prepare, desktop, android]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: write
+    outputs:
+      tag: ${{ steps.release.outputs.tag }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Download all installers
+        uses: actions/download-artifact@v8.0.2
+        with:
+          path: artifacts/ci
+          pattern: base6-techo-*
+          merge-multiple: true
+
+      - name: Read app version
+        id: version
+        run: echo "version=$(node -p 'require("./package.json").version')" >> "$GITHUB_OUTPUT"
+
+      - name: Publish GitHub Release
+        id: release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          APP_VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          tag="v$APP_VERSION"
+          git fetch --tags --force origin
+          notes_sha=$(sha256sum release-notes.md | cut -d' ' -f1)
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if git rev-parse -q --verify "refs/tags/$tag" > /dev/null; then
+            tag_sha=$(git rev-list -n 1 "$tag")
+            if [ "$tag_sha" != "$GITHUB_SHA" ]; then
+              echo "::error::标签 $tag 已指向 $tag_sha，而不是本次构建的 $GITHUB_SHA；请提升版本号后重新同步。"
+              exit 1
+            fi
+          else
+            git tag -a "$tag" -m "base6-techo $tag (build $GITHUB_RUN_NUMBER, notes $notes_sha)" "$GITHUB_SHA"
+            git push origin "refs/tags/$tag"
+          fi
+
+          reused=false
+          if gh release view "$tag" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
+            release_id=$(gh release view "$tag" --repo "$GITHUB_REPOSITORY" --json databaseId --jq .databaseId)
+            is_draft=$(gh release view "$tag" --repo "$GITHUB_REPOSITORY" --json isDraft --jq .isDraft)
+            if [ "$is_draft" = "false" ]; then
+              echo "GitHub Release $tag 已发布，复用现有安装包。"
+              reused=true
+            else
+              echo "清理上次失败留下的草稿 $tag"
+              gh api --method DELETE "repos/$GITHUB_REPOSITORY/releases/$release_id"
+            fi
+          fi
+
+          if [ "$reused" = "false" ]; then
+            gh release create "$tag" --repo "$GITHUB_REPOSITORY" --draft --verify-tag \
+              --title "base6-techo v$APP_VERSION" \
+              --notes-file release-notes.md
+            gh release upload "$tag" --repo "$GITHUB_REPOSITORY" artifacts/ci/* release-notes.md
+
+            release_id=$(gh release view "$tag" --repo "$GITHUB_REPOSITORY" --json databaseId --jq .databaseId)
+            gh api "repos/$GITHUB_REPOSITORY/releases/$release_id" > "$RUNNER_TEMP/release.json"
+            for checksum in artifacts/ci/*.sha256; do
+              name=$(basename "${checksum%.sha256}")
+              expected=$(cut -d' ' -f1 "$checksum")
+              digest=$(jq -r --arg name "$name" '.assets[] | select(.name == $name) | .digest // empty' "$RUNNER_TEMP/release.json")
+              if [ -n "$digest" ]; then
+                if [ "$digest" != "sha256:$expected" ]; then
+                  echo "::error::Release 附件摘要不一致：$name $digest != sha256:$expected"
+                  exit 1
+                fi
+              else
+                asset_id=$(jq -r --arg name "$name" '.assets[] | select(.name == $name) | .id' "$RUNNER_TEMP/release.json")
+                actual=$(gh api -H "Accept: application/octet-stream" \
+                  "repos/$GITHUB_REPOSITORY/releases/assets/$asset_id" | sha256sum | cut -d' ' -f1)
+                if [ "$actual" != "$expected" ]; then
+                  echo "::error::Release 附件摘要不一致：$name $actual != $expected"
+                  exit 1
+                fi
+              fi
+            done
+            gh release edit "$tag" --repo "$GITHUB_REPOSITORY" --draft=false --latest
+          fi
+
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+
+  pages:
+    needs: publish
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      pages: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7.0.1
+
+      - name: Setup Node
+        uses: actions/setup-node@v7.1.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: yarn
+          cache-dependency-path: website/yarn.lock
+
+      - name: Pin Yarn Classic
+        run: corepack enable && corepack prepare yarn@1.22.22 --activate
+
+      - name: Install landing page dependencies
+        run: yarn --cwd website install --frozen-lockfile
+
+      - name: Build landing page
+        run: yarn --cwd website build
+
+      - name: Generate release metadata
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: node scripts/pages-release.mjs --output website/dist --tag "${{ needs.publish.outputs.tag }}" --repo "$GITHUB_REPOSITORY"
+
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v6.0.0
+
+      - name: Upload GitHub Pages artifact
+        uses: actions/upload-pages-artifact@v5.0.0
+        with:
+          path: website/dist
+
+  deploy:
+    needs: pages
+    runs-on: ubuntu-24.04
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v5.0.1

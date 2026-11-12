@@ -5,8 +5,9 @@
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 source "$ROOT/scripts/env.sh"
-require_env
 
+# Only the desktop toolchain is needed here: CI builds the cache once on Linux
+# and ships it to every desktop/Android job. Do not require the Android SDK.
 # Desktop (host) build: tectonic uses pkg-config + system dev libs
 # (freetype/harfbuzz/fontconfig/graphite2/icu/libpng — all present on SteamOS).
 export TECTONIC_DEP_BACKEND=pkg-config
