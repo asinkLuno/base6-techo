@@ -455,19 +455,28 @@ jobs:
           notes_sha=$(sha256sum release-notes.md | cut -d' ' -f1)
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          reuse_published=false
           if git rev-parse -q --verify "refs/tags/$tag" > /dev/null; then
             tag_sha=$(git rev-list -n 1 "$tag")
             if [ "$tag_sha" != "$GITHUB_SHA" ]; then
-              echo "::error::标签 $tag 已指向 $tag_sha，而不是本次构建的 $GITHUB_SHA；请提升版本号后重新同步。"
-              exit 1
+              # Same version already released from an earlier commit (for example
+              # a docs-only merge pushed to release). Keep that release and never
+              # move the tag; only an unpublished draft blocks the pipeline.
+              if gh release view "$tag" --repo "$GITHUB_REPOSITORY" --json isDraft --jq .isDraft 2>/dev/null | grep -qx false; then
+                echo "::notice::v$APP_VERSION 已从 $tag_sha 发布，本次提交没有提升版本号；复用现有安装包，不发布新附件。"
+                reuse_published=true
+              else
+                echo "::error::标签 $tag 已指向 $tag_sha，而不是本次构建的 $GITHUB_SHA；请提升版本号后重新同步。"
+                exit 1
+              fi
             fi
           else
             git tag -a "$tag" -m "base6-techo $tag (build $GITHUB_RUN_NUMBER, notes $notes_sha)" "$GITHUB_SHA"
             git push origin "refs/tags/$tag"
           fi
 
-          reused=false
-          if gh release view "$tag" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
+          reused=$reuse_published
+          if [ "$reused" = "false" ] && gh release view "$tag" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
             release_id=$(gh release view "$tag" --repo "$GITHUB_REPOSITORY" --json databaseId --jq .databaseId)
             is_draft=$(gh release view "$tag" --repo "$GITHUB_REPOSITORY" --json isDraft --jq .isDraft)
             if [ "$is_draft" = "false" ]; then
