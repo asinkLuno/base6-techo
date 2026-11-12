@@ -312,14 +312,9 @@ jobs:
           workspaces: src-tauri
           key: android-${{ env.ANDROID_NDK_VERSION }}
 
-      - name: Cache vcpkg binary packages
-        uses: actions/cache@v6.1.0
-        with:
-          path: vcpkg-cache
-          key: vcpkg-android-${{ env.ANDROID_NDK_VERSION }}-${{ hashFiles('scripts/vcpkg-triplets/*.cmake') }}
-          restore-keys: |
-            vcpkg-android-${{ env.ANDROID_NDK_VERSION }}-
-
+      # No vcpkg binary cache here: scripts/trim-icu-data.sh needs the ICU
+      # buildtrees (the *.dat package and icupkg/genccode) that a binary-cache
+      # restore never creates. Android ICU is rebuilt from source every run.
       - name: Install Android SDK and NDK
         run: |
           sdkmanager="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
@@ -341,13 +336,11 @@ jobs:
             fi
           fi
           export VCPKG_ROOT="$root"
-          export VCPKG_DEFAULT_BINARY_CACHE="$GITHUB_WORKSPACE/vcpkg-cache"
-          mkdir -p "$VCPKG_DEFAULT_BINARY_CACHE"
           export ANDROID_NDK_HOME="$ANDROID_HOME/ndk/$ANDROID_NDK_VERSION"
-          "$root/vcpkg" install --triplet arm64-android \
+          "$root/vcpkg" install --triplet arm64-android --no-binarycaching \
             "harfbuzz[core,freetype,graphite2,icu,png]" freetype graphite2 icu libpng fontconfig
-          # Host icupkg/genccode for scripts/trim-icu-data.sh. No binary cache:
-          # the tools live in buildtrees/, which a binary-cache install skips.
+          # Host icupkg/genccode for scripts/trim-icu-data.sh; must be built from
+          # source so its buildtrees survive (see the comment above the SDK step).
           "$root/vcpkg" install --triplet x64-linux --no-binarycaching icu
           echo "VCPKG_ROOT=$root" >> "$GITHUB_ENV"
 
