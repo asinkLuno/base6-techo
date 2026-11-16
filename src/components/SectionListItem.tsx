@@ -37,6 +37,7 @@ import {
   newMonth,
   newOctanWeek,
   newTracker,
+  newYear,
   PAGES_MAX,
   PAGES_MIN,
   resolveSectionDecorations,
@@ -53,6 +54,7 @@ import { NumberField } from "./NumberField";
 import { OctanWeekFields } from "./OctanWeekFields";
 import { ColorField, useBodyPatch } from "./PatternControls";
 import { TrackerFields } from "./TrackerFields";
+import { YearFields } from "./YearFields";
 
 function GripIcon() {
   return (
@@ -388,6 +390,8 @@ const defaultBodyFor = (kind: string): BodyTemplate => {
       return newTracker();
     case "daily":
       return newDaily();
+    case "year":
+      return newYear();
     default:
       return { kind: "blank" };
   }
@@ -443,13 +447,15 @@ const SectionEditor = memo(function SectionEditor({
             <option value="month">{t("editor.template.month")}</option>
             <option value="tracker">{t("editor.template.tracker")}</option>
             <option value="daily">{t("editor.template.daily")}</option>
+            <option value="year">{t("editor.template.year")}</option>
           </select>
         </fieldset>
 
         {body.kind === "octanWeek" ||
         body.kind === "month" ||
         body.kind === "tracker" ||
-        body.kind === "daily" ? (
+        body.kind === "daily" ||
+        body.kind === "year" ? (
           <fieldset className="fieldset">
             <legend className="fieldset-legend">
               {t("editor.section.pages")}
@@ -467,7 +473,9 @@ const SectionEditor = memo(function SectionEditor({
                   ? t("editor.config.monthPagesAuto")
                   : body.kind === "tracker"
                     ? t("editor.config.trackerPagesAuto")
-                    : t("editor.config.dailyPagesAuto")}
+                    : body.kind === "daily"
+                      ? t("editor.config.dailyPagesAuto")
+                      : t("editor.config.yearPagesAuto")}
             </p>
           </fieldset>
         ) : (
@@ -520,6 +528,9 @@ const SectionEditor = memo(function SectionEditor({
       )}
       {body.kind === "daily" && (
         <DailyFields sectionId={section.id} body={body} />
+      )}
+      {body.kind === "year" && (
+        <YearFields sectionId={section.id} body={body} />
       )}
 
       <div className="divider my-0" />

@@ -57,6 +57,7 @@ const snapshot = (): DocumentSnapshot => {
     },
     decorations,
     imposition: { mode: "thread", sheetsPerSignature: 4 },
+    holidays: {},
   };
 };
 
@@ -245,6 +246,7 @@ describe("octan week round trip", () => {
       page: DEFAULT_PAGE,
       decorations: newDecorations(),
       imposition: DEFAULT_IMPOSITION,
+      holidays: {},
     };
     const result = parseConfigFile(serializeConfig(before));
     expect(result.ok).toBe(true);

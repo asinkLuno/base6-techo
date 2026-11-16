@@ -651,7 +651,9 @@ fn render_page(
     .unwrap();
     if !page.section.body.is_empty() {
         canvas.begin_region(page.layout.body);
-        page.section.body.draw(canvas, &page.layout, &page.context);
+        page.section
+            .body
+            .draw(canvas, &page.layout, &page.context, &plan.document.holidays);
         canvas.end_region();
     }
     // 左侧竖线等满页元素在页心裁剪之外绘制，但仍受本文阅读页的纸张裁剪。

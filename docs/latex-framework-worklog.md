@@ -100,3 +100,13 @@
 5. 先写 `tests/daily.rs`：日期逐页推进、整点号 00–24、两页拆分阅读顺序、跨午夜整点号回绕、昼夜两色同时出现、页数必须等于天数 × 每日页数、非法输入。运行确认缺少实现后补齐。
 6. 前端新增 `DailyPattern`、`DEFAULT_DAILY`/`DEFAULT_DAILY_SUN`、`newDaily`、`daysBetween`、`dailyPages`、`clampDaily`；`pagesFor` 对 `daily` 自动推导页数，手工改页数被忽略。`DailyFields` 提供日期范围（起点 + 天数）、每日页数、整点范围、字号/线宽/线色、标题格式与星期语言，以及昼夜着色开关和经纬度/UTC 偏移/两色控件；中英词条同步。
 7. 验证：`cargo test` 全部通过（新增 7 项 daily 集成测试，并把两页一日时间轴加入真实 Tectonic e2e，八页混合文档编译通过且无缺字）；`cargo clippy --all-targets -- -D warnings` 通过；`yarn test` 通过，`tsc --noEmit` 与 Biome 通过。
+
+## 年历（year）
+
+1. 对照 archive 分支 `backend/year.rs` 的 `YearPattern` 与 `draw_year`：一页排 `rows × cols` 个月，`page_months` 的取页数学等价于「每页连续 `rows × cols` 个月」；单元格复用 `octan_week` 的迷你月历画法（月份标题、星期表头、日期，无内部格线）；节假日是 `日期 → 名称` 映射，`show_holidays` 关闭时连周末的红色也一并关闭。archive 还依赖农历与系统时区，本次不搬农历。
+2. 节假日提升为文档级共享数据：`Document` 新增 `holidays: BTreeMap<String, String>`（上限 4096 条、名称 ≤128 字符、键必须是真实日期），`BodyTemplate::draw` 增加 `holidays` 参数，年历是唯一读取者；这样多节共用同一份节假日，导入只需一次。
+3. 先写 `tests/year.rs`：3×4 一页 12 月、5 个月分 3 页且尾页留空槽、节假日与周末着色、`showHolidays=false` 只用文字色、页数必须等于网格容量、非法日期键、超长名称与 `rows=13`。运行确认 `unknown variant 'year'` 后补实现。
+4. 新增 `templates/year.rs`：`YearPattern` 校验月份跨度、1–12 的行列、格式串、星期表头、颜色与数值；`required_pages() = ceil(months ÷ (rows × cols))`，`document.rs` 在计划阶段拒绝页数不符。
+5. 单元格行高按固定 6 周计算（`WEEK_ROWS_MAX`），而不是按月自己的周数：否则同一行里 4 周的月份会比 5 周的月份行距更稀，日期无法横向对齐。首版按各自周数分行，栅格化后目检明显不齐，改为固定 6 周。
+6. 前端新增 `YearPattern`、`DEFAULT_YEAR`、`newYear`、`yearPages`、`clampYear`，`clampMonthSpan` 增加 `fallbackMonth` 参数（年历回落到 `2027-01`，月历/打卡仍回落 `2026-08`）；`.ics` 解析放在 `src/lib/ics.ts`（展开折行、只认 `DTSTART`/`DTEND`/`SUMMARY`、`DTEND` 为开区间所以末日减一、跨日事件逐日展开、同日后者覆盖，不处理 RRULE/时区），Tauri 侧新增 `open_ics_file` 命令复用文本读取上限逻辑；`HolidaysPanel` 负责导入与清空，导入为增量合并。
+7. 验证：`cargo test` 全部通过（新增 7 项 year 集成测试与 1 项真实 Tectonic 编译）；`cargo clippy --all-targets -- -D warnings` 通过；`yarn verify` 四条全绿，`yarn test` 195 项通过。栅格化 `build/year-sample.pdf` 目检 2027 年 12 个月：3×4 布局、同行月份日期对齐、节假日与周末着色、页眉与页码位置均正确。

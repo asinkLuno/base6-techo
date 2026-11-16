@@ -10,6 +10,7 @@ import {
   clampBand,
   clampBody,
   clampDecorations,
+  clampHolidays,
   clampImposition,
   clampMargins,
   clampMarginsForPaper,
@@ -42,6 +43,7 @@ import {
   type SectionMarginsOverride,
   type Watermark,
   type WatermarkOverride,
+  yearPages,
 } from "../types/document";
 
 /** 持久化快照的数据部分（不含 action）。 */
@@ -50,6 +52,8 @@ export interface DocumentSnapshot {
   page: PageSettings;
   decorations: Decorations;
   imposition: Imposition;
+  /** 全书共享节假日（YYYY-MM-DD → 名称），通常由 iCal 导入。 */
+  holidays: Record<string, string>;
 }
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -232,7 +236,7 @@ const patchDecorations = (
 ): SectionDecorationsOverride | null =>
   value === null ? null : (minimalDecorations(value, global) ?? {});
 
-/** 页数：周视图、月历、月打卡与一日时间轴由模板参数推导，其余模板用给定值（外部输入先 clamp）。 */
+/** 页数：周视图、月历、月打卡、年历与一日时间轴由模板参数推导，其余模板用给定值（外部输入先 clamp）。 */
 export const pagesFor = (
   body: SectionDraft["body"],
   manual: number | undefined,
@@ -242,6 +246,7 @@ export const pagesFor = (
   if (body.kind === "month" || body.kind === "tracker") {
     return monthSpanPages(body);
   }
+  if (body.kind === "year") return yearPages(body);
   if (body.kind === "daily") return dailyPages(body);
   return clampPages(manual ?? fallback);
 };
@@ -339,6 +344,7 @@ export function migrateDocumentState(
     page,
     decorations,
     imposition: toImposition(state.imposition),
+    holidays: clampHolidays(isRecord(state.holidays) ? state.holidays : null),
   };
 }
 

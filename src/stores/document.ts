@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import {
   clampDecorations,
+  clampHolidays,
   clampImposition,
   clampPageSettings,
   DEFAULT_IMPOSITION,
@@ -31,6 +32,8 @@ interface DocumentState {
   decorations: Decorations;
   /** 拼版/装订方式（单页/骑马订/锁线），形状对齐 Rust Imposition。 */
   imposition: Imposition;
+  /** 全书共享节假日（YYYY-MM-DD → 名称），通常由 iCal 导入；年历用它着色。 */
+  holidays: Record<string, string>;
   addSection: () => void;
   removeSection: (id: string) => void;
   /** 按 arrayMove 语义把 activeId 的节移到 overId 的位置；未知 id 或原地拖动是 no-op。 */
@@ -43,6 +46,8 @@ interface DocumentState {
   updateDecorations: (decorations: Decorations) => void;
   /** 整体替换装订方式，锁线每帖纸张数写入前 clamp。 */
   updateImposition: (imposition: Imposition) => void;
+  /** 整体替换节假日映射，键与名称写入前 clamp。 */
+  updateHolidays: (holidays: Record<string, string>) => void;
   /** 导入配置：整体替换文档数据；快照须已过 parseConfigFile 的边界校验。 */
   replaceDocument: (snapshot: DocumentSnapshot) => void;
 }
@@ -57,6 +62,7 @@ export const useDocumentStore = create<DocumentState>()(
       page: DEFAULT_PAGE,
       decorations: newDecorations(),
       imposition: DEFAULT_IMPOSITION,
+      holidays: {},
       addSection: () =>
         set((state) => ({
           sections: [
@@ -115,6 +121,8 @@ export const useDocumentStore = create<DocumentState>()(
         set(() => ({ decorations: clampDecorations(decorations) })),
       updateImposition: (imposition) =>
         set(() => ({ imposition: clampImposition(imposition) })),
+      updateHolidays: (holidays) =>
+        set(() => ({ holidays: clampHolidays(holidays) })),
       replaceDocument: (snapshot) => set(() => snapshot),
     }),
     {

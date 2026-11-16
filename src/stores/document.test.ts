@@ -634,6 +634,7 @@ describe("replaceDocument", () => {
       page: { ...DEFAULT_PAGE, paper: { kind: "a4" as const } },
       decorations,
       imposition: { mode: "thread" as const, sheetsPerSignature: 2 },
+      holidays: {},
     };
 
     state().replaceDocument(snapshot);

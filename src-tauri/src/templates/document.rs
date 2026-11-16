@@ -1,13 +1,18 @@
 //! 入口：边界校验 → 整本编排与区域布局 → 印刷拼版 → LaTeX。
 use super::{
+    calendar::Date,
+    common::check_text_len,
     components::Decorations,
     imposition::Imposition,
     layout::{Margins, PageLayout, PageSettings, PaperSize},
     patterns::BodyTemplate,
 };
 use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
 
 const MAX_PAGES: usize = 999;
+/// 节假日映射最大条目数：一年最多几百个节日，超过说明不是日历文件。
+const MAX_HOLIDAYS: usize = 4096;
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(default, rename_all = "camelCase", deny_unknown_fields)]
@@ -16,6 +21,8 @@ pub struct Document {
     pub decorations: Decorations,
     pub sections: Vec<Section>,
     pub imposition: Imposition,
+    /// 全书共享的节假日：`YYYY-MM-DD` → 名称，通常由 iCal 导入。
+    pub holidays: BTreeMap<String, String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -99,6 +106,7 @@ fn validate(document: &Document) -> Result<usize, String> {
     document.page.validate()?;
     document.imposition.validate()?;
     document.decorations.validate()?;
+    validate_holidays(&document.holidays)?;
     if document.sections.is_empty() {
         return Err("文档至少需要一个 section".into());
     }
@@ -107,6 +115,18 @@ fn validate(document: &Document) -> Result<usize, String> {
         section.validate(&document.page.paper, &mut total)?;
     }
     Ok(total)
+}
+
+/// 节假日映射是外部输入（iCal 导入）：键必须是真实日期，名称限长。
+fn validate_holidays(holidays: &BTreeMap<String, String>) -> Result<(), String> {
+    if holidays.len() > MAX_HOLIDAYS {
+        return Err(format!("节假日不能超过 {MAX_HOLIDAYS} 条"));
+    }
+    for (date, name) in holidays {
+        Date::parse(date)?;
+        check_text_len("节假日名称", name)?;
+    }
+    Ok(())
 }
 
 pub fn plan_document(document: &Document) -> Result<PlannedDocument<'_>, String> {

@@ -177,6 +177,40 @@ export interface MonthPattern {
 }
 
 /**
+ * 年历：一页 `rows × cols` 个迷你月历，跨年浏览；每页连续 `rows × cols` 个月。
+ * 节假日来自文档级 holidays（通常由 iCal 导入），节假日与周末用节日色标出。
+ */
+export interface YearPattern {
+  kind: "year";
+  /** 起始月份，YYYY-MM，Rust 侧拒绝非法月份 */
+  startMonth: string;
+  /** 连续月份数，Rust 校验 1–120；页数由行列容量推导 */
+  months: number;
+  /** 每页月份行数，Rust 校验 1–12 */
+  rows: number;
+  /** 每页月份列数，Rust 校验 1–12 */
+  cols: number;
+  /** 月份标题格式，支持 %Y/%m/%-m/%d/%-d/%a/%% */
+  titleFormat: string;
+  /** %a 使用的星期短名语言 */
+  weekdayLang: WeekdayLang;
+  /** 星期表头，英文逗号分隔 7 项 */
+  weekdayHeaders: string;
+  /** 单元格边框颜色 */
+  lineColor: string;
+  /** 日期与标题颜色 */
+  textColor: string;
+  /** 节假日与周末颜色 */
+  holidayColor: string;
+  /** 线宽，Rust 校验 0.01–10pt */
+  lineWidthPt: number;
+  /** 日期字号，Rust 校验 1–72pt */
+  dateSizePt: number;
+  /** 是否用节日色标出节假日与周末 */
+  showHolidays: boolean;
+}
+
+/**
  * 月打卡：单月两段式打卡表，整页旋转 90°；每月一页，页数由月份数推导。
  * 上表 1–14 日带打卡项列，下表 15–月末，两表左缘用箭头逐行连接。
  * 年度追踪（跨月网格）未移植。
@@ -206,7 +240,8 @@ export type BodyTemplate =
   | OctanWeekPattern
   | MonthPattern
   | TrackerPattern
-  | DailyPattern;
+  | DailyPattern
+  | YearPattern;
 
 /** 页头/页脚内容，与 Rust BandContent（tag = "kind"）一致。 */
 export type BandContent =
@@ -456,6 +491,34 @@ export const newMonth = (today = new Date()): MonthPattern => ({
   startMonth: `${String(today.getFullYear()).padStart(4, "0")}-${pad2(today.getMonth() + 1)}`,
 });
 
+/** 年历网格单边上限，与 Rust GRID_MAX 一致。 */
+export const YEAR_GRID_MIN = 1;
+export const YEAR_GRID_MAX = 12;
+
+/** 与 Rust YearPattern::default 一致。 */
+export const DEFAULT_YEAR: YearPattern = {
+  kind: "year",
+  startMonth: "2027-01",
+  months: 12,
+  rows: 3,
+  cols: 4,
+  titleFormat: "%Y年%-m月",
+  weekdayLang: "zh",
+  weekdayHeaders: "一,二,三,四,五,六,日",
+  lineColor: "#B0B0B0",
+  textColor: "#000000",
+  holidayColor: "#D96A6A",
+  lineWidthPt: 0.2,
+  dateSizePt: 5,
+  showHolidays: true,
+};
+
+/** 新建年历默认从明年一月起排满一年。 */
+export const newYear = (today = new Date()): YearPattern => ({
+  ...DEFAULT_YEAR,
+  startMonth: `${String(today.getFullYear() + 1).padStart(4, "0")}-01`,
+});
+
 /** 月打卡打卡项数范围，与 Rust 校验一致。 */
 export const TRACKER_ITEMS_MIN = 1;
 export const TRACKER_ITEMS_MAX = 30;
@@ -641,6 +704,18 @@ export const monthPages = (body: MonthPattern): number => monthSpanPages(body);
 
 export const trackerPages = (body: TrackerPattern): number =>
   monthSpanPages(body);
+
+/** 年历页数：每页 `rows × cols` 个月，向上取整（与 Rust required_pages 一致）。 */
+export const yearPages = (body: YearPattern): number => {
+  const rows = Math.round(
+    clampNumber(body.rows, YEAR_GRID_MIN, YEAR_GRID_MAX, 1),
+  );
+  const cols = Math.round(
+    clampNumber(body.cols, YEAR_GRID_MIN, YEAR_GRID_MAX, 1),
+  );
+  const months = Math.round(clampNumber(body.months, 1, MONTHS_MAX, 1));
+  return Math.ceil(months / (rows * cols));
+};
 
 /** 支持的 strftime 子集，与 Rust validate_format 一致。 */
 export const isValidDateFormat = (format: string): boolean => {
@@ -862,8 +937,9 @@ export const clampDaily = (body: DailyPattern): DailyPattern => {
 const clampMonthSpan = (
   startMonth: string,
   months: number,
+  fallbackMonth: string = DEFAULT_MONTH.startMonth,
 ): Pick<MonthPattern, "startMonth" | "months"> => {
-  const fallbackIndex = monthIndex(DEFAULT_MONTH.startMonth) as number;
+  const fallbackIndex = monthIndex(fallbackMonth) as number;
   const parsed = monthIndex(startMonth);
   const startIndex =
     parsed === null || parsed < 12 || parsed > LAST_MONTH_INDEX
@@ -907,6 +983,50 @@ export const clampMonth = (body: MonthPattern): MonthPattern => {
       DEFAULT_MONTH.dateSizePt,
     ),
     showPhase: body.showPhase !== false,
+  };
+};
+
+export const clampYear = (body: YearPattern): YearPattern => {
+  const span = clampMonthSpan(
+    body.startMonth,
+    body.months,
+    DEFAULT_YEAR.startMonth,
+  );
+  return {
+    kind: "year",
+    ...span,
+    rows: Math.round(
+      clampNumber(body.rows, YEAR_GRID_MIN, YEAR_GRID_MAX, DEFAULT_YEAR.rows),
+    ),
+    cols: Math.round(
+      clampNumber(body.cols, YEAR_GRID_MIN, YEAR_GRID_MAX, DEFAULT_YEAR.cols),
+    ),
+    titleFormat:
+      typeof body.titleFormat === "string" &&
+      body.titleFormat.length <= TEXT_MAX &&
+      isValidDateFormat(body.titleFormat)
+        ? body.titleFormat
+        : DEFAULT_YEAR.titleFormat,
+    weekdayLang:
+      body.weekdayLang === "en" || body.weekdayLang === "ja"
+        ? body.weekdayLang
+        : "zh",
+    weekdayHeaders:
+      typeof body.weekdayHeaders === "string" &&
+      isValidWeekdayHeaders(body.weekdayHeaders)
+        ? body.weekdayHeaders
+        : DEFAULT_YEAR.weekdayHeaders,
+    lineColor: clampColor(body.lineColor, DEFAULT_YEAR.lineColor),
+    textColor: clampColor(body.textColor, DEFAULT_YEAR.textColor),
+    holidayColor: clampColor(body.holidayColor, DEFAULT_YEAR.holidayColor),
+    lineWidthPt: clampLineWidthPt(body.lineWidthPt),
+    dateSizePt: clampNumber(
+      body.dateSizePt,
+      MONTH_DATE_SIZE_PT_MIN,
+      MONTH_DATE_SIZE_PT_MAX,
+      DEFAULT_YEAR.dateSizePt,
+    ),
+    showHolidays: body.showHolidays !== false,
   };
 };
 
@@ -967,6 +1087,29 @@ export const clampPages = (value: number): number =>
 /** 名称是纯展示文本：去首尾空白、截断到上限；空串表示回到默认标签。 */
 export const clampSectionName = (value: string): string =>
   value.trim().slice(0, SECTION_NAME_MAX);
+
+/** 全书共享节假日（date → name）的条目上限，与 Rust MAX_HOLIDAYS 一致。 */
+export const HOLIDAYS_MAX = 4096;
+/** 节假日名称长度上限，与 Rust check_text_len 一致。 */
+export const HOLIDAY_NAME_MAX = TEXT_MAX;
+
+/**
+ * 节假日映射是外部输入（iCal 导入）：保留真实日期键，名称去空白并截断。
+ * 空名称与非法键直接丢弃，不往 store 里写。
+ */
+export const clampHolidays = (
+  input: Record<string, unknown> | null | undefined,
+): Record<string, string> => {
+  const holidays: Record<string, string> = {};
+  if (!input || typeof input !== "object") return holidays;
+  for (const [date, name] of Object.entries(input)) {
+    if (Object.keys(holidays).length >= HOLIDAYS_MAX) break;
+    if (!isIsoDate(date) || typeof name !== "string") continue;
+    const text = name.trim().slice(0, HOLIDAY_NAME_MAX);
+    if (text !== "") holidays[date] = text;
+  }
+  return holidays;
+};
 
 /** 同一范围 + 回落值的数字 clamp；各模板参数只声明一次范围。 */
 const clampRange =
@@ -1110,6 +1253,8 @@ export const clampBody = (body: BodyTemplate): BodyTemplate => {
       return clampMonth(body);
     case "tracker":
       return clampTracker(body);
+    case "year":
+      return clampYear(body);
     case "daily":
       return clampDaily(body);
     default:

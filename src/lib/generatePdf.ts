@@ -11,6 +11,8 @@ export interface DocumentPayload {
   page: PageSettings;
   decorations: Decorations;
   imposition: Imposition;
+  /** 全书共享节假日（YYYY-MM-DD → 名称）；年历用它给节假日着色。 */
+  holidays: Record<string, string>;
   sections: SectionSpec[];
 }
 

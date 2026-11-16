@@ -1,5 +1,7 @@
 {
-  "app": { "name": "base6-techo" },
+  "app": {
+    "name": "base6-techo"
+  },
   "editor": {
     "sectionsTitle": "Section layout",
     "addSection": "Add section",
@@ -29,7 +31,8 @@
       "octanWeek": "Eight-part week",
       "month": "Monthly calendar",
       "tracker": "Monthly tracker",
-      "daily": "Daily timeline"
+      "daily": "Daily timeline",
+      "year": "Year calendar"
     },
     "config": {
       "spacingMm": "Line spacing (mm)",
@@ -106,7 +109,14 @@
       "dailyUtcOffset": "UTC offset (hours)",
       "dailyDaylightColor": "Daylight color",
       "dailyNightColor": "Night color",
-      "dailyPagesAuto": "Pages follow the day count and pages per day"
+      "dailyPagesAuto": "Pages follow the day count and pages per day",
+      "yearRows": "Rows per page",
+      "yearCols": "Columns per page",
+      "yearPerPage": "{{per}} months per page, {{pages}} pages total",
+      "yearHolidayColor": "Holiday color",
+      "yearShowHolidays": "Holiday coloring",
+      "yearShowHolidaysHint": "Mark holidays and weekends with the holiday color",
+      "yearPagesAuto": "Derived from months and grid; adjust rows or columns instead"
     },
     "decorations": {
       "title": "Header, footer & watermarks",
@@ -204,11 +214,27 @@
       "confirmBody": "The imported {{sections}} sections and page setup will replace your current configuration. This cannot be undone.",
       "confirm": "Replace",
       "cancel": "Cancel"
+    },
+    "holidays": {
+      "title": "Holidays",
+      "hint": "Import holidays from an .ics calendar; the year template uses them for coloring. Re-importing overwrites dates with the same key.",
+      "import": "Import calendar",
+      "importing": "Importing…",
+      "clear": "Clear",
+      "empty": "No usable holidays in the file (VEVENT needs DTSTART and SUMMARY)",
+      "imported": "Imported {{count}} holiday days",
+      "importError": "Failed to import calendar: {{message}}",
+      "none": "No holidays imported",
+      "count": "{{count}} holiday days imported",
+      "truncated": "Limit of {{max}} entries reached: {{count}} imported this time, the rest were skipped."
     }
   },
   "settings": {
     "title": "Settings",
     "language": "Language"
   },
-  "notFound": { "title": "Page not found", "back": "Back to home" }
+  "notFound": {
+    "title": "Page not found",
+    "back": "Back to home"
+  }
 }

@@ -5,9 +5,11 @@ import {
   type Band,
   clampBand,
   clampDaily,
+  clampHolidays,
   clampMonth,
   clampOctanWeek,
   clampTracker,
+  clampYear,
   DAILY_LABEL_SIZE_PT_MAX,
   DEFAULT_DAILY,
   DEFAULT_DAILY_SUN,
@@ -15,6 +17,7 @@ import {
   DEFAULT_OCTAN_WEEK,
   DEFAULT_PAGE,
   DEFAULT_TRACKER,
+  DEFAULT_YEAR,
   dailyPages,
   daysBetween,
   defaultMarginsForPaper,
@@ -31,6 +34,7 @@ import {
   newMonth,
   newOctanWeek,
   newTracker,
+  newYear,
   octanWeekPages,
   resolveSectionDecorations,
   resolveSectionMargins,
@@ -41,6 +45,7 @@ import {
   trackerPages,
   WEEKDAY_HEADER_MAX,
   weeksBetween,
+  yearPages,
 } from "./document";
 
 const band = (overrides: Partial<Band> = {}): Band => ({
@@ -692,5 +697,93 @@ describe("daily pattern", () => {
     });
     expect(body.startDate).toBe("9999-12-31");
     expect(body.endDate).toBe("9999-12-31");
+  });
+});
+
+describe("year pattern", () => {
+  it("newYear 从明年一月起排满一年，3×4 一页装完", () => {
+    const body = newYear(new Date(2026, 10, 11));
+    expect(body.startMonth).toBe("2027-01");
+    expect(body.months).toBe(12);
+    expect(yearPages(body)).toBe(1);
+  });
+
+  it("页数按 rows × cols 向上取整", () => {
+    expect(yearPages({ ...DEFAULT_YEAR, months: 5, rows: 1, cols: 2 })).toBe(3);
+    expect(yearPages({ ...DEFAULT_YEAR, months: 13, rows: 3, cols: 4 })).toBe(
+      2,
+    );
+    // 非法网格按 1 处理，避免除零。
+    expect(yearPages({ ...DEFAULT_YEAR, months: 12, rows: 0, cols: 0 })).toBe(
+      12,
+    );
+  });
+
+  it("clamp 修复非法月份、网格、格式、颜色与字号", () => {
+    const body = clampYear({
+      kind: "year",
+      startMonth: "2026-13",
+      months: 0,
+      rows: 0,
+      cols: 20,
+      titleFormat: "%Q",
+      weekdayLang: "xx" as never,
+      weekdayHeaders: "一,二",
+      lineColor: "red",
+      textColor: "#xyz",
+      holidayColor: "",
+      lineWidthPt: 0,
+      dateSizePt: 100,
+      showHolidays: "yes" as never,
+    });
+    expect(body.startMonth).toBe(DEFAULT_YEAR.startMonth);
+    expect(body.months).toBe(1);
+    expect(body.rows).toBe(1);
+    expect(body.cols).toBe(12);
+    expect(body.titleFormat).toBe(DEFAULT_YEAR.titleFormat);
+    expect(body.weekdayLang).toBe("zh");
+    expect(body.weekdayHeaders).toBe(DEFAULT_YEAR.weekdayHeaders);
+    expect(body.lineColor).toBe(DEFAULT_YEAR.lineColor);
+    expect(body.textColor).toBe(DEFAULT_YEAR.textColor);
+    expect(body.holidayColor).toBe(DEFAULT_YEAR.holidayColor);
+    expect(body.lineWidthPt).toBe(0.01);
+    expect(body.dateSizePt).toBe(72);
+    expect(body.showHolidays).toBe(true);
+    expect(
+      clampYear({ ...DEFAULT_YEAR, showHolidays: false }).showHolidays,
+    ).toBe(false);
+  });
+
+  it("起始月接近 9999 年时月数收敛到年界内", () => {
+    const body = clampYear({
+      ...DEFAULT_YEAR,
+      startMonth: "9999-12",
+      months: 12,
+    });
+    expect(body.months).toBe(1);
+    expect(yearPages(body)).toBe(1);
+  });
+});
+
+describe("clampHolidays", () => {
+  it("保留真实日期键并对名称去空白、截断", () => {
+    const holidays = clampHolidays({
+      "2027-01-01": "  元旦  ",
+      "2027-02-30": "不存在的日期",
+      "not-a-date": "x",
+    });
+    expect(holidays).toEqual({ "2027-01-01": "元旦" });
+  });
+
+  it("丢弃空名称与非字符串值，空输入返回空映射", () => {
+    expect(clampHolidays({ "2027-01-01": "   " })).toEqual({});
+    expect(clampHolidays({ "2027-01-01": 7 as never })).toEqual({});
+    expect(clampHolidays(null)).toEqual({});
+    expect(clampHolidays(undefined)).toEqual({});
+  });
+
+  it("名称截断到 TEXT_MAX 个字符", () => {
+    const holidays = clampHolidays({ "2027-01-01": "节".repeat(200) });
+    expect(Array.from(holidays["2027-01-01"]).length).toBe(TEXT_MAX);
   });
 });

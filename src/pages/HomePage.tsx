@@ -11,6 +11,7 @@ import {
 import { useTranslation } from "react-i18next";
 import { CompileLogPanel } from "../components/CompileLogPanel";
 import { ConfigTransferPanel } from "../components/ConfigTransferPanel";
+import { HolidaysPanel } from "../components/HolidaysPanel";
 import { PageSettingsPanel } from "../components/PageSettingsPanel";
 import { SectionList } from "../components/SectionList";
 import {
@@ -105,6 +106,7 @@ export default function HomePage() {
       page,
       decorations,
       imposition,
+      holidays,
       sections: current,
     } = useDocumentStore.getState();
     setGenerating(true);
@@ -120,6 +122,7 @@ export default function HomePage() {
         page,
         decorations,
         imposition,
+        holidays,
         sections: toSectionSpecs(current, page, decorations),
       });
       setPdfBytes(out.pdf);
@@ -192,6 +195,7 @@ export default function HomePage() {
             disabled={generating}
             onImported={handleImported}
           />
+          <HolidaysPanel disabled={generating} />
           <div className="grid grid-cols-2 gap-3">
             <button
               type="button"

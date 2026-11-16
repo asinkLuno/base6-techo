@@ -62,6 +62,7 @@ fn document(p: &LinedDocParams) -> Document {
             }),
             ..Default::default()
         }],
+        ..Default::default()
     }
 }
 

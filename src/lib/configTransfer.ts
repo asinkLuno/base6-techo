@@ -1,6 +1,6 @@
 /**
  * 配置文件的系统读写：对话框与文件 I/O 都在 Rust 侧
- * （`save_config_file` / `open_config_file`），webview 不选路径也不碰文件。
+ * （`save_config_file` / `open_config_file` / `open_ics_file`），webview 不选路径也不碰文件。
  */
 import { invoke } from "@tauri-apps/api/core";
 import { suggestConfigName } from "./configFile";
@@ -29,6 +29,15 @@ export async function exportConfigFile(
 export async function openConfigFile(): Promise<ConfigOpenResult> {
   const opened = await invoke<{ target: string; contents: string } | null>(
     "open_config_file",
+  );
+  if (!opened) return { ok: false, cancelled: true };
+  return { ok: true, target: opened.target, contents: opened.contents };
+}
+
+/** 由后端弹出对话框并读回 .ics 日历文本；用户取消时静默返回 cancelled。 */
+export async function openIcsFile(): Promise<ConfigOpenResult> {
+  const opened = await invoke<{ target: string; contents: string } | null>(
+    "open_ics_file",
   );
   if (!opened) return { ok: false, cancelled: true };
   return { ok: true, target: opened.target, contents: opened.contents };

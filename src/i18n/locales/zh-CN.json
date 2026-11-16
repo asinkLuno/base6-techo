@@ -1,5 +1,7 @@
 {
-  "app": { "name": "base6-techo" },
+  "app": {
+    "name": "base6-techo"
+  },
   "editor": {
     "sectionsTitle": "版式组合",
     "addSection": "添加 section",
@@ -29,7 +31,8 @@
       "octanWeek": "八分周视图",
       "month": "月历",
       "tracker": "月打卡",
-      "daily": "一日时间轴"
+      "daily": "一日时间轴",
+      "year": "年历"
     },
     "config": {
       "spacingMm": "行距（mm）",
@@ -106,7 +109,14 @@
       "dailyUtcOffset": "UTC 偏移（小时）",
       "dailyDaylightColor": "白天颜色",
       "dailyNightColor": "夜间颜色",
-      "dailyPagesAuto": "页数由天数与每日页数自动计算"
+      "dailyPagesAuto": "页数由天数与每日页数自动计算",
+      "yearRows": "每页行数",
+      "yearCols": "每页列数",
+      "yearPerPage": "每页 {{per}} 个月，共 {{pages}} 页",
+      "yearHolidayColor": "节假日颜色",
+      "yearShowHolidays": "节假日着色",
+      "yearShowHolidaysHint": "节假日与周末用节日色标出",
+      "yearPagesAuto": "页数按月数与网格自动换算，改行数或列数即可"
     },
     "decorations": {
       "title": "页头、页脚与水印",
@@ -204,11 +214,27 @@
       "confirmBody": "导入的 {{sections}} 个 section 与页面设置将替换当前配置，且无法撤销。",
       "confirm": "替换",
       "cancel": "取消"
+    },
+    "holidays": {
+      "title": "节假日",
+      "hint": "从 .ics 日历导入节日，年历模板用它着色；重复导入同名日期以新文件为准。",
+      "import": "导入日历",
+      "importing": "导入中…",
+      "clear": "清空",
+      "empty": "文件里没有可用的节日（需要 VEVENT 的 DTSTART 与 SUMMARY）",
+      "imported": "已导入 {{count}} 天节假日",
+      "importError": "导入日历失败：{{message}}",
+      "none": "尚未导入节假日",
+      "count": "已导入 {{count}} 天节假日",
+      "truncated": "已达 {{max}} 条上限，本次实际导入 {{count}} 条，其余日期未写入。"
     }
   },
   "settings": {
     "title": "设置",
     "language": "界面语言"
   },
-  "notFound": { "title": "页面不存在", "back": "回到首页" }
+  "notFound": {
+    "title": "页面不存在",
+    "back": "回到首页"
+  }
 }

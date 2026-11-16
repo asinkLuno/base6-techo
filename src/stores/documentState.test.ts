@@ -205,6 +205,7 @@ describe("migrateDocumentState", () => {
       page: DEFAULT_PAGE,
       decorations: newDecorations(),
       imposition: { mode: "none" },
+      holidays: {},
     };
     expect(migrateDocumentState(null)).toEqual(expected);
     expect(
@@ -480,6 +481,7 @@ describe("mergeDocumentState", () => {
       page: DEFAULT_PAGE,
       decorations: newDecorations(),
       imposition: { mode: "none" } as const,
+      holidays: {},
       addSection: () => {},
     };
     const merged = mergeDocumentState(

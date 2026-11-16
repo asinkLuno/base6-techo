@@ -1,4 +1,6 @@
 //! 页心模板扩展点。模板只消费已解析的页面上下文，不推算装订方向。
+use std::collections::BTreeMap;
+
 use super::{
     daily::DailyPattern,
     document::PageContext,
@@ -7,6 +9,7 @@ use super::{
     month::MonthPattern,
     octan_week::OctanWeekPattern,
     tracker::TrackerPattern,
+    year::YearPattern,
 };
 use serde::{Deserialize, Serialize};
 
@@ -25,6 +28,7 @@ pub enum BodyTemplate {
     Month(MonthPattern),
     Tracker(TrackerPattern),
     Daily(DailyPattern),
+    Year(YearPattern),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -222,6 +226,7 @@ impl BodyTemplate {
             Self::Month(p) => p.validate(),
             Self::Tracker(p) => p.validate(),
             Self::Daily(p) => p.validate(),
+            Self::Year(p) => p.validate(),
             Self::Blank => Ok(()),
         }
     }
@@ -236,11 +241,18 @@ impl BodyTemplate {
                 p.required_pages(),
                 "一日时间轴的页数必须等于天数 × 每日页数",
             )),
+            Self::Year(p) => Some((p.required_pages(), "年历每页容纳行数 × 列数个月份")),
             _ => None,
         }
     }
 
-    pub(crate) fn draw(&self, canvas: &mut Canvas<'_>, layout: &PageLayout, context: &PageContext) {
+    pub(crate) fn draw(
+        &self,
+        canvas: &mut Canvas<'_>,
+        layout: &PageLayout,
+        context: &PageContext,
+        holidays: &BTreeMap<String, String>,
+    ) {
         let body = layout.body;
         match self {
             Self::Linear(p) => {
@@ -294,6 +306,7 @@ impl BodyTemplate {
             Self::Month(p) => p.draw(canvas, layout, context),
             Self::Tracker(p) => p.draw(canvas, layout, context),
             Self::Daily(p) => p.draw(canvas, layout, context),
+            Self::Year(p) => p.draw(canvas, layout, context, holidays),
             Self::Hogen(p) => {
                 // 与其它模板一致：整块格线以页心中心为对称点，四周预留给外伸线与标记点。
                 let Some(lattice) = HogenLattice::fit(body) else {

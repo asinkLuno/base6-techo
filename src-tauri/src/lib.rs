@@ -123,19 +123,31 @@ async fn save_config_file(
     .map_err(|e| format!("保存任务异常终止：{e}"))?
 }
 
-/// 用户选定的配置文件：路径只用于提示，解析交给前端。
+/// 用户在对话框里选定的文本文件：路径只用于提示，解析交给前端。
 #[derive(Serialize)]
-struct OpenedConfigFile {
+struct OpenedTextFile {
     target: String,
     contents: String,
 }
 
 /// 「导入配置」：对话框与读取都在后端，返回选定目标与 UTF-8 文本。
 #[tauri::command]
-async fn open_config_file(app: tauri::AppHandle) -> Result<Option<OpenedConfigFile>, String> {
-    tauri::async_runtime::spawn_blocking(move || open_config_via_dialog(&app))
-        .await
-        .map_err(|e| format!("读取任务异常终止：{e}"))?
+async fn open_config_file(app: tauri::AppHandle) -> Result<Option<OpenedTextFile>, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        open_text_via_dialog(&app, "JSON", "json", "配置文件", CONFIG_MAX_BYTES)
+    })
+    .await
+    .map_err(|e| format!("读取任务异常终止：{e}"))?
+}
+
+/// 「导入节假日」：选一个 .ics 日历，同样只读取文本，解析交给前端。
+#[tauri::command]
+async fn open_ics_file(app: tauri::AppHandle) -> Result<Option<OpenedTextFile>, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        open_text_via_dialog(&app, "iCalendar", "ics", "日历文件", ICS_MAX_BYTES)
+    })
+    .await
+    .map_err(|e| format!("读取任务异常终止：{e}"))?
 }
 
 /// 解码 header 里的百分号编码文本；header 缺失或不是 UTF-8 时按缺省处理。
@@ -152,8 +164,9 @@ fn decode_header(headers: &tauri::http::HeaderMap, name: &str) -> Result<Option<
 
 const DEFAULT_PDF_NAME: &str = "base6-techo.pdf";
 const DEFAULT_CONFIG_NAME: &str = "base6-techo-config.json";
-/// 配置是外部输入，读进内存前先限长。
+/// 配置与日历都是外部输入，读进内存前先限长。
 const CONFIG_MAX_BYTES: u64 = 16 * 1024 * 1024;
+const ICS_MAX_BYTES: u64 = 8 * 1024 * 1024;
 
 /// 对话框默认文件名：只取文件名部分，缺失扩展名时补 `extension`。
 fn suggested_name(raw: Option<&str>, fallback: &str, extension: &str) -> String {
@@ -218,11 +231,17 @@ fn save_via_dialog(
     Ok(Some(target.to_string()))
 }
 
-fn open_config_via_dialog(app: &tauri::AppHandle) -> Result<Option<OpenedConfigFile>, String> {
+fn open_text_via_dialog(
+    app: &tauri::AppHandle,
+    filter_name: &str,
+    extension: &str,
+    label: &str,
+    limit: u64,
+) -> Result<Option<OpenedTextFile>, String> {
     let Some(target) = app
         .dialog()
         .file()
-        .add_filter("JSON", &["json"])
+        .add_filter(filter_name, &[extension])
         .blocking_pick_file()
     else {
         return Ok(None);
@@ -232,27 +251,28 @@ fn open_config_via_dialog(app: &tauri::AppHandle) -> Result<Option<OpenedConfigF
     let file = app
         .fs()
         .open(target.clone(), options)
-        .map_err(|e| format!("打开配置文件失败：{e}"))?;
-    let contents = read_text_limited(file, CONFIG_MAX_BYTES)?;
-    Ok(Some(OpenedConfigFile {
+        .map_err(|e| format!("打开文件失败：{e}"))?;
+    let contents = read_text_limited(file, label, limit)?;
+    Ok(Some(OpenedTextFile {
         target: target.to_string(),
         contents,
     }))
 }
 
 /// 读取 UTF-8 文本；超过 `limit` 字节直接报错，避免异常大文件占满内存。
-fn read_text_limited(mut reader: impl Read, limit: u64) -> Result<String, String> {
+/// `label` 只用于错误提示（配置文件 / 日历文件）。
+fn read_text_limited(mut reader: impl Read, label: &str, limit: u64) -> Result<String, String> {
     let mut text = String::new();
     reader
         .by_ref()
         .take(limit + 1)
         .read_to_string(&mut text)
         .map_err(|e| match e.kind() {
-            std::io::ErrorKind::InvalidData => "配置文件不是有效的 UTF-8 文本".to_string(),
-            _ => format!("读取配置文件失败：{e}"),
+            std::io::ErrorKind::InvalidData => format!("{label}不是有效的 UTF-8 文本"),
+            _ => format!("读取{label}失败：{e}"),
         })?;
     if text.len() as u64 > limit {
-        return Err(format!("配置文件超过 {} MB", limit / (1024 * 1024)));
+        return Err(format!("{label}超过 {} MB", limit / (1024 * 1024)));
     }
     Ok(text)
 }
@@ -345,7 +365,8 @@ pub fn run() {
             generate_document_pdf,
             save_pdf_file,
             save_config_file,
-            open_config_file
+            open_config_file,
+            open_ics_file
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application")
@@ -451,13 +472,18 @@ mod tests {
         use std::io::Cursor;
 
         assert_eq!(
-            read_text_limited(Cursor::new("配置".as_bytes()), 9).unwrap(),
+            read_text_limited(Cursor::new("配置".as_bytes()), "配置文件", 9).unwrap(),
             "配置"
         );
-        // 恰好等于上限仍可读；多一个字节就报错
-        assert_eq!(read_text_limited(Cursor::new("abc"), 3).unwrap(), "abc");
-        assert!(read_text_limited(Cursor::new("abcd"), 3).is_err());
-        assert!(read_text_limited(Cursor::new([0xff, 0xfe]), 16).is_err());
+        // 恰好等于上限仍可读；多一个字节就报错，且提示里带上调用方的名称
+        assert_eq!(
+            read_text_limited(Cursor::new("abc"), "日历文件", 3).unwrap(),
+            "abc"
+        );
+        let oversize = read_text_limited(Cursor::new("abcd"), "日历文件", 3).unwrap_err();
+        assert!(oversize.contains("日历文件超过"), "{oversize}");
+        let binary = read_text_limited(Cursor::new([0xff, 0xfe]), "配置文件", 16).unwrap_err();
+        assert!(binary.contains("配置文件不是"), "{binary}");
     }
 
     #[test]

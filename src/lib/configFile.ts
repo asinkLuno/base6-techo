@@ -22,6 +22,8 @@ export interface ConfigFile {
   page: DocumentSnapshot["page"];
   decorations: DocumentSnapshot["decorations"];
   imposition: DocumentSnapshot["imposition"];
+  /** v1 之后新增：全书共享节假日；旧文件缺字段时按空映射迁移。 */
+  holidays: DocumentSnapshot["holidays"];
 }
 
 /** 生成可分享的 JSON 文本；id 只是列表 key 与拖拽用的内部值，不写进文件。 */
@@ -37,6 +39,7 @@ export function serializeConfig(
     page: snapshot.page,
     decorations: snapshot.decorations,
     imposition: snapshot.imposition,
+    holidays: snapshot.holidays,
   };
   return `${JSON.stringify(file, null, 2)}\n`;
 }
