@@ -13,6 +13,8 @@ use std::collections::BTreeMap;
 const MAX_PAGES: usize = 999;
 /// 节假日映射最大条目数：一年最多几百个节日，超过说明不是日历文件。
 const MAX_HOLIDAYS: usize = 4096;
+/// 农历映射最大条目数：最多 120 个月、约 3653 天，4096 足够且能挡住异常输入。
+const MAX_LUNAR: usize = 4096;
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(default, rename_all = "camelCase", deny_unknown_fields)]
@@ -23,6 +25,9 @@ pub struct Document {
     pub imposition: Imposition,
     /// 全书共享的节假日：`YYYY-MM-DD` → 名称，通常由 iCal 导入。
     pub holidays: BTreeMap<String, String>,
+    /// 全书共享的农历副标签：`YYYY-MM-DD` → 标签（如「正月」「初二」），由前端
+    /// 按模板语言算好；超出农历库范围的日期不出现。
+    pub lunar: BTreeMap<String, String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -107,6 +112,7 @@ fn validate(document: &Document) -> Result<usize, String> {
     document.imposition.validate()?;
     document.decorations.validate()?;
     validate_holidays(&document.holidays)?;
+    validate_lunar(&document.lunar)?;
     if document.sections.is_empty() {
         return Err("文档至少需要一个 section".into());
     }
@@ -125,6 +131,21 @@ fn validate_holidays(holidays: &BTreeMap<String, String>) -> Result<(), String> 
     for (date, name) in holidays {
         Date::parse(date)?;
         check_text_len("节假日名称", name)?;
+    }
+    Ok(())
+}
+
+/// 农历标签同样是外部输入：键必须是真实日期，标签限长。
+fn validate_lunar(lunar: &BTreeMap<String, String>) -> Result<(), String> {
+    if lunar.len() > MAX_LUNAR {
+        return Err(format!("农历不能超过 {MAX_LUNAR} 条"));
+    }
+    for (date, label) in lunar {
+        Date::parse(date)?;
+        if label.trim().is_empty() {
+            return Err(format!("农历标签不能为空：{date}"));
+        }
+        check_text_len("农历标签", label)?;
     }
     Ok(())
 }

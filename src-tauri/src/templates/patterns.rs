@@ -252,6 +252,7 @@ impl BodyTemplate {
         layout: &PageLayout,
         context: &PageContext,
         holidays: &BTreeMap<String, String>,
+        lunar: &BTreeMap<String, String>,
     ) {
         let body = layout.body;
         match self {
@@ -306,7 +307,7 @@ impl BodyTemplate {
             Self::Month(p) => p.draw(canvas, layout, context),
             Self::Tracker(p) => p.draw(canvas, layout, context),
             Self::Daily(p) => p.draw(canvas, layout, context),
-            Self::Year(p) => p.draw(canvas, layout, context, holidays),
+            Self::Year(p) => p.draw(canvas, layout, context, holidays, lunar),
             Self::Hogen(p) => {
                 // 与其它模板一致：整块格线以页心中心为对称点，四周预留给外伸线与标记点。
                 let Some(lattice) = HogenLattice::fit(body) else {

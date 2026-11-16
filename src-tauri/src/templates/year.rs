@@ -3,7 +3,9 @@
 //! 移植自 archive 分支 `backend/year.rs`：分页按每页 `rows × cols` 个月连续切块，
 //! 单元格内是「月份标题 + 星期表头 + 日期」的无框迷你月历。
 //! 节假日来自文档级 `holidays`（`YYYY-MM-DD` → 名称，通常由 iCal 导入），
-//! 开启 `show_holidays` 时节假日与周末日期改用节日色。农历未移植。
+//! 开启 `show_holidays` 时节假日与周末日期改用节日色。
+//! 农历来自文档级 `lunar`（`YYYY-MM-DD` → 已本地化的标签），开启 `show_lunar`
+//! 时排在日号下方；标签由前端按模板语言生成，此处只负责绘制。
 
 use std::collections::BTreeMap;
 
@@ -21,6 +23,12 @@ use super::{
 const GRID_MAX: usize = 12;
 /// 单元格内边距，mm。
 const CELL_PAD: f64 = 1.5;
+/// 1pt 折算 mm：字号与格高的换算。
+const PT_TO_MM: f64 = 25.4 / 72.0;
+/// 农历副标签相对日号的字号比例。
+const LUNAR_SCALE: f64 = 0.5;
+/// 两行之间的行间空隙，mm：太小会粘字，太大浪费本来就紧的格高。
+const LUNAR_LINE_PAD: f64 = 0.35;
 /// 一个月份最多跨 6 周；行高按 6 周固定，跨页同行才能对齐。
 const WEEK_ROWS_MAX: usize = 6;
 
@@ -51,6 +59,8 @@ pub struct YearPattern {
     pub date_size_pt: f64,
     /// 是否用节日色标出节假日（以及周末）。
     pub show_holidays: bool,
+    /// 是否在日号下方画农历副标签（`document.lunar`）。
+    pub show_lunar: bool,
 }
 
 impl Default for YearPattern {
@@ -69,6 +79,7 @@ impl Default for YearPattern {
             line_width_pt: 0.2,
             date_size_pt: 5.0,
             show_holidays: true,
+            show_lunar: false,
         }
     }
 }
@@ -100,6 +111,7 @@ impl YearPattern {
         layout: &PageLayout,
         context: &PageContext,
         holidays: &BTreeMap<String, String>,
+        lunar: &BTreeMap<String, String>,
     ) {
         let Ok(span) = MonthSpan::parse("年历", &self.start_month, self.months) else {
             return;
@@ -126,7 +138,7 @@ impl YearPattern {
                 height: cell_h,
             };
             self.draw_frame(canvas, cell);
-            self.draw_month(canvas, cell, *first, holidays);
+            self.draw_month(canvas, cell, *first, holidays, lunar);
         }
     }
 
@@ -158,6 +170,7 @@ impl YearPattern {
         cell: Rect,
         first: Date,
         holidays: &BTreeMap<String, String>,
+        lunar: &BTreeMap<String, String>,
     ) {
         let grid = MonthGrid::new(first);
         let cell_w = (cell.width - 2.0 * CELL_PAD) / 7.0;
@@ -174,6 +187,13 @@ impl YearPattern {
             size_pt: self.date_size_pt,
             color: self.holiday_color.clone(),
         };
+        // 格高放不下两行时退回单行日号：密集网格（如 12 行）本就只能勉强放下。
+        let label_size_pt = self.date_size_pt * LUNAR_SCALE;
+        // 两行字高之和加一道行间空隙，就是两行版的最小格高。
+        let stacked_height = (self.date_size_pt + label_size_pt) * PT_TO_MM + LUNAR_LINE_PAD;
+        // 行心到行心：各自半个字高再加空隙。
+        let line_gap = stacked_height * 0.5;
+        let stacked = self.show_lunar && cell_h >= stacked_height;
         let place = |canvas: &mut Canvas<'_>,
                      content: &str,
                      column: f64,
@@ -204,12 +224,42 @@ impl YearPattern {
             let marked =
                 self.show_holidays && (date.weekday() >= 5 || holidays.contains_key(&iso(date)));
             let style = if marked { &holiday_style } else { &text_style };
-            place(
-                canvas,
+            // 两行时以行中心为对称点上下分开，间距只跟字号相关、不随格高缩放。
+            let row_center = cell.y + CELL_PAD + cell_h * (row as f64 + 2.5);
+            let center_x = cell.x + CELL_PAD + cell_w * (column as f64 + 0.5);
+            let number_y = if stacked {
+                row_center - line_gap * 0.5
+            } else {
+                row_center
+            };
+            canvas.text(
+                center_x,
+                number_y,
                 &date.day().to_string(),
-                column as f64,
-                row + 2,
                 style,
+                "center",
+                0,
+            );
+            if !stacked {
+                continue;
+            }
+            let Some(label) = lunar.get(&iso(date)) else {
+                continue;
+            };
+            // 副标签不能比日期更醒目：字号收到一半，再按格宽与字数收紧，避免串格。
+            // 宽度留 8% 余量：格边本身就是别的列的字。
+            let fits = cell_w * 0.92 / PT_TO_MM / label.chars().count() as f64;
+            let lunar_style = super::components::TextStyle {
+                size_pt: label_size_pt.min(fits).max(1.0),
+                color: style.color.clone(),
+            };
+            canvas.text(
+                center_x,
+                row_center + line_gap * 0.5,
+                label,
+                &lunar_style,
+                "center",
+                0,
             );
         }
     }
