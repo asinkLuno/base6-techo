@@ -130,3 +130,13 @@
 4. 用 `LD_DEBUG=bindings` 定位：`binding file /usr/lib/libharfbuzz.so.0 [0] to src-tauri/target/debug/base6-techo [0]: normal symbol hb_font_create` —— 系统 libharfbuzz 15.1.0 把自己的符号解析到了可执行文件里静态链接的 HarfBuzz 8.3.0（tectonic_bridge_harfbuzz 0.3.3 自带）。两套 ABI 混用，布局时崩溃。
 5. 根因是「可执行文件默认导出静态库符号」+「系统 harfbuzz 在 2026-10-28 从 14.6 升到 15.0、11-06 升到 15.1」：旧版本没有走这条被劫持的路径，所以之前能跑。
 6. 修复：`src-tauri/build.rs` 在非 Android 目标上加 `cargo:rustc-link-arg=-Wl,--exclude-libs,ALL`，隐藏静态库符号。验证：`readelf --dyn-syms` 里 `hb_` 导出从 103 个降到 0，进程可正常常驻（timeout 15 后 exit=124 而非 139），`yarn tauri dev` 正常起窗口并加载前端。Android 分支不改变（那里依赖显式导出 JNI 符号，仍只加 `-lc++_shared`）。
+
+## 星期语言与星期表头合并为一个来源
+
+1. 问题：`weekdayLang` 与 `weekdayHeaders` 是两个独立字段。前者只喂 `%a`，后者只喂网格表头那 7 个字，可默认格式串全都不含 `%a`（`DEFAULT_{{OCTAN_WEEK,MONTH,YEAR}}.titleFormat` 都是 `%Y年%-m月`，`DEFAULT_DAILY.titleFormat` 是 `%Y年%-m月%-d日`），于是默认状态下改「星期语言」下拉框**没有任何可见效果**，用户却会以为它管表头。更糟的是它能造出自相矛盾的状态（标题写 `Fri`、表头写 `一`），`calendar.rs` 原来的注释还把这当成特性写着「便于月历表头用中文而日期用英文星期」。
+2. 先用临时探针确认（`tests/scratch_weekday.rs`，跑完删除）：默认格式下 `weekdayLang` zh→en 生成的 LaTeX 逐字节相同；格式串带 `%a` 才不同（`{2027年1月 五}` vs `{2027年1月 Fri}`）；改 `weekdayHeaders` 立刻不同。
+3. 选定方案 B：删掉 `weekdayHeaders` 字段，表头由 `weekdayLang` 推导。收益是一个设置管一处、非法组合不可能写出；代价是失去自定义表头（如 `Mo Tu` 两字母）。
+4. Rust：`WeekdayLang::short_names() -> &'static [&'static str; 7]` 成为唯一表源，`short_name(monday_index)` 转发给它；`month.rs`/`year.rs`/`octan_week.rs` 的 `weekday_headers(...)` 换成 `self.weekday_lang.short_names().iter()`；`common.rs` 删掉 `validate_weekday_headers`、`weekday_headers`、`MAX_WEEKDAY_HEADER_CHARS` 及其测试（文件只剩 `check_text_len`）。
+5. 前端：`document.ts` 三个 interface 与默认值去掉 `weekdayHeaders`，删 `isValidWeekdayHeaders`、`WEEKDAY_HEADER_MAX`，三处 clamp 分支一并移除；`MonthFields`/`YearFields`/`OctanWeekFields` 删掉手填表头的 `TextField`；i18n 删除 `monthWeekdayHeaders`、`octanWeekdayHeaders`、`octanWeekdayHeadersHint`（中英同步）。
+6. 数据迁移：Rust 侧有 `deny_unknown_fields`，旧配置残留 `weekdayHeaders` 会在解析阶段被拒。因此 `migrateDocumentState` 走的是「只取白名单字段」的 `clampBody`，天然丢弃该键——新增 `documentState.test.ts` 用例锁住这一点。`examples/weekly-2027.json` 24 个 section 里的该字段同步删除。
+7. 验证：TDD 先写 `weekday_headers_follow_the_weekday_language`（三种语言各自表头）与 `hand_written_weekday_headers_are_no_longer_accepted`（`deny_unknown_fields` 拒收旧键），确认前者因表头仍来自手填字符串而失败、后者因字段仍被接受而失败，再改实现；前端先写迁移用例确认 `weekdayHeaders` 仍在。全量 `cargo test` 129 项、`yarn test` 213 项、`yarn verify` 四绿。真实 Tectonic 编译 `build/octan-week-sample.pdf`，`pdftotext` 确认 `weekdayLang: "en"` 同时作用于格子里的 `Mon 3` 与迷你月历表头 `Mon Tue Wed…`。

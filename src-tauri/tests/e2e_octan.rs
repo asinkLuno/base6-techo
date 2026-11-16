@@ -1,4 +1,6 @@
 //! 八分周视图真实编译：两周四页，包含迷你月历、本周高亮与月相。
+//! `weekdayLang: "en"` 同时驱动格子里的 `%a` 与迷你月历的星期表头（Mon…Sun），
+//! 借此验证表头已由语言推导，而不是另一份手填字符串。
 use base6_techo_lib::{
     compile,
     templates::document::{Document, generate_document_latex},

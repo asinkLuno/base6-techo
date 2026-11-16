@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 
 use super::{
     calendar::{Date, MonthGrid, WeekdayLang, format_date, validate_format},
-    common::{check_text_len, validate_weekday_headers, weekday_headers},
+    common::check_text_len,
     document::PageContext,
     latex::{Canvas, validate_color},
     layout::{PageLayout, Rect, check_range},
@@ -44,12 +44,10 @@ pub struct OctanWeekPattern {
     pub end_date: String,
     /// 格子日期格式；支持 `%Y`、`%m`、`%-m`、`%d`、`%-d`、`%a` 与 `%%`。
     pub date_format: String,
-    /// `%a` 使用的星期短名语言。
+    /// 星期短名语言：同时决定迷你月历的星期表头与 `%a` 的输出。
     pub weekday_lang: WeekdayLang,
     /// 迷你月历月份标题格式，指令同 `date_format`。
     pub title_format: String,
-    /// 迷你月历星期表头，英文逗号分隔 7 项。
-    pub weekday_headers: String,
     pub line_color: String,
     /// 迷你月历的普通文字颜色。
     pub text_color: String,
@@ -71,7 +69,6 @@ impl Default for OctanWeekPattern {
             date_format: "%-d".into(),
             weekday_lang: WeekdayLang::Zh,
             title_format: "%Y年%-m月".into(),
-            weekday_headers: "一,二,三,四,五,六,日".into(),
             line_color: "#7A7A7A".into(),
             text_color: "#000000".into(),
             highlight_color: "#8B0000".into(),
@@ -106,7 +103,6 @@ impl OctanWeekPattern {
         validate_color(&self.phase_color)?;
         check_text_len("八分周视图日期格式", &self.date_format)?;
         check_text_len("八分周视图月份格式", &self.title_format)?;
-        validate_weekday_headers(&self.weekday_headers)?;
         validate_format(&self.date_format)?;
         validate_format(&self.title_format)
     }
@@ -280,7 +276,7 @@ impl OctanWeekPattern {
             0,
             &self.text_color,
         );
-        for (column, header) in weekday_headers(&self.weekday_headers).iter().enumerate() {
+        for (column, header) in self.weekday_lang.short_names().iter().enumerate() {
             text(canvas, header, column as f64, 1, &self.text_color);
         }
         for day in 1..=grid.days {

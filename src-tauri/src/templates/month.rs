@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 
 use super::{
     calendar::{Date, MonthGrid, MonthSpan, WeekdayLang, format_date, validate_format},
-    common::{check_text_len, validate_weekday_headers, weekday_headers},
+    common::check_text_len,
     document::PageContext,
     latex::{Canvas, validate_color},
     layout::{PageLayout, Rect, check_range},
@@ -40,10 +40,8 @@ pub struct MonthPattern {
     pub months: usize,
     /// 月份标题格式；支持 `%Y`、`%m`、`%-m`、`%d`、`%-d`、`%a` 与 `%%`。
     pub title_format: String,
-    /// `%a` 使用的星期短名语言。
+    /// 星期短名语言：同时决定星期表头与 `%a` 的输出，两者只此一个来源。
     pub weekday_lang: WeekdayLang,
-    /// 星期表头，英文逗号分隔 7 项。
-    pub weekday_headers: String,
     pub line_color: String,
     /// 日期与标题的普通文字颜色。
     pub text_color: String,
@@ -61,7 +59,6 @@ impl Default for MonthPattern {
             months: 1,
             title_format: "%Y年%-m月".into(),
             weekday_lang: WeekdayLang::Zh,
-            weekday_headers: "一,二,三,四,五,六,日".into(),
             line_color: "#7A7A7A".into(),
             text_color: "#000000".into(),
             phase_color: "#E5B93F".into(),
@@ -81,7 +78,6 @@ impl MonthPattern {
         validate_color(&self.text_color)?;
         validate_color(&self.phase_color)?;
         check_text_len("月历标题格式", &self.title_format)?;
-        validate_weekday_headers(&self.weekday_headers)?;
         validate_format(&self.title_format)
     }
 
@@ -136,7 +132,7 @@ impl MonthPattern {
         };
 
         self.draw_grid(canvas, &g, land_map);
-        for (column, header) in weekday_headers(&self.weekday_headers).iter().enumerate() {
+        for (column, header) in self.weekday_lang.short_names().iter().enumerate() {
             let (x, y) = land_map.point(
                 g.land.x + g.cell_w * (column as f64 + 0.5),
                 g.land.y + HEAD_H / 2.0,

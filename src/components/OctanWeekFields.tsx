@@ -7,7 +7,6 @@ import {
   DEFAULT_OCTAN_WEEK,
   isIsoDate,
   isValidDateFormat,
-  isValidWeekdayHeaders,
   LINE_WIDTH_PT_MAX,
   LINE_WIDTH_PT_MIN,
   mondayOf,
@@ -104,30 +103,16 @@ export const OctanWeekFields = memo(function OctanWeekFields({
         </fieldset>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2">
-        <TextField
-          label={t("editor.config.octanTitleFormat")}
-          value={body.titleFormat}
-          hint={t("editor.config.octanFormatHint")}
-          maxLength={TEXT_MAX}
-          clamp={(text) =>
-            isValidDateFormat(text) ? text : DEFAULT_OCTAN_WEEK.titleFormat
-          }
-          onCommit={(titleFormat) => setOctan({ titleFormat })}
-        />
-        <TextField
-          label={t("editor.config.octanWeekdayHeaders")}
-          value={body.weekdayHeaders}
-          hint={t("editor.config.octanWeekdayHeadersHint")}
-          maxLength={TEXT_MAX}
-          clamp={(text) =>
-            isValidWeekdayHeaders(text)
-              ? text
-              : DEFAULT_OCTAN_WEEK.weekdayHeaders
-          }
-          onCommit={(weekdayHeaders) => setOctan({ weekdayHeaders })}
-        />
-      </div>
+      <TextField
+        label={t("editor.config.octanTitleFormat")}
+        value={body.titleFormat}
+        hint={t("editor.config.octanFormatHint")}
+        maxLength={TEXT_MAX}
+        clamp={(text) =>
+          isValidDateFormat(text) ? text : DEFAULT_OCTAN_WEEK.titleFormat
+        }
+        onCommit={(titleFormat) => setOctan({ titleFormat })}
+      />
 
       <div className="grid gap-4 sm:grid-cols-2">
         <fieldset className="fieldset">

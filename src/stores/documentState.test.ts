@@ -617,3 +617,26 @@ describe("tracker migration", () => {
     expect(snapshot.sections[0].pages).toBe(4);
   });
 });
+
+describe("weekdayHeaders 迁移", () => {
+  it("旧数据的 weekdayHeaders 在迁移时丢弃，表头改由 weekdayLang 推导", () => {
+    const snapshot = migrateDocumentState({
+      sections: [
+        {
+          id: "a",
+          pages: 1,
+          body: {
+            ...DEFAULT_MONTH,
+            weekdayLang: "en",
+            weekdayHeaders: "一,二,三,四,五,六,日",
+          },
+        },
+      ],
+    });
+    const body = snapshot.sections[0].body;
+    expect(body.kind).toBe("month");
+    if (body.kind !== "month") return;
+    expect(body).not.toHaveProperty("weekdayHeaders");
+    expect(body.weekdayLang).toBe("en");
+  });
+});

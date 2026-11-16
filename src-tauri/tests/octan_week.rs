@@ -130,7 +130,6 @@ fn rejects_invalid_dates_and_format_directives() {
     for body in [
         r#"{"kind":"octanWeek","startDate":"2026-02-30","endDate":"2026-03-08"}"#,
         r#"{"kind":"octanWeek","startDate":"2026-08-03","endDate":"2026-08-09","dateFormat":"%Q"}"#,
-        r#"{"kind":"octanWeek","startDate":"2026-08-03","endDate":"2026-08-09","weekdayHeaders":"一,二"}"#,
         r#"{"kind":"octanWeek","startDate":"2026-08-03","endDate":"2026-08-09","lineWidthPt":0}"#,
     ] {
         let doc = document(body, 2);

@@ -97,10 +97,42 @@ fn rejects_invalid_month_inputs() {
         r#"{"kind":"month","startMonth":"2026-07","months":121}"#,
         r#"{"kind":"month","startMonth":"9999-12","months":2}"#,
         r#"{"kind":"month","startMonth":"2026-07","months":1,"titleFormat":"%Q"}"#,
-        r#"{"kind":"month","startMonth":"2026-07","months":1,"weekdayHeaders":"一,二"}"#,
         r#"{"kind":"month","startMonth":"2026-07","months":1,"lineColor":"red"}"#,
     ] {
         let doc = document(body, 1);
         assert!(generate_document_latex(&doc).is_err(), "{body}");
     }
+}
+
+#[test]
+fn weekday_headers_follow_the_weekday_language() {
+    // 表头不再是用户手填的字符串，而是由 weekdayLang 推导，两者不可能互相矛盾。
+    let cases = [
+        ("zh", ["一", "二", "三", "四", "五", "六", "日"]),
+        ("en", ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]),
+        ("ja", ["月", "火", "水", "木", "金", "土", "日"]),
+    ];
+    for (lang, expected) in cases {
+        let doc = document(
+            &format!(
+                r#"{{"kind":"month","startMonth":"2026-06","months":1,"weekdayLang":"{lang}"}}"#
+            ),
+            1,
+        );
+        let tex = generate_document_latex(&doc).unwrap();
+        let centered = texts(pages(&tex)[0], "center");
+        for header in expected {
+            assert!(centered.iter().any(|t| t == header), "{lang}: {centered:?}");
+        }
+    }
+}
+
+#[test]
+fn hand_written_weekday_headers_are_no_longer_accepted() {
+    // 表头改由 weekdayLang 推导后字段被删除。deny_unknown_fields 让残留该键的
+    // 旧载荷在解析阶段就失败，而不是被静默忽略——前端迁移必须先丢掉这个键。
+    let body = r#"{"kind":"month","startMonth":"2026-06","months":1,"weekdayHeaders":"一,二,三,四,五,六,日"}"#;
+    let payload = format!(r#"{{"sections":[{{"pages":1,"body":{body}}}]}}"#);
+    let err = serde_json::from_str::<Document>(&payload).unwrap_err();
+    assert!(err.to_string().contains("weekdayHeaders"), "{err}");
 }

@@ -79,12 +79,10 @@ export interface OctanWeekPattern {
   endDate: string;
   /** 格子日期格式，支持 %Y/%m/%-m/%d/%-d/%a/%% */
   dateFormat: string;
-  /** %a 使用的星期短名语言 */
+  /** 星期短名语言：同时决定迷你月历表头与 %a 的输出 */
   weekdayLang: WeekdayLang;
   /** 迷你月历月份标题格式，指令同 dateFormat */
   titleFormat: string;
-  /** 迷你月历星期表头，英文逗号分隔 7 项 */
-  weekdayHeaders: string;
   /** 分隔线颜色 */
   lineColor: string;
   /** 迷你月历普通文字颜色 */
@@ -158,10 +156,8 @@ export interface MonthPattern {
   months: number;
   /** 月份标题格式，支持 %Y/%m/%-m/%d/%-d/%a/%% */
   titleFormat: string;
-  /** %a 使用的星期短名语言 */
+  /** 星期短名语言：同时决定星期表头与 %a 的输出 */
   weekdayLang: WeekdayLang;
-  /** 星期表头，英文逗号分隔 7 项 */
-  weekdayHeaders: string;
   /** 网格线颜色 */
   lineColor: string;
   /** 日期与标题颜色 */
@@ -192,10 +188,8 @@ export interface YearPattern {
   cols: number;
   /** 月份标题格式，支持 %Y/%m/%-m/%d/%-d/%a/%% */
   titleFormat: string;
-  /** %a 使用的星期短名语言 */
+  /** 星期短名语言：同时决定星期表头与 %a 的输出 */
   weekdayLang: WeekdayLang;
-  /** 星期表头，英文逗号分隔 7 项 */
-  weekdayHeaders: string;
   /** 单元格边框颜色 */
   lineColor: string;
   /** 日期与标题颜色 */
@@ -389,7 +383,6 @@ export const OCTAN_CENTER_GAP_MM_MAX = 1000;
 /** 格式串与星期表头的总长度上限，与 Rust 校验一致。 */
 export const TEXT_MAX = 128;
 /** 单个星期表头的长度上限。 */
-export const WEEKDAY_HEADER_MAX = 16;
 
 /** 与 Rust OctanWeekPattern::default 一致。 */
 export const DEFAULT_OCTAN_WEEK: OctanWeekPattern = {
@@ -399,7 +392,6 @@ export const DEFAULT_OCTAN_WEEK: OctanWeekPattern = {
   dateFormat: "%-d",
   weekdayLang: "zh",
   titleFormat: "%Y年%-m月",
-  weekdayHeaders: "一,二,三,四,五,六,日",
   lineColor: "#7A7A7A",
   textColor: "#000000",
   highlightColor: "#8B0000",
@@ -478,7 +470,6 @@ export const DEFAULT_MONTH: MonthPattern = {
   months: 1,
   titleFormat: "%Y年%-m月",
   weekdayLang: "zh",
-  weekdayHeaders: "一,二,三,四,五,六,日",
   lineColor: "#7A7A7A",
   textColor: "#000000",
   phaseColor: "#E5B93F",
@@ -506,7 +497,6 @@ export const DEFAULT_YEAR: YearPattern = {
   cols: 4,
   titleFormat: "%Y年%-m月",
   weekdayLang: "zh",
-  weekdayHeaders: "一,二,三,四,五,六,日",
   lineColor: "#B0B0B0",
   textColor: "#000000",
   holidayColor: "#D96A6A",
@@ -746,17 +736,6 @@ export const isValidDateFormat = (format: string): boolean => {
   return true;
 };
 
-export const isValidWeekdayHeaders = (headers: string): boolean => {
-  if (typeof headers !== "string" || headers.length > TEXT_MAX) {
-    return false;
-  }
-  const items = headers.split(",").map((item) => item.trim());
-  return (
-    items.length === 7 &&
-    items.every((item) => item !== "" && item.length <= WEEKDAY_HEADER_MAX)
-  );
-};
-
 /** 9999-12-26 是 4 位年份可取到的最后一个周日；再往后 Rust 的日期解析会拒绝。 */
 const LAST_SUNDAY_ORDINAL = daysFromCivil(9999, 12, 26);
 
@@ -801,11 +780,6 @@ export const clampOctanWeek = (body: OctanWeekPattern): OctanWeekPattern => {
       isValidDateFormat(body.titleFormat)
         ? body.titleFormat
         : DEFAULT_OCTAN_WEEK.titleFormat,
-    weekdayHeaders:
-      typeof body.weekdayHeaders === "string" &&
-      isValidWeekdayHeaders(body.weekdayHeaders)
-        ? body.weekdayHeaders
-        : DEFAULT_OCTAN_WEEK.weekdayHeaders,
     lineColor: clampColor(body.lineColor, DEFAULT_OCTAN_WEEK.lineColor),
     textColor: clampColor(body.textColor, DEFAULT_OCTAN_WEEK.textColor),
     highlightColor: clampColor(
@@ -970,11 +944,6 @@ export const clampMonth = (body: MonthPattern): MonthPattern => {
       body.weekdayLang === "en" || body.weekdayLang === "ja"
         ? body.weekdayLang
         : "zh",
-    weekdayHeaders:
-      typeof body.weekdayHeaders === "string" &&
-      isValidWeekdayHeaders(body.weekdayHeaders)
-        ? body.weekdayHeaders
-        : DEFAULT_MONTH.weekdayHeaders,
     lineColor: clampColor(body.lineColor, DEFAULT_MONTH.lineColor),
     textColor: clampColor(body.textColor, DEFAULT_MONTH.textColor),
     phaseColor: clampColor(body.phaseColor, DEFAULT_MONTH.phaseColor),
@@ -1014,11 +983,6 @@ export const clampYear = (body: YearPattern): YearPattern => {
       body.weekdayLang === "en" || body.weekdayLang === "ja"
         ? body.weekdayLang
         : "zh",
-    weekdayHeaders:
-      typeof body.weekdayHeaders === "string" &&
-      isValidWeekdayHeaders(body.weekdayHeaders)
-        ? body.weekdayHeaders
-        : DEFAULT_YEAR.weekdayHeaders,
     lineColor: clampColor(body.lineColor, DEFAULT_YEAR.lineColor),
     textColor: clampColor(body.textColor, DEFAULT_YEAR.textColor),
     holidayColor: clampColor(body.holidayColor, DEFAULT_YEAR.holidayColor),

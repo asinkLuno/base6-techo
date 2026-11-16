@@ -18,16 +18,20 @@ pub enum WeekdayLang {
 }
 
 impl WeekdayLang {
-    fn short_name(self, monday_index: usize) -> &'static str {
+    /// 周一为首的 7 个短名。表头与 `%a` 共用这一张表，两者不会互相矛盾。
+    pub(crate) fn short_names(self) -> &'static [&'static str; 7] {
         const ZH: [&str; 7] = ["一", "二", "三", "四", "五", "六", "日"];
         const EN: [&str; 7] = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
         const JA: [&str; 7] = ["月", "火", "水", "木", "金", "土", "日"];
-        let table = match self {
+        match self {
             Self::Zh => &ZH,
             Self::En => &EN,
             Self::Ja => &JA,
-        };
-        table[monday_index]
+        }
+    }
+
+    fn short_name(self, monday_index: usize) -> &'static str {
+        self.short_names()[monday_index]
     }
 }
 

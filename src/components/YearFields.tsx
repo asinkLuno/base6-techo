@@ -120,17 +120,6 @@ export const YearFields = memo(function YearFields({
         </fieldset>
       </div>
 
-      <TextField
-        label={t("editor.config.monthWeekdayHeaders")}
-        value={body.weekdayHeaders}
-        hint={t("editor.config.octanWeekdayHeadersHint")}
-        maxLength={TEXT_MAX}
-        clamp={(text) =>
-          clampYear({ ...body, weekdayHeaders: text }).weekdayHeaders
-        }
-        onCommit={(weekdayHeaders) => setYear({ weekdayHeaders })}
-      />
-
       <div className="grid gap-4 sm:grid-cols-2">
         <NumberField
           label={t("editor.config.lineWidthPt")}
