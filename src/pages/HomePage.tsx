@@ -21,8 +21,10 @@ import {
   splitCompileError,
 } from "../lib/compileLog";
 import { generatePdf } from "../lib/generatePdf";
+import { documentLunarLabels } from "../lib/lunar";
 import { describeTarget, savePdfFile } from "../lib/savePdf";
 import { useDocumentStore } from "../stores/document";
+import { useSettingsStore } from "../stores/settings";
 import { PAGES_MAX, toSectionSpecs } from "../types/document";
 
 // pdfjs-dist 体积大且只在生成预览后才需要，懒加载避免进首屏 chunk。
@@ -118,11 +120,20 @@ export default function HomePage() {
     setSaveError(null);
     setSavedToast(null);
     try {
+      // 农历只给开了 showLunar 的年历算标签，随生成请求一次性送出；
+      // 库本身按需 import，未开农历时不会下载。
+      const lunar = await documentLunarLabels(
+        current.flatMap((section) =>
+          section.body.kind === "year" ? [section.body] : [],
+        ),
+        useSettingsStore.getState().language,
+      );
       const out = await generatePdf({
         page,
         decorations,
         imposition,
         holidays,
+        lunar,
         sections: toSectionSpecs(current, page, decorations),
       });
       setPdfBytes(out.pdf);

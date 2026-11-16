@@ -208,6 +208,8 @@ export interface YearPattern {
   dateSizePt: number;
   /** 是否用节日色标出节假日与周末 */
   showHolidays: boolean;
+  /** 是否在日号下方画农历副标签（由前端算好传给 Rust） */
+  showLunar: boolean;
 }
 
 /**
@@ -511,6 +513,7 @@ export const DEFAULT_YEAR: YearPattern = {
   lineWidthPt: 0.2,
   dateSizePt: 5,
   showHolidays: true,
+  showLunar: false,
 };
 
 /** 新建年历默认从明年一月起排满一年。 */
@@ -1027,6 +1030,7 @@ export const clampYear = (body: YearPattern): YearPattern => {
       DEFAULT_YEAR.dateSizePt,
     ),
     showHolidays: body.showHolidays !== false,
+    showLunar: body.showLunar === true,
   };
 };
 

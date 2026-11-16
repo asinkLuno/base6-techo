@@ -116,6 +116,8 @@
       "yearHolidayColor": "Holiday color",
       "yearShowHolidays": "Holiday coloring",
       "yearShowHolidaysHint": "Mark holidays and weekends with the holiday color",
+      "yearShowLunar": "Lunar dates",
+      "yearShowLunarHint": "Show lunar dates under the day number; month names on day 1",
       "yearPagesAuto": "Derived from months and grid; adjust rows or columns instead"
     },
     "decorations": {

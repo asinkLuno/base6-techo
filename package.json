@@ -30,6 +30,7 @@
     "@tauri-apps/plugin-opener": "^2",
     "clsx": "^2.1.1",
     "i18next": "^26.7.2",
+    "lunar-typescript": "^1.8.7",
     "pdfjs-dist": "^6.5.438",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",

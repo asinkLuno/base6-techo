@@ -743,6 +743,11 @@ lightningcss@1.33.0, lightningcss@^1.33.0:
     lightningcss-win32-arm64-msvc "1.33.0"
     lightningcss-win32-x64-msvc "1.33.0"
 
+lunar-typescript@^1.8.7:
+  version "1.8.7"
+  resolved "https://registry.yarnpkg.com/lunar-typescript/-/lunar-typescript-1.8.7.tgz#7f00c7e0596714780f81844a07ede33e553001f6"
+  integrity sha512-w1ZxRf+mmIqXGnk40Dl2U+qPdm2phHsoxpOEIy7BPc/+kkWZtfW98NCZvsBTYCuNXQMBanaw+u+DboXD65NrVA==
+
 magic-string@^1.1.0, magic-string@^1.4.3:
   version "1.4.5"
   resolved "https://registry.npmmirror.com/magic-string/-/magic-string-1.4.5.tgz#201c852d51eb0664d6f66cf7ab93b20b416e48d9"

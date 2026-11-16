@@ -116,6 +116,8 @@
       "yearHolidayColor": "节假日颜色",
       "yearShowHolidays": "节假日着色",
       "yearShowHolidaysHint": "节假日与周末用节日色标出",
+      "yearShowLunar": "农历",
+      "yearShowLunarHint": "日号下方显示农历，初一显示月份",
       "yearPagesAuto": "页数按月数与网格自动换算，改行数或列数即可"
     },
     "decorations": {

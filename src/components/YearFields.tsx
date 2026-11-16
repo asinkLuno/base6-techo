@@ -186,6 +186,22 @@ export const YearFields = memo(function YearFields({
             </span>
           </label>
         </fieldset>
+        <fieldset className="fieldset">
+          <legend className="fieldset-legend">
+            {t("editor.config.yearShowLunar")}
+          </legend>
+          <label className="flex h-12 cursor-pointer items-center gap-3">
+            <input
+              type="checkbox"
+              className="checkbox"
+              checked={body.showLunar}
+              onChange={(e) => setYear({ showLunar: e.target.checked })}
+            />
+            <span className="text-sm">
+              {t("editor.config.yearShowLunarHint")}
+            </span>
+          </label>
+        </fieldset>
       </div>
 
       {clamped.months !== body.months && (

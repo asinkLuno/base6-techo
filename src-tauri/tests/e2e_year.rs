@@ -1,4 +1,5 @@
-//! 真实编译一页 3×4 的 2027 年历（含 iCal 导入的节假日），产出 build/year-sample.pdf 供目视核对。
+//! 真实编译一页 3×4 的 2027 年历（含 iCal 导入的节假日与农历副标签），
+//! 产出 build/year-sample.pdf 供目视核对。
 use base6_techo_lib::{
     compile,
     templates::document::{Document, generate_document_latex},
@@ -33,7 +34,16 @@ fn year_calendar_compiles_to_real_pdf() {
             "2027-10-02": "国庆",
             "2027-10-03": "国庆"
         },
-        "sections": [{"pages": 1, "body": {"kind": "year", "startMonth": "2027-01", "months": 12}}]
+        "lunar": {
+            "2027-01-01": "冬月廿四",
+            "2027-02-06": "正月",
+            "2027-02-07": "初二",
+            "2027-02-08": "初三",
+            "2027-06-05": "五月",
+            "2027-06-06": "初二",
+            "2027-12-31": "冬月初五"
+        },
+        "sections": [{"pages": 1, "body": {"kind": "year", "startMonth": "2027-01", "months": 12, "showLunar": true}}]
     }"##,
     )
     .unwrap();

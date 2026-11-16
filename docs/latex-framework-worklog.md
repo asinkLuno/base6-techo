@@ -103,13 +103,24 @@
 
 ## 年历（year）
 
-1. 对照 archive 分支 `backend/year.rs` 的 `YearPattern` 与 `draw_year`：一页排 `rows × cols` 个月，`page_months` 的取页数学等价于「每页连续 `rows × cols` 个月」；单元格复用 `octan_week` 的迷你月历画法（月份标题、星期表头、日期，无内部格线）；节假日是 `日期 → 名称` 映射，`show_holidays` 关闭时连周末的红色也一并关闭。archive 还依赖农历与系统时区，本次不搬农历。
+1. 对照 archive 分支 `backend/year.rs` 的 `YearPattern` 与 `draw_year`：一页排 `rows × cols` 个月，`page_months` 的取页数学等价于「每页连续 `rows × cols` 个月」；单元格复用 `octan_week` 的迷你月历画法（月份标题、星期表头、日期，无内部格线）；节假日是 `日期 → 名称` 映射，`show_holidays` 关闭时连周末的红色也一并关闭。archive 还依赖系统时区，本次不搬；农历先空着，见第 8–12 条。
 2. 节假日提升为文档级共享数据：`Document` 新增 `holidays: BTreeMap<String, String>`（上限 4096 条、名称 ≤128 字符、键必须是真实日期），`BodyTemplate::draw` 增加 `holidays` 参数，年历是唯一读取者；这样多节共用同一份节假日，导入只需一次。
 3. 先写 `tests/year.rs`：3×4 一页 12 月、5 个月分 3 页且尾页留空槽、节假日与周末着色、`showHolidays=false` 只用文字色、页数必须等于网格容量、非法日期键、超长名称与 `rows=13`。运行确认 `unknown variant 'year'` 后补实现。
 4. 新增 `templates/year.rs`：`YearPattern` 校验月份跨度、1–12 的行列、格式串、星期表头、颜色与数值；`required_pages() = ceil(months ÷ (rows × cols))`，`document.rs` 在计划阶段拒绝页数不符。
 5. 单元格行高按固定 6 周计算（`WEEK_ROWS_MAX`），而不是按月自己的周数：否则同一行里 4 周的月份会比 5 周的月份行距更稀，日期无法横向对齐。首版按各自周数分行，栅格化后目检明显不齐，改为固定 6 周。
 6. 前端新增 `YearPattern`、`DEFAULT_YEAR`、`newYear`、`yearPages`、`clampYear`，`clampMonthSpan` 增加 `fallbackMonth` 参数（年历回落到 `2027-01`，月历/打卡仍回落 `2026-08`）；`.ics` 解析放在 `src/lib/ics.ts`（展开折行、只认 `DTSTART`/`DTEND`/`SUMMARY`、`DTEND` 为开区间所以末日减一、跨日事件逐日展开、同日后者覆盖，不处理 RRULE/时区），Tauri 侧新增 `open_ics_file` 命令复用文本读取上限逻辑；`HolidaysPanel` 负责导入与清空，导入为增量合并。
 7. 验证：`cargo test` 全部通过（新增 7 项 year 集成测试与 1 项真实 Tectonic 编译）；`cargo clippy --all-targets -- -D warnings` 通过；`yarn verify` 四条全绿，`yarn test` 195 项通过。栅格化 `build/year-sample.pdf` 目检 2027 年 12 个月：3×4 布局、同行月份日期对齐、节假日与周末着色、页眉与页码位置均正确。
+
+## 年历农历副标签
+
+1. 选型：Node 侧 `lunar-typescript` 1.8.7（MIT、零依赖、自带 `.d.ts`、与 `lunar-javascript` 算法逐日一致），Rust 侧不引入农历库。理由是复用已有节假日范式——数据在可测的 TS 侧算一次，Rust 保持纯渲染器，Android 交叉编译不必再验一个 crate，顺带把节气/农历节日的能力留在前端。
+2. 先验证库的全域不变量（脚本在 /tmp，未入库）：逐日跑 1–9999 年共 3.65M 天，0 次抛错，农历日要么 +1 要么回到初一，0 处违反；1900-01-31 与 2026-02-17 均为正月初一（与项目节假日数据一致），2025-07-25 为闰六月初一（`getMonth()` 返回 -6）。单年 3653 天换算约 39ms。
+3. Rust 侧只加绘制与校验：`Document` 新增 `lunar: BTreeMap<String, String>`（上限 4096 条、键必须是真实日期、标签非空且 ≤128 字符），`YearPattern` 新增 `showLunar`（默认 false），`draw_month` 在日号下方再画一行。
+4. 布局细节改了三版才定：初版用格高比例分行（`row + 2.32` / `row + 2.74`），实际排版间距 6.9pt 过于松散，且间距随格高缩放、密集网格下会自然重叠。最终改为「行心对称 + 按字号固定间距」：`stacked_height = (日期字号 + 农历字号) × pt→mm + 0.35mm`，两行各偏移半个 `stacked_height`；格高不足 `stacked_height` 时（如 12 行网格）退回单行日号并跳过农历，不硬塞。
+5. 副标签字号 = `min(日期字号 × 0.5, 格宽 × 0.92 ÷ 字数)`，下限 1pt；颜色直接复用当天日期色，所以节假日与周末的农历也是节日色。
+6. 前端新增 `src/lib/lunar.ts`（唯一暴露面 `lunarLabels` / `yearLunarLabels` / `documentLunarLabels`）：中文「初一月名、其余日名」（台历惯例，比月+日短一半），英文用 `M1`/`LM6` 与纯日号；超范围或非法输入返回空映射而不抛错，农历只是副标签。库约 100KB gzip，`import()` 懒加载，主包只涨 0.6KB（gzip 159.14 → 159.77KB），农历库独立 chunk 310KB（gzip 103KB）。
+7. `YearFields` 加「农历」开关；中英词条同步；`docs/latex-framework.md` 补 `showLunar` 与顶层 `lunar` 的语义。
+8. 验证：`cargo test` 128 项全通过（`tests/year.rs` 新增 6 项：日号下方绘制、复用日期色、关闭时不画、缺标签静默跳过、非法键/空标签/超长标签被拒、字号按格宽收紧，以及 12×1 密集网格退回单行）；`yarn test` 211 项通过（`lunar.test.ts` 13 项，含 1 年与 9999 年边界）；`yarn verify` 四条全绿；`build/year-sample.pdf` 用 `pdftotext -bbox` 核对坐标：日号 y≈97.9–102.8、农历 y≈103.2–105.7（5pt 字号行距约 5.4pt），与下一行 y≈123.4 不重叠。
 
 ## 修复 Linux 下启动即 SIGSEGV（与农历无关）
 

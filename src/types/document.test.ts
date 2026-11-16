@@ -735,6 +735,7 @@ describe("year pattern", () => {
       lineWidthPt: 0,
       dateSizePt: 100,
       showHolidays: "yes" as never,
+      showLunar: "yes" as never,
     });
     expect(body.startMonth).toBe(DEFAULT_YEAR.startMonth);
     expect(body.months).toBe(1);
@@ -749,6 +750,7 @@ describe("year pattern", () => {
     expect(body.lineWidthPt).toBe(0.01);
     expect(body.dateSizePt).toBe(72);
     expect(body.showHolidays).toBe(true);
+    expect(body.showLunar).toBe(false);
     expect(
       clampYear({ ...DEFAULT_YEAR, showHolidays: false }).showHolidays,
     ).toBe(false);

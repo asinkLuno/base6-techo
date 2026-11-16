@@ -13,6 +13,8 @@ export interface DocumentPayload {
   imposition: Imposition;
   /** 全书共享节假日（YYYY-MM-DD → 名称）；年历用它给节假日着色。 */
   holidays: Record<string, string>;
+  /** 全书共享农历副标签（YYYY-MM-DD → 标签）；年历用它画日期下方的小字。 */
+  lunar: Record<string, string>;
   sections: SectionSpec[];
 }
 
