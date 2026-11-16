@@ -110,3 +110,12 @@
 5. 单元格行高按固定 6 周计算（`WEEK_ROWS_MAX`），而不是按月自己的周数：否则同一行里 4 周的月份会比 5 周的月份行距更稀，日期无法横向对齐。首版按各自周数分行，栅格化后目检明显不齐，改为固定 6 周。
 6. 前端新增 `YearPattern`、`DEFAULT_YEAR`、`newYear`、`yearPages`、`clampYear`，`clampMonthSpan` 增加 `fallbackMonth` 参数（年历回落到 `2027-01`，月历/打卡仍回落 `2026-08`）；`.ics` 解析放在 `src/lib/ics.ts`（展开折行、只认 `DTSTART`/`DTEND`/`SUMMARY`、`DTEND` 为开区间所以末日减一、跨日事件逐日展开、同日后者覆盖，不处理 RRULE/时区），Tauri 侧新增 `open_ics_file` 命令复用文本读取上限逻辑；`HolidaysPanel` 负责导入与清空，导入为增量合并。
 7. 验证：`cargo test` 全部通过（新增 7 项 year 集成测试与 1 项真实 Tectonic 编译）；`cargo clippy --all-targets -- -D warnings` 通过；`yarn verify` 四条全绿，`yarn test` 195 项通过。栅格化 `build/year-sample.pdf` 目检 2027 年 12 个月：3×4 布局、同行月份日期对齐、节假日与周末着色、页眉与页码位置均正确。
+
+## 修复 Linux 下启动即 SIGSEGV（与农历无关）
+
+1. 现象：`yarn tauri dev` 里 `Running target/debug/base6-techo` 后进程立刻段错误退出（exit 139），`coredumpctl` 显示 SIGSEGV。
+2. 先排除「是我这次改动引入的」：`git stash -u` 暂存全部改动、重新编译运行，同样崩溃 → 既有问题。
+3. 从 core 取栈（`coredumpctl gdb <pid>`）→ 崩在 `hb_table_lazy_loader_t<OT::head,1,true>::create`，即 HarfBuzz 解析字体表时。同时看到两份 HarfBuzz：栈帧地址落在可执行文件自身（`hb_font_create` 是 `T` 符号），而调用来自 `/usr/lib/libfreetype.so.6` → `/usr/lib/libpango-1.0.so.0` → GTK。
+4. 用 `LD_DEBUG=bindings` 定位：`binding file /usr/lib/libharfbuzz.so.0 [0] to src-tauri/target/debug/base6-techo [0]: normal symbol hb_font_create` —— 系统 libharfbuzz 15.1.0 把自己的符号解析到了可执行文件里静态链接的 HarfBuzz 8.3.0（tectonic_bridge_harfbuzz 0.3.3 自带）。两套 ABI 混用，布局时崩溃。
+5. 根因是「可执行文件默认导出静态库符号」+「系统 harfbuzz 在 2026-10-28 从 14.6 升到 15.0、11-06 升到 15.1」：旧版本没有走这条被劫持的路径，所以之前能跑。
+6. 修复：`src-tauri/build.rs` 在非 Android 目标上加 `cargo:rustc-link-arg=-Wl,--exclude-libs,ALL`，隐藏静态库符号。验证：`readelf --dyn-syms` 里 `hb_` 导出从 103 个降到 0，进程可正常常驻（timeout 15 后 exit=124 而非 139），`yarn tauri dev` 正常起窗口并加载前端。Android 分支不改变（那里依赖显式导出 JNI 符号，仍只加 `-lc++_shared`）。
