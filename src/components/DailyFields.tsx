@@ -1,5 +1,6 @@
 import { memo } from "react";
 import { useTranslation } from "react-i18next";
+import { useDocumentStore } from "../stores/document";
 import {
   addDays,
   clampLineWidthPt,
@@ -84,9 +85,18 @@ export const DailyFields = memo(function DailyFields({
             onChange={(e) => {
               const pagesPerDay = e.target.value === "2" ? 2 : 1;
               const limit = Math.floor(DAILY_PAGES_MAX / pagesPerDay);
-              setDaily({
+              const nextBody: DailyPattern = {
+                ...body,
                 pagesPerDay,
                 endDate: addDays(body.startDate, Math.min(days, limit) - 1),
+              };
+              // 切到一天两页且当前未指定起始面时，默认对齐到左页避免半日拆到正反两面。
+              const store = useDocumentStore.getState();
+              const current = store.sections.find((s) => s.id === sectionId);
+              store.updateSection(sectionId, {
+                body: nextBody,
+                ...(pagesPerDay === 2 &&
+                  current?.startOn === "any" && { startOn: "left" }),
               });
             }}
           >

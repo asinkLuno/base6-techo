@@ -45,6 +45,7 @@ import {
   type SectionDraft,
   SPACING_MM_MAX,
   SPACING_MM_MIN,
+  type StartOn,
 } from "../types/document";
 import { DailyFields } from "./DailyFields";
 import { DecorationsPanel } from "./DecorationsPanel";
@@ -428,11 +429,15 @@ const SectionEditor = memo(function SectionEditor({
           <select
             className="select w-full"
             value={body.kind}
-            onChange={(e) =>
+            onChange={(e) => {
+              const nextBody = defaultBodyFor(e.target.value);
+              // 切到双页周视图且当前未指定起始面时，默认对齐到左页避免摊开错位。
               updateSection(section.id, {
-                body: defaultBodyFor(e.target.value),
-              })
-            }
+                body: nextBody,
+                ...(nextBody.kind === "octanWeek" &&
+                  section.startOn === "any" && { startOn: "left" }),
+              });
+            }}
           >
             <option value="blank">{t("editor.template.blank")}</option>
             <option value="linear">{t("editor.template.linear")}</option>
@@ -483,19 +488,40 @@ const SectionEditor = memo(function SectionEditor({
         )}
       </div>
 
-      <fieldset className="fieldset">
-        <legend className="fieldset-legend">
-          {t("editor.section.numbered")}
-        </legend>
-        <input
-          type="checkbox"
-          className="toggle"
-          checked={section.numbered}
-          onChange={(e) =>
-            updateSection(section.id, { numbered: e.target.checked })
-          }
-        />
-      </fieldset>
+      <div className="grid gap-4 sm:grid-cols-2">
+        <fieldset className="fieldset">
+          <legend className="fieldset-legend">
+            {t("editor.section.numbered")}
+          </legend>
+          <input
+            type="checkbox"
+            className="toggle"
+            checked={section.numbered}
+            onChange={(e) =>
+              updateSection(section.id, { numbered: e.target.checked })
+            }
+          />
+        </fieldset>
+
+        <fieldset className="fieldset">
+          <legend className="fieldset-legend">
+            {t("editor.section.startOn")}
+          </legend>
+          <select
+            className="select w-full"
+            value={section.startOn}
+            onChange={(e) =>
+              updateSection(section.id, {
+                startOn: e.target.value as StartOn,
+              })
+            }
+          >
+            <option value="any">{t("editor.section.startOnAny")}</option>
+            <option value="left">{t("editor.section.startOnLeft")}</option>
+            <option value="right">{t("editor.section.startOnRight")}</option>
+          </select>
+        </fieldset>
+      </div>
 
       {body.kind === "linear" && (
         <LinearFields sectionId={section.id} body={body} />
@@ -567,12 +593,20 @@ const SectionEditor = memo(function SectionEditor({
 interface SectionListItemProps {
   section: SectionDraft;
   index: number;
+  startPage: number;
+  endPage: number;
+  leadingBlank: number;
+  spreadMisaligned: boolean;
 }
 
 /** 可拖拽排序的 section 列表项：summary 常显汇总，展开配置模板与参数。未变的 section 引用稳定，memo 跳过无关重渲。 */
 export default memo(function SectionListItem({
   section,
   index,
+  startPage,
+  endPage,
+  leadingBlank,
+  spreadMisaligned,
 }: SectionListItemProps) {
   const { t } = useTranslation();
   const removeSection = useDocumentStore((s) => s.removeSection);
@@ -656,6 +690,29 @@ export default memo(function SectionListItem({
             {t(`editor.template.${body.kind}`)}
           </span>
           <span className="text-sm opacity-70">× {section.pages}</span>
+          <span className="text-xs opacity-60">
+            {startPage === endPage
+              ? t("editor.section.pageSingle", { page: startPage })
+              : t("editor.section.pageRange", {
+                  start: startPage,
+                  end: endPage,
+                })}
+          </span>
+          {leadingBlank > 0 && (
+            <span className="badge badge-ghost badge-sm">
+              {t("editor.section.leadingBlankBadge")}
+            </span>
+          )}
+          {spreadMisaligned && (
+            <span
+              className="tooltip tooltip-bottom"
+              data-tip={t("editor.section.spreadMisalignedTip")}
+            >
+              <span className="badge badge-warning badge-sm">
+                {t("editor.section.spreadMisaligned")}
+              </span>
+            </span>
+          )}
           {inheriting && (
             <span className="badge badge-ghost badge-sm">
               {t("editor.decorations.summaryInherited")}

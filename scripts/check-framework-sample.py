@@ -13,7 +13,7 @@ def check_sample(pdf: Path) -> None:
         check=True, capture_output=True, text=True,
     )
     pages = ET.fromstring("<document>" + result.stdout + "</document>").findall("page")
-    assert len(pages) == 5, f"Expected 5 pages, got {len(pages)}"
+    assert len(pages) == 8, f"Expected 8 pages, got {len(pages)}"
     for index, page in enumerate(pages, 1):
         spans = [
             ("".join(c.attrib["c"] for c in span.findall("char")),
@@ -29,7 +29,7 @@ def check_sample(pdf: Path) -> None:
         header = "".join(text for text, bounds in spans if bounds[1] < 40)
         for literal in ["100%", "&", "#1_{}", "$", "\\", "^", "~"]:
             assert literal in header, f"Page {index}: missing literal {literal!r}"
-    print("Verified 5 pages: mirrored watermarks, independent page numbering, escaped text.")
+    print("Verified 8 pages: mirrored watermarks, independent page numbering, escaped text.")
 
 
 if __name__ == "__main__":

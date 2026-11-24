@@ -20,6 +20,7 @@ import {
   type DocumentSnapshot,
   mergeDocumentState,
   migrateDocumentState,
+  patchMargins,
 } from "./documentState";
 
 interface DocumentState {
@@ -66,6 +67,7 @@ export const useDocumentStore = create<DocumentState>()(
               name: "",
               pages: 1,
               numbered: true,
+              startOn: "any",
               body: { ...DEFAULT_LINEAR },
               margins: null,
               decorations: null,
@@ -100,16 +102,30 @@ export const useDocumentStore = create<DocumentState>()(
         })),
       updatePage: (patch) =>
         set((state) => {
+          const paperChanged =
+            patch.paper !== undefined &&
+            !paperEquals(patch.paper, state.page.paper);
           const next = { ...state.page, ...patch };
           // 换纸或改自定义尺寸时按 archive 规则重置边距；显式传入 margins 的编辑不受影响。
-          if (
-            patch.paper !== undefined &&
-            patch.margins === undefined &&
-            !paperEquals(patch.paper, state.page.paper)
-          ) {
+          if (paperChanged && patch.margins === undefined) {
             next.margins = defaultMarginsForPaper(next.paper);
           }
-          return { page: clampPageSettings(next) };
+          const page = clampPageSettings(next);
+          if (
+            !paperChanged ||
+            state.sections.every((s) => s.margins === null)
+          ) {
+            return { page };
+          }
+          // 已覆写边距的节同步按新纸张尺寸收敛，保证编辑态与生成态一致。
+          return {
+            page,
+            sections: state.sections.map((section) =>
+              section.margins === null
+                ? section
+                : { ...section, margins: patchMargins(section.margins, page) },
+            ),
+          };
         }),
       updateDecorations: (decorations) =>
         set(() => ({ decorations: clampDecorations(decorations) })),

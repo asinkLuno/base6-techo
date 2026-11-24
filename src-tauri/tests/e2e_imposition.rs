@@ -58,3 +58,41 @@ fn imposed_documents_compile_to_real_pdf() {
         std::fs::write(root.join(format!("build/{name}-sample.pdf")), out.pdf).unwrap();
     }
 }
+
+#[test]
+fn imposed_pattern_and_aligned_sections_compile_to_real_pdf() {
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .unwrap()
+        .to_path_buf();
+    compile::set_engine_env(
+        &root.join("build/prewarm-work/tectonic-cache"),
+        &root.join("build/prewarm-work/home"),
+    );
+    let doc: Document = serde_json::from_str(
+        r#"{
+            "imposition": {"mode": "booklet"},
+            "sections": [
+                {"pages": 2, "startOn": "left", "body": {"kind": "dots"}},
+                {"pages": 2, "body": {"kind": "grid"}},
+                {"pages": 2, "body": {"kind": "hogen"}}
+            ]
+        }"#,
+    )
+    .unwrap();
+    let tex = generate_document_latex(&doc).unwrap();
+    let (preamble, body) = tex.split_once("\\begin{document}").unwrap();
+    assert!(preamble.contains("\\pgfdeclarepatternformonly{dots_"));
+    assert!(preamble.contains("\\pgfdeclarepatternformonly{grid_"));
+    assert!(preamble.contains("\\pgfdeclarepatternformonly{hogen_"));
+    assert!(!body.contains("\\pgfdeclarepatternformonly"));
+    let out = compile::compile(
+        &tex,
+        &root.join("build/imposition-patterns-e2e"),
+        &[],
+        &compile::noop_sink(),
+    )
+    .expect("编译带平铺 pattern 与对齐空白的拼版 PDF");
+    assert!(out.pdf.starts_with(b"%PDF"));
+    assert!(!out.log.contains("Missing character"), "{}", out.log);
+}

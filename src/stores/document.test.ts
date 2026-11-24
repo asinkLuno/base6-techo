@@ -407,6 +407,7 @@ describe("toSectionSpecs", () => {
         name: "第一章",
         pages: 2,
         numbered: true,
+        startOn: "any" as const,
         body: DEFAULT_LINEAR,
         margins: null,
         decorations: null,
@@ -416,6 +417,7 @@ describe("toSectionSpecs", () => {
         name: "",
         pages: 1,
         numbered: false,
+        startOn: "left" as const,
         body: { kind: "blank" as const },
         margins: null,
         decorations: null,
@@ -425,6 +427,7 @@ describe("toSectionSpecs", () => {
       {
         pages: 2,
         numbered: true,
+        startOn: "any",
         body: DEFAULT_LINEAR,
         margins: null,
         decorations: null,
@@ -432,6 +435,7 @@ describe("toSectionSpecs", () => {
       {
         pages: 1,
         numbered: false,
+        startOn: "left",
         body: { kind: "blank" },
         margins: null,
         decorations: null,
@@ -452,6 +456,7 @@ describe("toSectionSpecs", () => {
         name: "",
         pages: 1,
         numbered: true,
+        startOn: "any" as const,
         body: { kind: "blank" as const },
         margins: { headerMm: 30 },
         decorations: {
@@ -565,6 +570,24 @@ describe("page settings", () => {
     expect(state().sections).toEqual(before);
     expect(state().page.paper).toEqual({ kind: "letter" });
   });
+
+  it("换到更小纸张时，已覆写边距的节同步收敛到新纸张范围内", () => {
+    state().updatePage({ paper: { kind: "a4" } });
+    state().addSection();
+    const id = state().sections[0].id;
+    state().updateSection(id, {
+      margins: { headerMm: 15, footerMm: 19, innerMm: 40, outerMm: 30 },
+    });
+    state().updatePage({ paper: { kind: "m5x62" } });
+    const margins = state().sections[0].margins;
+    expect(margins).not.toBeNull();
+    const resolved = {
+      ...state().page.margins,
+      ...margins,
+    };
+    expect(resolved.innerMm + resolved.outerMm).toBeLessThanOrEqual(61);
+    expect(resolved.headerMm + resolved.footerMm).toBeLessThanOrEqual(104);
+  });
 });
 
 describe("imposition", () => {
@@ -603,6 +626,11 @@ describe("imposition", () => {
       mode: "thread",
       sheetsPerSignature: 4,
     });
+    state().updateImposition({ mode: "thread", sheetsPerSignature: 2.6 });
+    expect(state().imposition).toEqual({
+      mode: "thread",
+      sheetsPerSignature: 3,
+    });
   });
 
   it("切换到非锁线模式时不携带纸张数字段", () => {
@@ -626,6 +654,7 @@ describe("replaceDocument", () => {
           name: "导入的节",
           pages: 4,
           numbered: false,
+          startOn: "any" as const,
           body: { kind: "blank" as const },
           margins: null,
           decorations: null,

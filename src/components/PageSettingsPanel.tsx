@@ -1,9 +1,11 @@
-import { memo } from "react";
+import { memo, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { useDocumentStore } from "../stores/document";
 import {
   A5_DIMS,
   clampNumber,
+  clampSheetsPerSignature,
+  computeBookPlan,
   DEFAULT_SHEETS_PER_SIGNATURE,
   isPaperPresetKind,
   PAPER_MM_MAX,
@@ -38,13 +40,6 @@ function InfoIcon() {
 // NumberField 的 clamp 是数字级的，这里按字段配上范围与回落值。
 const clampPaperMm = (fallback: number) => (value: number) =>
   clampNumber(value, PAPER_MM_MIN, PAPER_MM_MAX, fallback);
-const clampSheets = (value: number) =>
-  clampNumber(
-    value,
-    SHEETS_PER_SIGNATURE_MIN,
-    SHEETS_PER_SIGNATURE_MAX,
-    DEFAULT_SHEETS_PER_SIGNATURE,
-  );
 
 /** 右侧栏的页面设置区（无卡片外框）：纸张（含自定义宽高）、装订方式。
  *  memo：无 props，编译日志每帧推流导致父组件重渲时跳过本面板；store 订阅仍照常触发自身更新。 */
@@ -53,10 +48,18 @@ export const PageSettingsPanel = memo(function PageSettingsPanel() {
   const page = useDocumentStore((s) => s.page);
   const decorations = useDocumentStore((s) => s.decorations);
   const imposition = useDocumentStore((s) => s.imposition);
+  const sections = useDocumentStore((s) => s.sections);
   const updatePage = useDocumentStore((s) => s.updatePage);
   const updateDecorations = useDocumentStore((s) => s.updateDecorations);
   const updateImposition = useDocumentStore((s) => s.updateImposition);
   const paper = page.paper;
+  const dims = paperDimsMm(paper);
+  const plan = useMemo(
+    () => computeBookPlan(sections, imposition),
+    [sections, imposition],
+  );
+  const imposedWidthMm = dims.widthMm * 2;
+  const imposedHeightMm = dims.heightMm;
   const impositionInfo = t(
     imposition.mode === "thread"
       ? "editor.page.impositionInfoThread"
@@ -181,11 +184,43 @@ export const PageSettingsPanel = memo(function PageSettingsPanel() {
           min={SHEETS_PER_SIGNATURE_MIN}
           max={SHEETS_PER_SIGNATURE_MAX}
           step={1}
-          clamp={clampSheets}
+          clamp={clampSheetsPerSignature}
           onCommit={(sheetsPerSignature) =>
             updateImposition({ mode: "thread", sheetsPerSignature })
           }
         />
+      )}
+
+      {imposition.mode !== "none" && (
+        <div className="bg-base-200 rounded-box space-y-1 p-3 text-xs">
+          {plan.readingPages > 0 && (
+            <p className="font-medium">
+              {imposition.mode === "booklet"
+                ? t("editor.page.impositionSummaryBooklet", {
+                    sheets: plan.sheetCount,
+                    pages: plan.outputPages,
+                    blanks: plan.paddedBlanks,
+                  })
+                : t("editor.page.impositionSummaryThread", {
+                    signatures: plan.signatureCount,
+                    sheets: plan.sheetCount,
+                    pages: plan.outputPages,
+                    blanks: plan.paddedBlanks,
+                  })}
+            </p>
+          )}
+          <p className="text-base-content/70">
+            {imposedWidthMm >= imposedHeightMm
+              ? t("editor.page.impositionFlipShort", {
+                  width: imposedWidthMm,
+                  height: imposedHeightMm,
+                })
+              : t("editor.page.impositionFlipLong", {
+                  width: imposedWidthMm,
+                  height: imposedHeightMm,
+                })}
+          </p>
+        </div>
       )}
 
       <DecorationsPanel

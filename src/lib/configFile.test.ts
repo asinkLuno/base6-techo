@@ -30,6 +30,7 @@ const snapshot = (): DocumentSnapshot => {
         name: "第一章",
         pages: 2,
         numbered: true,
+        startOn: "any",
         body: DEFAULT_LINEAR,
         margins: { headerMm: 30 },
         decorations: null,
@@ -39,6 +40,7 @@ const snapshot = (): DocumentSnapshot => {
         name: "",
         pages: 3,
         numbered: false,
+        startOn: "left",
         body: DEFAULT_DOTS,
         margins: null,
         decorations: {
@@ -233,6 +235,7 @@ describe("octan week round trip", () => {
           name: "周视图",
           pages: 4,
           numbered: true,
+          startOn: "left",
           body: {
             ...DEFAULT_OCTAN_WEEK,
             startDate: "2026-08-03",

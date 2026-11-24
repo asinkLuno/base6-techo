@@ -2,12 +2,48 @@
  * PDF 预览的视图模式、翻页步进与目录解析纯逻辑，抽出来便于单测；
  * PdfViewer 只管渲染。
  */
+import { clampSheetsPerSignature, type Imposition } from "../types/document";
 
 /** 预览视图模式：连续滚动 / 单页翻页 / 双页对开。 */
 export const PDF_VIEW_MODES = ["continuous", "single", "double"] as const;
 export type PdfViewMode = (typeof PDF_VIEW_MODES)[number];
 
 export const DEFAULT_PDF_VIEW_MODE: PdfViewMode = "continuous";
+
+/** 拼版 PDF 每页本身已包含左右两个阅读页，不适用「双页对开」并排视图。 */
+export const effectivePdfViewMode = (
+  mode: PdfViewMode,
+  imposed: boolean,
+): PdfViewMode => (imposed && mode === "double" ? "single" : mode);
+
+export interface ImposedPageMeta {
+  /** 从 1 开始的帖序号（骑马订恒为 1） */
+  signature: number;
+  /** 当前帖内从 1 开始的纸张序号 */
+  sheet: number;
+  /** 正面或反面 */
+  face: "front" | "back";
+}
+
+/** 根据拼版设置反推第 pageNumber 页（1 起）对应的帖/纸/正反面；单页模式返回 null。 */
+export function imposedPageMeta(
+  pageNumber: number,
+  imposition: Imposition,
+): ImposedPageMeta | null {
+  if (imposition.mode === "none" || pageNumber < 1) return null;
+  const index = Math.floor(pageNumber) - 1;
+  const face = index % 2 === 0 ? "front" : "back";
+  const sheetGlobal = Math.floor(index / 2);
+  if (imposition.mode === "booklet") {
+    return { signature: 1, sheet: sheetGlobal + 1, face };
+  }
+  const perSig = clampSheetsPerSignature(imposition.sheetsPerSignature);
+  return {
+    signature: Math.floor(sheetGlobal / perSig) + 1,
+    sheet: (sheetGlobal % perSig) + 1,
+    face,
+  };
+}
 
 /** 持久化数据是外部输入：未知模式回落到连续滚动，避免把非法值写进 store。 */
 export const isPdfViewMode = (value: unknown): value is PdfViewMode =>

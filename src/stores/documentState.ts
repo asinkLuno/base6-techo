@@ -17,6 +17,7 @@ import {
   clampPages,
   clampPaperSize,
   clampSectionName,
+  clampStartOn,
   clampTextStyle,
   DEFAULT_IMPOSITION,
   DEFAULT_LINEAR,
@@ -220,7 +221,7 @@ const minimalDecorations = (
   );
 
 /** null = 清除覆盖；否则收敛为最小覆盖，空集合保留 {} 哨兵（已进入自定义）。 */
-const patchMargins = (
+export const patchMargins = (
   value: SectionMarginsOverride | null,
   page: PageSettings,
 ): SectionMarginsOverride | null =>
@@ -261,6 +262,9 @@ export function applySectionPatch(
     ...(patch.name !== undefined && { name: clampSectionName(patch.name) }),
     pages,
     ...(patch.numbered !== undefined && { numbered: patch.numbered }),
+    ...(patch.startOn !== undefined && {
+      startOn: clampStartOn(patch.startOn),
+    }),
     body,
     ...(patch.margins !== undefined && {
       margins: patchMargins(patch.margins, page),
@@ -305,6 +309,7 @@ const migrateSection = (
     // 周视图与一日时间轴的页数以日期范围为准，旧文件里的页数只是历史值。
     pages: pagesFor(body, finiteOr(raw.pages, 1), 1),
     numbered: typeof raw.numbered === "boolean" ? raw.numbered : true,
+    startOn: clampStartOn(raw.startOn),
     body,
     margins: migrateMargins(raw.margins, page),
     decorations: migrateDecorations(raw.decorations, decorations),

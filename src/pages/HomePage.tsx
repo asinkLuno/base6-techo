@@ -22,7 +22,13 @@ import {
 import { generatePdf } from "../lib/generatePdf";
 import { describeTarget, savePdfFile } from "../lib/savePdf";
 import { useDocumentStore } from "../stores/document";
-import { PAGES_MAX, toSectionSpecs } from "../types/document";
+import {
+  computeBookPlan,
+  DEFAULT_IMPOSITION,
+  type Imposition,
+  PAGES_MAX,
+  toSectionSpecs,
+} from "../types/document";
 
 // pdfjs-dist 体积大且只在生成预览后才需要，懒加载避免进首屏 chunk。
 const PdfViewer = lazy(() =>
@@ -32,10 +38,10 @@ const PdfViewer = lazy(() =>
 /** 主界面：左栏版式组合（section 列表：拖拽排序、增删、逐项配置模板），右栏页面设置与生成。 */
 export default function HomePage() {
   const { t } = useTranslation();
-  // 只订阅派生标量：section 内容变化但总页数不变时，主界面不重渲。
+  // 只订阅派生标量：section 内容变化但总页数（含对齐空白）不变时，主界面不重渲。
   // 列表本身在 <SectionList> 内订阅 sections。
-  const totalPages = useDocumentStore((s) =>
-    s.sections.reduce((sum, section) => sum + section.pages, 0),
+  const totalPages = useDocumentStore(
+    (s) => computeBookPlan(s.sections, s.imposition).readingPages,
   );
   const hasSections = useDocumentStore((s) => s.sections.length > 0);
 
@@ -45,6 +51,8 @@ export default function HomePage() {
   /** 编译中的实时日志行；null = 非实时态 */
   const [stream, setStream] = useState<CompileLogLine[] | null>(null);
   const [pdfBytes, setPdfBytes] = useState<ArrayBuffer | null>(null);
+  const [pdfImposition, setPdfImposition] =
+    useState<Imposition>(DEFAULT_IMPOSITION);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [savedToast, setSavedToast] = useState<string | null>(null);
@@ -123,6 +131,7 @@ export default function HomePage() {
         sections: toSectionSpecs(current, page, decorations),
       });
       setPdfBytes(out.pdf);
+      setPdfImposition(imposition);
       setLog(out.log || null);
     } catch (e) {
       setPdfBytes(null);
@@ -255,7 +264,7 @@ export default function HomePage() {
                 </div>
               }
             >
-              <PdfViewer pdfBytes={pdfBytes} />
+              <PdfViewer pdfBytes={pdfBytes} imposition={pdfImposition} />
             </Suspense>
           </div>
         </section>

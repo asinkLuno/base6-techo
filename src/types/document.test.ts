@@ -5,9 +5,11 @@ import {
   type Band,
   clampBand,
   clampDaily,
+  clampImposition,
   clampMonth,
   clampOctanWeek,
   clampTracker,
+  computeBookPlan,
   DAILY_LABEL_SIZE_PT_MAX,
   DEFAULT_DAILY,
   DEFAULT_DAILY_SUN,
@@ -56,6 +58,7 @@ const draft = (overrides: Partial<SectionDraft> = {}): SectionDraft => ({
   name: "",
   pages: 1,
   numbered: true,
+  startOn: "any",
   body: { kind: "blank" },
   margins: null,
   decorations: null,
@@ -692,5 +695,61 @@ describe("daily pattern", () => {
     });
     expect(body.startDate).toBe("9999-12-31");
     expect(body.endDate).toBe("9999-12-31");
+  });
+});
+
+describe("clampImposition", () => {
+  it("锁线每帖纸张数取整为合法整数（匹配 Rust usize）", () => {
+    expect(
+      clampImposition({ mode: "thread", sheetsPerSignature: 2.6 }),
+    ).toEqual({ mode: "thread", sheetsPerSignature: 3 });
+    expect(
+      clampImposition({ mode: "thread", sheetsPerSignature: 1.4 }),
+    ).toEqual({ mode: "thread", sheetsPerSignature: 1 });
+  });
+});
+
+describe("computeBookPlan", () => {
+  it("检测未对齐的双页模板，并按 startOn 自动计算对齐空白与拼版张数", () => {
+    const octan = draft({
+      pages: 2,
+      body: DEFAULT_OCTAN_WEEK,
+      startOn: "any",
+    });
+    const misaligned = computeBookPlan([octan], { mode: "none" });
+    expect(misaligned.readingPages).toBe(2);
+    expect(misaligned.sections[0]).toMatchObject({
+      leadingBlank: 0,
+      startPage: 1,
+      endPage: 2,
+      startsOn: "right",
+      spreadMisaligned: true,
+    });
+
+    const aligned = computeBookPlan(
+      [{ ...octan, startOn: "left" }, draft({ pages: 1, startOn: "right" })],
+      { mode: "thread", sheetsPerSignature: 2 },
+    );
+    expect(aligned.alignmentBlanks).toBe(2);
+    expect(aligned.readingPages).toBe(5);
+    expect(aligned.sections[0]).toMatchObject({
+      leadingBlank: 1,
+      startPage: 2,
+      endPage: 3,
+      startsOn: "left",
+      spreadMisaligned: false,
+    });
+    expect(aligned.sections[1]).toMatchObject({
+      leadingBlank: 1,
+      startPage: 5,
+      endPage: 5,
+      startsOn: "right",
+      spreadMisaligned: false,
+    });
+    // 5 页进每帖 2 张纸（8 页）锁线：1 帖、2 张纸、尾部补白 3 页、输出 4 个 PDF 面。
+    expect(aligned.signatureCount).toBe(1);
+    expect(aligned.sheetCount).toBe(2);
+    expect(aligned.paddedBlanks).toBe(3);
+    expect(aligned.outputPages).toBe(4);
   });
 });

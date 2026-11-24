@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 import {
   activeTocIndex,
   destPage,
+  effectivePdfViewMode,
   hasNextSpread,
+  imposedPageMeta,
   isPdfViewMode,
   type OutlineNodeLike,
   pagedStep,
@@ -244,5 +246,49 @@ describe("activeTocIndex", () => {
     expect(
       activeTocIndex([{ id: 0, title: "x", page: null, depth: 0 }], 3),
     ).toBe(-1);
+  });
+});
+
+describe("effectivePdfViewMode", () => {
+  it("拼版输出时将双页模式收敛为单页，不影响连续/单页或普通输出", () => {
+    expect(effectivePdfViewMode("double", true)).toBe("single");
+    expect(effectivePdfViewMode("continuous", true)).toBe("continuous");
+    expect(effectivePdfViewMode("single", true)).toBe("single");
+    expect(effectivePdfViewMode("double", false)).toBe("double");
+  });
+});
+
+describe("imposedPageMeta", () => {
+  it("单页输出返回 null；骑马订与锁线按正反面和每帖纸张数递增", () => {
+    expect(imposedPageMeta(1, { mode: "none" })).toBeNull();
+    expect(imposedPageMeta(1, { mode: "booklet" })).toEqual({
+      signature: 1,
+      sheet: 1,
+      face: "front",
+    });
+    expect(imposedPageMeta(2, { mode: "booklet" })).toEqual({
+      signature: 1,
+      sheet: 1,
+      face: "back",
+    });
+    expect(imposedPageMeta(3, { mode: "booklet" })).toEqual({
+      signature: 1,
+      sheet: 2,
+      face: "front",
+    });
+    expect(
+      imposedPageMeta(5, { mode: "thread", sheetsPerSignature: 2 }),
+    ).toEqual({
+      signature: 2,
+      sheet: 1,
+      face: "front",
+    });
+    expect(
+      imposedPageMeta(8, { mode: "thread", sheetsPerSignature: 2 }),
+    ).toEqual({
+      signature: 2,
+      sheet: 2,
+      face: "back",
+    });
   });
 });

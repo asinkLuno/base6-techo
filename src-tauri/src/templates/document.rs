@@ -18,11 +18,37 @@ pub struct Document {
     pub imposition: Imposition,
 }
 
+/// 本节起始面约束：左装订下奇数物理页为右页、偶数物理页为左页。
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum StartOn {
+    /// 紧接上一节，不插对齐空白页。
+    #[default]
+    Any,
+    /// 从左页（偶数物理页）开始；若下一物理页是奇数，前插 1 页无装饰空白页。
+    Left,
+    /// 从右页（奇数物理页）开始；若下一物理页是偶数，前插 1 页无装饰空白页。
+    Right,
+}
+
+impl StartOn {
+    /// 给定下一张待分配的物理页码（从 1 开始），返回是否需要前插 1 页空白对齐页。
+    pub(crate) fn needs_blank(self, next_physical_page: usize) -> bool {
+        match self {
+            Self::Any => false,
+            Self::Left => next_physical_page % 2 == 1,
+            Self::Right => next_physical_page % 2 != 1,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default, rename_all = "camelCase", deny_unknown_fields)]
 pub struct Section {
     pub pages: usize,
     pub numbered: bool,
+    /// 起始面约束（any / left / right），默认紧接上一节。
+    pub start_on: StartOn,
     pub body: BodyTemplate,
     /// 本节覆盖的页头、页脚与水印；None 表示继承 Document.decorations。
     pub decorations: Option<Decorations>,
@@ -35,6 +61,7 @@ impl Default for Section {
         Self {
             pages: 1,
             numbered: true,
+            start_on: StartOn::Any,
             body: BodyTemplate::Blank,
             decorations: None,
             margins: None,
@@ -43,12 +70,13 @@ impl Default for Section {
 }
 
 impl Section {
-    /// 校验本节并把页数累加进全书总数；`total` 用于跨节的页数上限。
+    /// 校验本节并把页数（含可能的前插对齐空白页）累加进全书总数；`total` 用于跨节的页数上限。
     fn validate(&self, paper: &PaperSize, total: &mut usize) -> Result<(), String> {
         if !(1..=MAX_PAGES).contains(&self.pages) {
             return Err(format!("每节页数必须在 1–{MAX_PAGES} 之间"));
         }
-        *total += self.pages;
+        let leading_blank = usize::from(self.start_on.needs_blank(*total + 1));
+        *total += leading_blank + self.pages;
         if *total > MAX_PAGES {
             return Err(format!("全书不能超过 {MAX_PAGES} 页"));
         }
@@ -80,7 +108,15 @@ pub struct PageContext {
 pub struct PlannedPage<'a> {
     pub context: PageContext,
     pub layout: PageLayout,
-    pub(crate) section: &'a Section,
+    /// `None` 表示由 `start_on` 自动前插的对齐空白页：不绘制页心、装饰或页码。
+    pub(crate) section: Option<&'a Section>,
+}
+
+impl PlannedPage<'_> {
+    /// 是否为 `start_on` 自动插入的对齐空白页。
+    pub fn is_alignment_blank(&self) -> bool {
+        self.section.is_none()
+    }
 }
 
 /// 只能通过 plan_document 构造；其中的参数已在边界校验。
@@ -122,6 +158,19 @@ pub fn plan_document(document: &Document) -> Result<PlannedDocument<'_>, String>
                 .clone()
                 .unwrap_or_else(|| document.page.margins.clone()),
         };
+        if section.start_on.needs_blank(pages.len() + 1) {
+            let physical_page = pages.len() + 1;
+            pages.push(PlannedPage {
+                context: PageContext {
+                    physical_page,
+                    section_index,
+                    local_index: 0,
+                    display_number: None,
+                },
+                layout: PageLayout::resolve(&document.page, physical_page),
+                section: None,
+            });
+        }
         for local_index in 0..section.pages {
             let physical_page = pages.len() + 1;
             let display_number = if section.numbered {
@@ -139,7 +188,7 @@ pub fn plan_document(document: &Document) -> Result<PlannedDocument<'_>, String>
                     display_number,
                 },
                 layout: PageLayout::resolve(&settings, physical_page),
-                section,
+                section: Some(section),
             });
         }
     }

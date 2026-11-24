@@ -103,6 +103,8 @@ pub(crate) struct Canvas<'a> {
     sheet_x_mm: f64,
     /// 文档级已声明的 pattern；同名再声明会被 PGF 判为重复定义错误。
     declared_patterns: &'a mut HashSet<String>,
+    /// pattern 声明收集到导言区统一输出，避免落在 tikzpicture / scope 内部。
+    pattern_declarations: &'a mut String,
     /// 当前 `ink` 的实际颜色。相邻图元同色时不再重复 `\definecolor`。
     /// `\definecolor` 默认只在当前 TeX 组内有效，所以每个 `begin_region`
     /// 都要把进入前的状态压栈，退出时恢复，避免跨 scope 复用已失效的定义。
@@ -125,21 +127,25 @@ impl<'a> Canvas<'a> {
         self.current_ink = Some(color.to_owned());
     }
 
-    fn new(declared_patterns: &'a mut HashSet<String>) -> Self {
+    fn new(
+        declared_patterns: &'a mut HashSet<String>,
+        pattern_declarations: &'a mut String,
+    ) -> Self {
         Self {
             source: String::new(),
             sheet_height_mm: 0.0,
             sheet_x_mm: 0.0,
             declared_patterns,
+            pattern_declarations,
             current_ink: None,
             ink_scopes: Vec::new(),
         }
     }
 
-    /// pattern 声明在整本文档内只输出一次，后续页面直接复用。
+    /// pattern 声明在整本文档导言区只输出一次，后续页面直接复用。
     fn declare_pattern(&mut self, name: &str, declaration: &str) {
         if self.declared_patterns.insert(name.to_owned()) {
-            self.source.push_str(declaration);
+            self.pattern_declarations.push_str(declaration);
         }
     }
 
@@ -147,6 +153,12 @@ impl<'a> Canvas<'a> {
     pub(crate) fn set_sheet_frame(&mut self, height_mm: f64, x_mm: f64) {
         self.sheet_height_mm = height_mm;
         self.sheet_x_mm = x_mm;
+    }
+
+    /// 开启水平平移 scope（与 `end_region` 成对维护 `ink_scopes` 栈）。
+    pub(crate) fn begin_xshift(&mut self, x_mm: f64) {
+        self.ink_scopes.push(self.current_ink.clone());
+        writeln!(self.source, "\\begin{{scope}}[xshift={}mm]", number(x_mm)).unwrap();
     }
 
     pub(crate) fn begin_region(&mut self, rect: Rect) {
@@ -596,6 +608,22 @@ impl<'a> Canvas<'a> {
 
 pub(crate) fn render(plan: &PlannedDocument<'_>) -> String {
     let output = plan_output(plan);
+    let mut declared_patterns = HashSet::new();
+    let mut pattern_declarations = String::new();
+    let mut body = String::new();
+    for output_page in output.pages() {
+        let mut canvas = Canvas::new(&mut declared_patterns, &mut pattern_declarations);
+        for placement in &output_page.placements {
+            if let Some(physical_page) = placement.physical_page {
+                let page = &plan.pages()[physical_page - 1];
+                canvas.set_sheet_frame(output.height_mm, placement.x_mm);
+                render_page(&mut canvas, plan, page, placement.x_mm);
+            }
+        }
+        body.push_str("\\AddToShipoutPictureBG*{%\n\\AtPageUpperLeft{%\n\\begin{tikzpicture}[overlay,x=1mm,y=-1mm]\n");
+        body.push_str(&canvas.source);
+        body.push_str("\\end{tikzpicture}%\n}%\n}\n\\null\\clearpage\n");
+    }
     let mut tex = format!(
         r"% 由 base6-techo 自动生成：整本布局框架
 \documentclass[11pt]{{article}}
@@ -606,27 +634,31 @@ pub(crate) fn render(plan: &PlannedDocument<'_>) -> String {
 \geometry{{paperwidth={}mm,paperheight={}mm,margin=0pt}}
 \pagestyle{{empty}}
 \setlength{{\parindent}}{{0pt}}
-\begin{{document}}
 ",
         number(output.width_mm),
         number(output.height_mm)
     );
-    let mut declared_patterns = HashSet::new();
-    for output_page in output.pages() {
-        let mut canvas = Canvas::new(&mut declared_patterns);
-        for placement in &output_page.placements {
-            if let Some(physical_page) = placement.physical_page {
-                let page = &plan.pages()[physical_page - 1];
-                canvas.set_sheet_frame(output.height_mm, placement.x_mm);
-                render_page(&mut canvas, plan, page, placement.x_mm);
-            }
-        }
-        tex.push_str("\\AddToShipoutPictureBG*{%\n\\AtPageUpperLeft{%\n\\begin{tikzpicture}[overlay,x=1mm,y=-1mm]\n");
-        tex.push_str(&canvas.source);
-        tex.push_str("\\end{tikzpicture}%\n}%\n}\n\\null\\clearpage\n");
-    }
+    tex.push_str(&pattern_declarations);
+    tex.push_str("\\begin{document}\n");
+    tex.push_str(&body);
     tex.push_str("\\end{document}\n");
     tex
+}
+
+fn expand_rect_within(rect: Rect, bleed: f64, bounds: Rect) -> Rect {
+    if bleed <= 0.0 {
+        return rect;
+    }
+    let left = (rect.x - bleed).max(bounds.x);
+    let top = (rect.y - bleed).max(bounds.y);
+    let right = (rect.x + rect.width + bleed).min(bounds.x + bounds.width);
+    let bottom = (rect.y + rect.height + bleed).min(bounds.y + bounds.height);
+    Rect {
+        x: left,
+        y: top,
+        width: (right - left).max(0.0),
+        height: (bottom - top).max(0.0),
+    }
 }
 
 /// 页内坐标不变；仅把整张阅读页平移到印刷面的对应半边。
@@ -636,7 +668,16 @@ fn render_page(
     page: &PlannedPage<'_>,
     x_mm: f64,
 ) {
-    writeln!(canvas.source, "\\begin{{scope}}[xshift={}mm]", number(x_mm)).unwrap();
+    let Some(section) = page.section else {
+        writeln!(
+            canvas.source,
+            "% physical={} alignment-blank",
+            page.context.physical_page
+        )
+        .unwrap();
+        return;
+    };
+    canvas.begin_xshift(x_mm);
     canvas.begin_region(page.layout.paper);
     writeln!(
         canvas.source,
@@ -649,15 +690,20 @@ fn render_page(
             .map_or_else(|| "-".to_string(), |n| n.to_string())
     )
     .unwrap();
-    if !page.section.body.is_empty() {
-        canvas.begin_region(page.layout.body);
-        page.section.body.draw(canvas, &page.layout, &page.context);
+    if !section.body.is_empty() {
+        let clip = expand_rect_within(
+            page.layout.body,
+            section.body.body_clip_bleed_mm(),
+            page.layout.paper,
+        );
+        canvas.begin_region(clip);
+        section.body.draw(canvas, &page.layout, &page.context);
         canvas.end_region();
     }
     // 左侧竖线等满页元素在页心裁剪之外绘制，但仍受本文阅读页的纸张裁剪。
-    page.section.body.draw_page_overlay(canvas, &page.layout);
+    section.body.draw_page_overlay(canvas, &page.layout);
     // 节级装饰整体覆盖全书默认；None 表示继承。
-    page.section
+    section
         .decorations
         .as_ref()
         .unwrap_or(&plan.document.decorations)
@@ -686,7 +732,8 @@ mod tests {
     #[test]
     fn dotted_batch_shares_options_but_keeps_one_draw_per_line() {
         let mut declared = HashSet::new();
-        let mut canvas = Canvas::new(&mut declared);
+        let mut declarations = String::new();
+        let mut canvas = Canvas::new(&mut declared, &mut declarations);
         canvas.line_dotted_batch(
             &[(0.0, 0.0, 10.0, 0.0), (0.0, 1.0, 10.0, 1.0)],
             0.4,
@@ -705,7 +752,8 @@ mod tests {
         // `\definecolor` 默认是组内定义：同 scope 内复用，换 scope 必须重发，
         // 否则 xcolor 在 shipout 时会报 Undefined color 'ink'。
         let mut declared = HashSet::new();
-        let mut canvas = Canvas::new(&mut declared);
+        let mut declarations = String::new();
+        let mut canvas = Canvas::new(&mut declared, &mut declarations);
         let style = TextStyle::default();
         let rect = Rect {
             x: 0.0,
@@ -730,9 +778,31 @@ mod tests {
     }
 
     #[test]
+    fn xshift_scope_preserves_outer_ink_state() {
+        let mut declared = HashSet::new();
+        let mut declarations = String::new();
+        let mut canvas = Canvas::new(&mut declared, &mut declarations);
+        canvas.dot(0.0, 0.0, 0.5, "#112233");
+        canvas.begin_xshift(148.0);
+        canvas.dot(1.0, 1.0, 0.5, "#445566");
+        canvas.end_region();
+        // 退出 xshift scope 后恢复外层 #112233，再次用同色无需重复定义。
+        canvas.dot(2.0, 2.0, 0.5, "#112233");
+        assert_eq!(
+            canvas
+                .source
+                .matches("\\definecolor{ink}{HTML}{112233}")
+                .count(),
+            1
+        );
+        assert!(canvas.ink_scopes.is_empty());
+    }
+
+    #[test]
     fn filled_outline_emits_arcs_with_explicit_millimetres() {
         let mut declared = HashSet::new();
-        let mut canvas = Canvas::new(&mut declared);
+        let mut declarations = String::new();
+        let mut canvas = Canvas::new(&mut declared, &mut declarations);
         canvas.filled_outline(
             (10.0, 8.0),
             &[

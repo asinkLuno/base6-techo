@@ -261,11 +261,23 @@ export interface SectionDecorationsOverride {
   outerWatermark?: WatermarkOverride;
 }
 
+/** 本节起始面约束，与 Rust StartOn 一致：左装订下偶数物理页为左页、奇数物理页为右页。 */
+export type StartOn = "any" | "left" | "right";
+
+export const clampStartOn = (value: unknown): StartOn =>
+  value === "left" || value === "right" ? value : "any";
+
+/** 是否为面向对开双页设计的模板（八分周视图或一天两页时间轴）。 */
+export const isSpreadTemplate = (body: BodyTemplate): boolean =>
+  body.kind === "octanWeek" ||
+  (body.kind === "daily" && body.pagesPerDay === 2);
+
 /** 发送给生成接口的 section：边距与装饰已按全书设定解析为完整值。 */
 export interface SectionSpec {
   /** 1–999，且全书合计 ≤ 999（Rust MAX_PAGES，跨节校验在生成时做） */
   pages: number;
   numbered: boolean;
+  startOn: StartOn;
   body: BodyTemplate;
   /** null = 继承 Document.page.margins；否则本节使用自己的四周边距。 */
   margins: Margins | null;
@@ -284,6 +296,7 @@ export interface SectionDraft {
   name: string;
   pages: number;
   numbered: boolean;
+  startOn: StartOn;
   body: BodyTemplate;
   margins: SectionMarginsOverride | null;
   decorations: SectionDecorationsOverride | null;
@@ -1480,17 +1493,110 @@ export const SHEETS_PER_SIGNATURE_MAX = 250;
 export const DEFAULT_SHEETS_PER_SIGNATURE = 4;
 export const DEFAULT_IMPOSITION: Imposition = { mode: "none" };
 
+export const clampSheetsPerSignature = (value: number): number =>
+  Math.round(
+    clampNumber(
+      value,
+      SHEETS_PER_SIGNATURE_MIN,
+      SHEETS_PER_SIGNATURE_MAX,
+      DEFAULT_SHEETS_PER_SIGNATURE,
+    ),
+  );
+
 export const clampImposition = (imposition: Imposition): Imposition =>
   imposition.mode === "thread"
     ? {
         mode: "thread",
-        sheetsPerSignature: clampNumber(
+        sheetsPerSignature: clampSheetsPerSignature(
           imposition.sheetsPerSignature,
-          SHEETS_PER_SIGNATURE_MIN,
-          SHEETS_PER_SIGNATURE_MAX,
-          DEFAULT_SHEETS_PER_SIGNATURE,
         ),
       }
     : imposition.mode === "booklet"
       ? { mode: "booklet" }
       : { mode: "none" };
+
+export interface SectionPlanItem {
+  /** 因 startOn 约束前插的对齐空白页数（0 或 1） */
+  leadingBlank: number;
+  /** 本节正文首页物理页码（从 1 开始） */
+  startPage: number;
+  /** 本节正文末页物理页码（从 1 开始） */
+  endPage: number;
+  /** 起始页落在左页（偶数物理页）还是右页（奇数物理页） */
+  startsOn: "left" | "right";
+  /** 双页对开模板落在了右页（奇数页），摊开时会拆到纸张正反两面 */
+  spreadMisaligned: boolean;
+}
+
+export interface BookPlan {
+  sections: SectionPlanItem[];
+  /** 含对齐补白的物理阅读总页数（与 Rust plan_document 一致） */
+  readingPages: number;
+  /** 因 startOn 自动前插的对齐空白页总数 */
+  alignmentBlanks: number;
+  /** 拼版尾部补白页数（单页模式为 0） */
+  paddedBlanks: number;
+  /** 印刷纸张数（单页模式为 0） */
+  sheetCount: number;
+  /** 帖数（单页为 0；骑马订为 1；锁线为帖数） */
+  signatureCount: number;
+  /** 最终 PDF 输出页数（单页 = readingPages；拼版 = sheetCount × 2） */
+  outputPages: number;
+}
+
+/**
+ * 计算全书物理页序与拼版汇总，公式与 Rust `document::plan_document` / `imposition::plan_output` 一致。
+ */
+export function computeBookPlan(
+  sections: ReadonlyArray<Pick<SectionDraft, "pages" | "startOn" | "body">>,
+  imposition: Imposition,
+): BookPlan {
+  const items: SectionPlanItem[] = [];
+  let cursor = 0;
+  let alignmentBlanks = 0;
+  for (const section of sections) {
+    const next = cursor + 1;
+    const needsBlank =
+      (section.startOn === "left" && next % 2 === 1) ||
+      (section.startOn === "right" && next % 2 === 0);
+    const leadingBlank = needsBlank ? 1 : 0;
+    alignmentBlanks += leadingBlank;
+    const startPage = next + leadingBlank;
+    const endPage = startPage + section.pages - 1;
+    const startsOn = startPage % 2 === 0 ? "left" : "right";
+    items.push({
+      leadingBlank,
+      startPage,
+      endPage,
+      startsOn,
+      spreadMisaligned: isSpreadTemplate(section.body) && startsOn === "right",
+    });
+    cursor = endPage;
+  }
+  const readingPages = cursor;
+  if (readingPages === 0 || imposition.mode === "none") {
+    return {
+      sections: items,
+      readingPages,
+      alignmentBlanks,
+      paddedBlanks: 0,
+      sheetCount: 0,
+      signatureCount: 0,
+      outputPages: readingPages,
+    };
+  }
+  const stride =
+    imposition.mode === "booklet"
+      ? Math.ceil(readingPages / 4) * 4
+      : clampSheetsPerSignature(imposition.sheetsPerSignature) * 4;
+  const padded = Math.ceil(readingPages / stride) * stride;
+  return {
+    sections: items,
+    readingPages,
+    alignmentBlanks,
+    paddedBlanks: padded - readingPages,
+    sheetCount: padded / 4,
+    signatureCount: padded / stride,
+    outputPages: padded / 2,
+  };
+}

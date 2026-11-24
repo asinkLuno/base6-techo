@@ -7,7 +7,7 @@ Rust 入口为 `templates::document::generate_document_latex(&Document)`；`plan
 | 模块            | 职责                                                                                                                                                                                                      |
 | --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `document.rs`   | 校验整个文档，遍历 section，生成实际页序、显示页码及节内索引                                                                                                                                              |
-| `layout.rs`     | 纸张、装订方向、四周留白；统一计算页心、页头、页脚、两侧区域                                                                                                                                              |
+| `layout.rs`     | 纸张、四周留白；统一计算页心、页头、页脚、两侧区域（固定左装订）                                                                                                                                          |
 | `components.rs` | 页头、页脚、装订侧水印、外侧水印                                                                                                                                                                          |
 | `patterns.rs`   | 页心模板注册与分发，当前为 `blank`、`linear`（兼容别名 `lined`，可选左侧竖线）、`dots`、`grid`、`hogen`（方眼罫）、`octanWeek`（八分周视图）、`month`（月历）、`tracker`（月打卡）、`daily`（一日时间轴） |
 | `imposition.rs` | 不拼版／骑马订／锁线分帖，补白与纸张正反面配页                                                                                                                                                            |
@@ -19,7 +19,8 @@ Rust 入口为 `templates::document::generate_document_latex(&Document)`；`plan
 - `physical_page` 从 1 开始，跨 section 连续，包括不显示页码的页。
 - `section_index`、`local_index` 从 0 开始。页心模板以后可用它们确定日期等内容。
 - `display_number` 独立连续计数；`numbered: false` 的 section 不消耗显示页码。
-- 左装订时全书奇数页装订侧在左、偶数页在右；右装订反向。显示页码和模板索引不参与判断。
+- 装订固定在左侧：全书奇数页装订侧在左（右页）、偶数页装订侧在右（左页）。显示页码和模板索引不参与判断。
+- `section.startOn` 支持 `"any"`（默认，紧接上一节）、`"left"`（从偶数左页开始，适合八分周视图与一天两页时间轴等对开模板）、`"right"`（从奇数右页开始）。需要对齐时自动在节前插入 1 页无装饰、不计显示页码的空白物理页，计入全书 999 页上限。
 - 坐标统一使用毫米，原点位于纸张左上角，y 向下。
 - `headerMm`、`footerMm` 表示上下区域的完整高度；`innerMm`、`outerMm` 表示两侧区域的宽度。页心扣除四者。页头和页脚与页心同宽，两侧水印区域与页心同高。
 - 每个组件裁剪在自己的区域内，超长文字会被裁剪；框架当前不自动换行、缩字或扩展区域。
@@ -34,7 +35,6 @@ const payload = await invoke<ArrayBuffer>("generate_document_pdf", {
   document: {
     page: {
       paper: { kind: "a5" },
-      binding: "left",
       margins: { headerMm: 16, footerMm: 16, innerMm: 20, outerMm: 8 },
     },
     decorations: {
@@ -140,7 +140,7 @@ const payload = await invoke<ArrayBuffer>("generate_document_pdf", {
 
 例如全书 10 页、每帖 2 张纸：第一帖阅读页 1–8，第二帖为 9、10 加 6 页补白；输出 4 张纸、8 个印刷面。补白是完全空白，不绘制页心、页头页脚、水印或页码，也不消耗显示页码。
 
-左右装订都支持：`page.binding: "right"` 时交换每个印刷面的左右两半，阅读页本身的布局已在前一步按右装订解析。输出不缩放、不旋转，纸面宽度为成品宽度的两倍，高度不变。A5 成品输出 296×210mm，不强制拉伸到 A4。
+装订固定在左侧。输出不缩放、不旋转，纸面宽度为成品宽度的两倍，高度不变。A5 成品输出 296×210mm，不强制拉伸到 A4。
 
 打印时使用原尺寸、每张 1 个 PDF 页面、双面打印；保留空白面，不再启用打印驱动的小册子配页。常见的横向输出使用短边翻转；自定义尺寸若使输出变为纵向，则使用长边翻转。纸张翻转由打印驱动完成，引擎输出的两面内容均保持正向。本次不包含纸厚补偿或多折拼版。
 
@@ -168,7 +168,8 @@ const payload = await invoke<ArrayBuffer>("generate_document_pdf", {
 生成器会压缩重复的 TeX 输出，视觉结果不变：
 
 - 同一 `begin_region`／`end_region` 内，相邻图元同色时只发一次 `\definecolor{ink}`。`\definecolor` 默认是 TeX 组内定义，所以退出 scope 时会恢复进入前的颜色状态，换 scope 后必须重新定义。
-- `TableGrid` 的格线、方眼罫外伸线等大量同色同线宽实线合并成一条 `\draw` 的多个子路径，选项和颜色只解析一次。
+- `table.rs` 的 `TableGrid` 格线、方眼罫外伸线等大量同色同线宽实线合并成一条 `\draw` 的多个子路径，选项和颜色只解析一次。
+- 横线、点阵、方格与方眼罫的 `\pgfdeclarepatternformonly` 声明统一收集在导言区（`\begin{document}` 之前）输出，同名 pattern 全文档只声明一次。
 - 月相亮面用两段 `arc`（半圆 + 椭圆明暗界线）表示，不再逐点采样多边形；半径与起点坐标保留 3 位小数（1 微米）即可。
 - PGF 的 `arc` 角度按页面坐标（y 向上）解释，不受 TikZ `y=-1mm` 影响；画布角度 y 向下，输出时取负，否则弧会翻到圆心另一侧。
 

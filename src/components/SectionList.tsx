@@ -13,11 +13,11 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import clsx from "clsx";
-import { memo } from "react";
+import { memo, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { useShallow } from "zustand/react/shallow";
 import { useDocumentStore } from "../stores/document";
-import { PAGES_MAX } from "../types/document";
+import { computeBookPlan, PAGES_MAX } from "../types/document";
 import SectionListItem from "./SectionListItem";
 
 function PlusIcon() {
@@ -50,6 +50,7 @@ const KEYBOARD_SENSOR_OPTIONS = {
 export const SectionList = memo(function SectionList() {
   const { t } = useTranslation();
   const sections = useDocumentStore((s) => s.sections);
+  const imposition = useDocumentStore((s) => s.imposition);
   const addSection = useDocumentStore((s) => s.addSection);
   const moveSection = useDocumentStore((s) => s.moveSection);
 
@@ -64,7 +65,11 @@ export const SectionList = memo(function SectionList() {
       moveSection(String(active.id), String(over.id));
   };
 
-  const total = sections.reduce((sum, section) => sum + section.pages, 0);
+  const plan = useMemo(
+    () => computeBookPlan(sections, imposition),
+    [sections, imposition],
+  );
+  const total = plan.readingPages;
   const overflow = total > PAGES_MAX;
   // SortableContext 把 items 放进 context value：数组引用一变，所有 useSortable
   // 消费者都会重渲（memo 拦不住 context）。useShallow 让 id 不变时复用同一数组，
@@ -100,9 +105,20 @@ export const SectionList = memo(function SectionList() {
           items={sortableIds}
           strategy={verticalListSortingStrategy}
         >
-          {sections.map((section, index) => (
-            <SectionListItem key={section.id} section={section} index={index} />
-          ))}
+          {sections.map((section, index) => {
+            const item = plan.sections[index];
+            return (
+              <SectionListItem
+                key={section.id}
+                section={section}
+                index={index}
+                startPage={item.startPage}
+                endPage={item.endPage}
+                leadingBlank={item.leadingBlank}
+                spreadMisaligned={item.spreadMisaligned}
+              />
+            );
+          })}
         </SortableContext>
       </DndContext>
 

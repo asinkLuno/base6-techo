@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import example from "../../examples/weekly-2027.json";
-import { octanWeekPages } from "../types/document";
+import { computeBookPlan, octanWeekPages } from "../types/document";
 import { parseConfigFile } from "./configFile";
 
 const text = JSON.stringify(example);
@@ -70,6 +70,24 @@ describe("examples/weekly-2027.json", () => {
       } else {
         expect(section.body.kind).toBe("octanWeek");
       }
+    });
+  });
+
+  it("所有周视图节都从左页开始，摊开对开不跨正反面", () => {
+    const result = parseConfigFile(text);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const plan = computeBookPlan(
+      result.snapshot.sections,
+      result.snapshot.imposition,
+    );
+    expect(plan.alignmentBlanks).toBe(11);
+    expect(plan.readingPages).toBe(129);
+    result.snapshot.sections.forEach((section, index) => {
+      if (section.body.kind !== "octanWeek") return;
+      expect(section.startOn).toBe("left");
+      expect(plan.sections[index].startsOn).toBe("left");
+      expect(plan.sections[index].spreadMisaligned).toBe(false);
     });
   });
 });

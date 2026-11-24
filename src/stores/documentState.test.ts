@@ -21,6 +21,7 @@ const section = (overrides: Partial<SectionDraft> = {}): SectionDraft => ({
   name: "",
   pages: 1,
   numbered: true,
+  startOn: "any",
   body: { kind: "blank" },
   margins: null,
   decorations: null,
@@ -253,6 +254,7 @@ describe("migrateDocumentState", () => {
       name: "",
       pages: 5,
       numbered: false,
+      startOn: "any",
       body: DEFAULT_LINEAR,
       margins: { outerMm: 25 },
       decorations: {

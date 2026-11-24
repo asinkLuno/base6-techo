@@ -13,7 +13,9 @@ import {
 import { useTranslation } from "react-i18next";
 import {
   activeTocIndex,
+  effectivePdfViewMode,
   hasNextSpread,
+  imposedPageMeta,
   type PdfViewMode,
   pagedStep,
   resolveOutline,
@@ -22,6 +24,7 @@ import {
 } from "../lib/pdfView";
 import { MAX_ZOOM, MIN_ZOOM, nextZoom, zoomLabel } from "../lib/pdfZoom";
 import { useSettingsStore } from "../stores/settings";
+import { DEFAULT_IMPOSITION, type Imposition } from "../types/document";
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = workerUrl;
 
@@ -105,11 +108,13 @@ function TocIcon() {
 /** 单页占位：页码/宽高/ref 回调都稳定时跳过重渲，滚动更新 activePage 不波及页面栈。 */
 const PageFrame = memo(function PageFrame({
   pageNumber,
+  badgeLabel,
   width,
   height,
   canvasRef,
 }: {
   pageNumber: number;
+  badgeLabel: string;
   width: number;
   height: number;
   canvasRef: (el: HTMLCanvasElement | null) => void;
@@ -121,7 +126,7 @@ const PageFrame = memo(function PageFrame({
       style={{ width, height }}
     >
       <span className="badge badge-sm absolute top-2 left-2 opacity-80">
-        {pageNumber}
+        {badgeLabel}
       </span>
       <canvas ref={canvasRef} className="block h-full w-full" />
     </div>
@@ -134,26 +139,49 @@ const PageFrame = memo(function PageFrame({
  */
 const PageStack = memo(function PageStack({
   pageNumbers,
+  imposition,
   width,
   height,
   canvasRefFor,
 }: {
   pageNumbers: number[];
+  imposition: Imposition;
   width: number;
   height: number;
   canvasRefFor: (pageNumber: number) => (el: HTMLCanvasElement | null) => void;
 }) {
+  const { t } = useTranslation();
   return (
     <>
-      {pageNumbers.map((pageNumber) => (
-        <PageFrame
-          key={pageNumber}
-          pageNumber={pageNumber}
-          width={width}
-          height={height}
-          canvasRef={canvasRefFor(pageNumber)}
-        />
-      ))}
+      {pageNumbers.map((pageNumber) => {
+        const meta = imposedPageMeta(pageNumber, imposition);
+        const face = meta
+          ? t(
+              meta.face === "front"
+                ? "editor.sheetFaceFront"
+                : "editor.sheetFaceBack",
+            )
+          : "";
+        const badgeLabel = !meta
+          ? String(pageNumber)
+          : imposition.mode === "thread"
+            ? t("editor.sheetBadgeThread", {
+                sig: meta.signature,
+                sheet: meta.sheet,
+                face,
+              })
+            : t("editor.sheetBadgeBooklet", { sheet: meta.sheet, face });
+        return (
+          <PageFrame
+            key={pageNumber}
+            pageNumber={pageNumber}
+            badgeLabel={badgeLabel}
+            width={width}
+            height={height}
+            canvasRef={canvasRefFor(pageNumber)}
+          />
+        );
+      })}
     </>
   );
 });
@@ -247,12 +275,17 @@ async function startPageRender(
 /** memo：父组件（编译日志推流、section 编辑）重渲时，pdfBytes 不变就跳过整个预览树。 */
 export const PdfViewer = memo(function PdfViewer({
   pdfBytes,
+  imposition = DEFAULT_IMPOSITION,
 }: {
   pdfBytes: ArrayBuffer | null;
+  imposition?: Imposition;
 }) {
   const { t } = useTranslation();
-  const mode = useSettingsStore((s) => s.pdfViewMode);
+  const storedMode = useSettingsStore((s) => s.pdfViewMode);
   const setMode = useSettingsStore((s) => s.setPdfViewMode);
+  const imposed = imposition.mode !== "none";
+  // 拼版 PDF 每页已经是左右两面拼在一起的大纸，临时按单页展示但不篡改用户持久化偏好。
+  const mode = effectivePdfViewMode(storedMode, imposed);
   const [doc, setDoc] = useState<pdfjsLib.PDFDocumentProxy | null>(null);
   const [error, setError] = useState("");
   const [zoom, setZoom] = useState(1);
@@ -672,20 +705,28 @@ export const PdfViewer = memo(function PdfViewer({
         </div>
         <div className="flex items-center gap-2">
           <div className="join">
-            {VIEW_MODES.map(({ value, labelKey }) => (
-              <button
-                key={value}
-                type="button"
-                className={`btn btn-sm join-item ${
-                  mode === value ? "btn-primary" : "btn-ghost"
-                }`}
-                aria-pressed={mode === value}
-                disabled={!doc}
-                onClick={() => changeMode(value)}
-              >
-                {t(labelKey)}
-              </button>
-            ))}
+            {VIEW_MODES.map(({ value, labelKey }) => {
+              const disabledForImposed = imposed && value === "double";
+              return (
+                <button
+                  key={value}
+                  type="button"
+                  className={`btn btn-sm join-item ${
+                    mode === value ? "btn-primary" : "btn-ghost"
+                  }`}
+                  aria-pressed={mode === value}
+                  disabled={!doc || disabledForImposed}
+                  title={
+                    disabledForImposed
+                      ? t("editor.viewDoubleDisabledImposed")
+                      : undefined
+                  }
+                  onClick={() => changeMode(value)}
+                >
+                  {t(labelKey)}
+                </button>
+              );
+            })}
           </div>
           {paged && (
             <div className="join">
@@ -773,6 +814,7 @@ export const PdfViewer = memo(function PdfViewer({
             >
               <PageStack
                 pageNumbers={pageNumbers}
+                imposition={imposition}
                 width={pageWidth}
                 height={pageHeight}
                 canvasRefFor={canvasRefFor}

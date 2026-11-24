@@ -22,7 +22,8 @@
         "showPhase": true
       },
       "margins": null,
-      "decorations": null
+      "decorations": null,
+      "startOn": "any"
     },
     {
       "name": "2027年1月 周视图",
@@ -46,7 +47,8 @@
         "dateSizePt": 10
       },
       "margins": null,
-      "decorations": null
+      "decorations": null,
+      "startOn": "left"
     },
     {
       "name": "2027年2月 月历",
@@ -67,7 +69,8 @@
         "showPhase": true
       },
       "margins": null,
-      "decorations": null
+      "decorations": null,
+      "startOn": "any"
     },
     {
       "name": "2027年2月 周视图",
@@ -91,7 +94,8 @@
         "dateSizePt": 10
       },
       "margins": null,
-      "decorations": null
+      "decorations": null,
+      "startOn": "left"
     },
     {
       "name": "2027年3月 月历",
@@ -112,7 +116,8 @@
         "showPhase": true
       },
       "margins": null,
-      "decorations": null
+      "decorations": null,
+      "startOn": "any"
     },
     {
       "name": "2027年3月 周视图",
@@ -136,7 +141,8 @@
         "dateSizePt": 10
       },
       "margins": null,
-      "decorations": null
+      "decorations": null,
+      "startOn": "left"
     },
     {
       "name": "2027年4月 月历",
@@ -157,7 +163,8 @@
         "showPhase": true
       },
       "margins": null,
-      "decorations": null
+      "decorations": null,
+      "startOn": "any"
     },
     {
       "name": "2027年4月 周视图",
@@ -181,7 +188,8 @@
         "dateSizePt": 10
       },
       "margins": null,
-      "decorations": null
+      "decorations": null,
+      "startOn": "left"
     },
     {
       "name": "2027年5月 月历",
@@ -202,7 +210,8 @@
         "showPhase": true
       },
       "margins": null,
-      "decorations": null
+      "decorations": null,
+      "startOn": "any"
     },
     {
       "name": "2027年5月 周视图",
@@ -226,7 +235,8 @@
         "dateSizePt": 10
       },
       "margins": null,
-      "decorations": null
+      "decorations": null,
+      "startOn": "left"
     },
     {
       "name": "2027年6月 月历",
@@ -247,7 +257,8 @@
         "showPhase": true
       },
       "margins": null,
-      "decorations": null
+      "decorations": null,
+      "startOn": "any"
     },
     {
       "name": "2027年6月 周视图",
@@ -271,7 +282,8 @@
         "dateSizePt": 10
       },
       "margins": null,
-      "decorations": null
+      "decorations": null,
+      "startOn": "left"
     },
     {
       "name": "2027年7月 月历",
@@ -292,7 +304,8 @@
         "showPhase": true
       },
       "margins": null,
-      "decorations": null
+      "decorations": null,
+      "startOn": "any"
     },
     {
       "name": "2027年7月 周视图",
@@ -316,7 +329,8 @@
         "dateSizePt": 10
       },
       "margins": null,
-      "decorations": null
+      "decorations": null,
+      "startOn": "left"
     },
     {
       "name": "2027年8月 月历",
@@ -337,7 +351,8 @@
         "showPhase": true
       },
       "margins": null,
-      "decorations": null
+      "decorations": null,
+      "startOn": "any"
     },
     {
       "name": "2027年8月 周视图",
@@ -361,7 +376,8 @@
         "dateSizePt": 10
       },
       "margins": null,
-      "decorations": null
+      "decorations": null,
+      "startOn": "left"
     },
     {
       "name": "2027年9月 月历",
@@ -382,7 +398,8 @@
         "showPhase": true
       },
       "margins": null,
-      "decorations": null
+      "decorations": null,
+      "startOn": "any"
     },
     {
       "name": "2027年9月 周视图",
@@ -406,7 +423,8 @@
         "dateSizePt": 10
       },
       "margins": null,
-      "decorations": null
+      "decorations": null,
+      "startOn": "left"
     },
     {
       "name": "2027年10月 月历",
@@ -427,7 +445,8 @@
         "showPhase": true
       },
       "margins": null,
-      "decorations": null
+      "decorations": null,
+      "startOn": "any"
     },
     {
       "name": "2027年10月 周视图",
@@ -451,7 +470,8 @@
         "dateSizePt": 10
       },
       "margins": null,
-      "decorations": null
+      "decorations": null,
+      "startOn": "left"
     },
     {
       "name": "2027年11月 月历",
@@ -472,7 +492,8 @@
         "showPhase": true
       },
       "margins": null,
-      "decorations": null
+      "decorations": null,
+      "startOn": "any"
     },
     {
       "name": "2027年11月 周视图",
@@ -496,7 +517,8 @@
         "dateSizePt": 10
       },
       "margins": null,
-      "decorations": null
+      "decorations": null,
+      "startOn": "left"
     },
     {
       "name": "2027年12月 月历",
@@ -517,7 +539,8 @@
         "showPhase": true
       },
       "margins": null,
-      "decorations": null
+      "decorations": null,
+      "startOn": "any"
     },
     {
       "name": "2027年12月 周视图",
@@ -541,7 +564,8 @@
         "dateSizePt": 10
       },
       "margins": null,
-      "decorations": null
+      "decorations": null,
+      "startOn": "left"
     }
   ],
   "page": {

@@ -212,6 +212,16 @@ impl BodyTemplate {
         matches!(self, Self::Blank)
     }
 
+    /// 格线边框外扩半条线宽时，页心裁剪框需同步放宽，避免格线刚好压在页心边上被裁掉一半。
+    pub(crate) fn body_clip_bleed_mm(&self) -> f64 {
+        let width_pt = match self {
+            Self::Grid(p) => p.line_width_pt,
+            Self::Hogen(_) => HOGEN_LINE_WIDTH_PT,
+            _ => return 0.0,
+        };
+        width_pt * 25.4 / 72.27 / 2.0
+    }
+
     pub(crate) fn validate(&self) -> Result<(), String> {
         match self {
             Self::Linear(p) => p.validate(),
