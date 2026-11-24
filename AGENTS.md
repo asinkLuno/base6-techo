@@ -39,7 +39,7 @@
 
 - 提交前跑 `yarn verify`：Biome + `tsc --noEmit` + `cargo fmt --check` + `cargo clippy --all-targets -- -D warnings`，四条全绿才算完。
 - Rust 测试：`yarn test:rust`（等价 `cargo test --manifest-path src-tauri/Cargo.toml`）；只跑单测用 `cargo test --lib`。
-- 规则唯一来源：clippy 在 `src-tauri/Cargo.toml` 的 `[lints]`，格式化在 `src-tauri/rustfmt.toml`，工具链在仓库根 `rust-toolchain.toml`。
+- 规则唯一来源：clippy 在 `src-tauri/Cargo.toml` 的 `[lints]`，格式化在 `src-tauri/rustfmt.toml`，最低 Rust 版本在 `src-tauri/Cargo.toml` 的 `rust-version`。
 - 源码里只设 `warn`，不写 `#![deny(warnings)]`；`-D warnings` 只出现在 `yarn verify`（及将来的 CI）。
 - 确需豁免单条 lint 时就地 `#[allow(clippy::xxx)]` 并写明理由（参考 `templates/latex.rs` 的 `too_many_arguments`），不要加全局阈值、不要新建 `clippy.toml`。
 

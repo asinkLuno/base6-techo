@@ -4,6 +4,7 @@ version = "0.1.0"
 description = "A Tauri App"
 authors = ["you"]
 edition = "2024"
+rust-version = "1.85"
 # two binaries exist (main app + desktop prewarm tool) — tauri CLI runs plain
 # `cargo run`, so the default must be unambiguous
 default-run = "base6-techo"
