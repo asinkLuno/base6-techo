@@ -43,6 +43,12 @@ tectonic = { version = "=0.16.9", features = ["native-tls-vendored"] }
 # unpacks the prewarmed offline cache (public/tectonic-cache.zip -> dist/) on first run
 zip = { version = "2", default-features = false, features = ["deflate"] }
 
+[target.'cfg(target_os = "linux")'.dependencies]
+# Linux 桌面端（不含 Android）与 GTK/Pango/FreeType 共用系统 libharfbuzz.so：
+# tectonic 默认静态编入自带 HarfBuzz 8.3 并导出 hb_* 全局符号，在较新系统的
+# libfreetype/libharfbuzz 上会触发符号抢占与 ABI 错配，导致启动段错误。
+tectonic = { version = "=0.16.9", features = ["external-harfbuzz"] }
+
 
 # Read the optimization guideline for more details: https://tauri.app/concept/size/#cargo-configuration
 [profile.release]
